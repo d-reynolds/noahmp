@@ -20,7 +20,7 @@ module NoahmpDriverMainMod
   use BiochemVarOutTransferMod
   use NoahmpMainMod
   use NoahmpMainGlacierMod
-  use module_ra_gfdleta,  only: cal_mon_day
+!   use module_ra_gfdleta,  only: cal_mon_day
 
   implicit none
   
@@ -174,21 +174,24 @@ contains
              !  irrigate vegetaion only in urban area, MAY-SEP, 9-11pm
              ! need to be separated from Noah-MP into outside urban specific module 
              !---------------------------------------------------------------------
-             if ( (NoahmpIO%IVGTYP(I,J) == NoahmpIO%ISURBAN_TABLE) .or. &
-                  (NoahmpIO%IVGTYP(I,J) > NoahmpIO%URBTYPE_beg) ) then
-                if ( (NoahmpIO%SF_URBAN_PHYSICS > 0) .and. (NoahmpIO%IRI_URBAN == 1) ) then
-                   SOLAR_TIME = (NoahmpIO%JULIAN - int(NoahmpIO%JULIAN))*24 + NoahmpIO%XLONG(I,J)/15.0
-                   if ( SOLAR_TIME < 0.0 ) SOLAR_TIME = SOLAR_TIME + 24.0
-                   call CAL_MON_DAY(int(NoahmpIO%JULIAN), NoahmpIO%YR, JMONTH, JDAY)
-                   if ( (SOLAR_TIME >= 21.0) .and. (SOLAR_TIME <= 23.0) .and. &
-                        (JMONTH >= 5) .and. (JMONTH <= 9) ) then
-                       noahmp%water%state%SoilMoisture(1) = &
-                              max(noahmp%water%state%SoilMoisture(1),noahmp%water%param%SoilMoistureFieldCap(1))
-                       noahmp%water%state%SoilMoisture(2) = &
-                              max(noahmp%water%state%SoilMoisture(2),noahmp%water%param%SoilMoistureFieldCap(2))
-                   endif
-                endif
-             endif
+             !
+             ! DR Jan 2026 -- HICAR currently does not support Urban parameterization schemes, so commenting out
+             !
+            !  if ( (NoahmpIO%IVGTYP(I,J) == NoahmpIO%ISURBAN_TABLE) .or. &
+            !       (NoahmpIO%IVGTYP(I,J) > NoahmpIO%URBTYPE_beg) ) then
+            !     if ( (NoahmpIO%SF_URBAN_PHYSICS > 0) .and. (NoahmpIO%IRI_URBAN == 1) ) then
+            !        SOLAR_TIME = (NoahmpIO%JULIAN - int(NoahmpIO%JULIAN))*24 + NoahmpIO%XLONG(I,J)/15.0
+            !        if ( SOLAR_TIME < 0.0 ) SOLAR_TIME = SOLAR_TIME + 24.0
+            !        call CAL_MON_DAY(int(NoahmpIO%JULIAN), NoahmpIO%YR, JMONTH, JDAY)
+            !        if ( (SOLAR_TIME >= 21.0) .and. (SOLAR_TIME <= 23.0) .and. &
+            !             (JMONTH >= 5) .and. (JMONTH <= 9) ) then
+            !            noahmp%water%state%SoilMoisture(1) = &
+            !                   max(noahmp%water%state%SoilMoisture(1),noahmp%water%param%SoilMoistureFieldCap(1))
+            !            noahmp%water%state%SoilMoisture(2) = &
+            !                   max(noahmp%water%state%SoilMoisture(2),noahmp%water%param%SoilMoistureFieldCap(2))
+            !        endif
+            !     endif
+            !  endif
 
              !------------------------------------------------------------------------
              !  Call 1D Noah-MP LSM  

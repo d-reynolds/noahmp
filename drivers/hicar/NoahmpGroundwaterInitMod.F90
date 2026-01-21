@@ -12,7 +12,7 @@ module NoahmpGroundwaterInitMod
   
 contains
 
-  subroutine NoahmpGroundwaterInitMain(NoahmpIO, GRID, NSOIL, DZS, ISLTYP, IVGTYP, WTDDT,        &
+  subroutine NoahmpGroundwaterInitMain(NoahmpIO, NSOIL, DZS, ISLTYP, IVGTYP, WTDDT,        &
                         FDEPTH, TOPO, RIVERBED, EQWTD, RIVERCOND, PEXP, AREA, WTD,      &
                         SMOIS, SH2O, SMOISEQ, SMCWTDXY, QLATXY, QSLATXY, QRFXY, QRFSXY, &
                         DEEPRECHXY, RECHXY, QSPRINGXY, QSPRINGSXY, rechclim,            &
@@ -24,7 +24,7 @@ contains
 ! ----------------------------------------------------------------------
 
     use GroundWaterMmfMod, only : LATERALFLOW
-    use module_domain,     only : domain
+   !  use module_domain,     only : domain
 #if (EM_CORE == 1)
 #ifdef DM_PARALLEL
     use module_dm,         only : ntasks_x,ntasks_y,local_communicator,mytask,ntasks
@@ -35,7 +35,7 @@ contains
     implicit none
     
     ! input and output variables 
-    TYPE(domain), TARGET :: grid  ! state
+   !  TYPE(domain), TARGET :: grid  ! state
     type(NoahmpIO_type), intent(in) :: NoahmpIO
 
     INTEGER, INTENT(IN)                                        :: ids,ide, jds,jde, kds,kde,    &

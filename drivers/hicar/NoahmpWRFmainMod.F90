@@ -91,7 +91,7 @@ contains
     use NoahmpReadTableMod
     use SnowInputSnicarMod
     use NoahmpDriverMainMod
-    use module_sf_urban,    only: IRI_SCHEME
+    ! use module_sf_urban,    only: IRI_SCHEME
 
     implicit none
 
@@ -499,7 +499,7 @@ contains
     NoahmpIO%SOILTSTEP          = SOILTSTEP
     NoahmpIO%XICE_THRESHOLD     = XICE_THRES
     NoahmpIO%DZS                = DZS
-    NoahmpIO%IRI_URBAN          = IRI_SCHEME
+    ! NoahmpIO%IRI_URBAN          = IRI_SCHEME
     NoahmpIO%ITIMESTEP          = ITIMESTEP
     if ( NoahmpIO%IOPT_ALB == 3 ) then
        NoahmpIO%SNICAR_BANDNUMBER_OPT    = SNICAR_BANDNUMBER_OPT
