@@ -322,7 +322,7 @@ contains
     REAL,    DIMENSION( ims:ime,          jms:jme ), INTENT(INOUT) ::  IRMIVOL      ! amount of irrigation by micro (mm)
     REAL,    DIMENSION( ims:ime,          jms:jme ), INTENT(INOUT) ::  IRFIVOL      ! amount of irrigation by micro (mm)
     REAL,    DIMENSION( ims:ime,          jms:jme ), INTENT(INOUT) ::  IRRSPLH      ! latent heating from sprinkler evaporation (w/m2)    
-    REAL,    DIMENSION( ims:ime,          jms:jme ), INTENT(INOUT) ::  QTDRAIN      ! Tile drain
+    ! REAL,    DIMENSION( ims:ime,          jms:jme ), INTENT(INOUT) ::  QTDRAIN      ! Tile drain
     ! wetland state varible
     REAL,    DIMENSION( ims:ime,          jms:jme ), INTENT(INOUT) ::  FSATXY       ! saturated fraction of the grid (-)
     REAL,    DIMENSION( ims:ime,          jms:jme ), INTENT(INOUT) ::  WSURFXY      ! wetland water storage [mm]
@@ -808,7 +808,7 @@ contains
     GRAINXY(I,J)        = NoahmpIO%GRAINXY(I,J)
     GDDXY(I,J)          = NoahmpIO%GDDXY(I,J)
     PGSXY(I,J)          = NoahmpIO%PGSXY(I,J)
-    QTDRAIN(I,J)        = NoahmpIO%QTDRAIN(I,J)
+    ! QTDRAIN(I,J)        = NoahmpIO%QTDRAIN(I,J)
     RS(I,J)             = NoahmpIO%RS(I,J)
     ! ACC_SSOILXY(I,J)    = NoahmpIO%ACC_SSOILXY(I,J)
     ! ACC_QINSURXY(I,J)   = NoahmpIO%ACC_QINSURXY(I,J)
