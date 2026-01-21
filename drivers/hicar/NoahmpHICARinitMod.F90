@@ -115,7 +115,6 @@ contains
     REAL,    DIMENSION(ims:ime,jms:jme), INTENT(INOUT)         :: fastcpxy            ! short-lived carbon, shallow soil [g/m2]
     REAL,    DIMENSION(ims:ime,jms:jme), INTENT(INOUT)         :: xsaixy              ! stem area index
     REAL,    DIMENSION(ims:ime,jms:jme), INTENT(INOUT)         :: lai                 ! leaf area index
-    REAL,    DIMENSION(ims:ime,jms:jme), INTENT(INOUT)         :: qtdrain             ! tile drainage (mm)
     INTEGER, DIMENSION(ims:ime,jms:jme), INTENT(INOUT)         :: irnumsi             ! irrigation number
     INTEGER, DIMENSION(ims:ime,jms:jme), INTENT(INOUT)         :: irnummi             ! irrigation number
     INTEGER, DIMENSION(ims:ime,jms:jme), INTENT(INOUT)         :: irnumfi             ! irrigation number
@@ -154,6 +153,7 @@ contains
     REAL,    DIMENSION(ims:ime,-2:0,jms:jme), INTENT(INOUT)    :: massconcdust5xy     ! SNICAR DUST5 mass conc in snow
     REAL,    DIMENSION(ims:ime,1:2,jms:jme),  INTENT(INOUT)    :: ALBSOILDIRXY        ! soil albedo direct
     REAL,    DIMENSION(ims:ime,1:2,jms:jme),  INTENT(INOUT)    :: ALBSOILDIFXY        ! soil albedo diffuse
+    REAL,    DIMENSION(ims:ime,jms:jme),         INTENT(INOUT), OPTIONAL :: qtdrain      ! tile drainage (mm)
     REAL,    DIMENSION(ims:ime,jms:jme),         INTENT(INOUT), OPTIONAL :: smcwtdxy     ! deep soil moisture content [m3m-3]
     REAL,    DIMENSION(ims:ime,jms:jme),         INTENT(INOUT), OPTIONAL :: deeprechxy   ! deep recharge [m]
     REAL,    DIMENSION(ims:ime,jms:jme),         INTENT(INOUT), OPTIONAL :: rechxy       ! accumulated recharge [mm]

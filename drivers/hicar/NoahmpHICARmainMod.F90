@@ -39,7 +39,7 @@ contains
                    ZSNSOXY,  SNICEXY,    SNLIQXY, LFMASSXY, RTMASSXY, STMASSXY,  & ! IN/OUT Noah MP only
                    WOODXY,  STBLCPXY,   FASTCPXY,   XLAIXY,   XSAIXY,  TAUSSXY,  & ! IN/OUT Noah MP only
                    SMOISEQ, SMCWTDXY, DEEPRECHXY,   RECHXY,GRAINXY,GDDXY,PGSXY,  & ! IN/OUT Noah MP only
-                   QTDRAIN,   TD_FRACTION,                                       & ! IN/OUT tile drainage
+                !    QTDRAIN,   TD_FRACTION,                                       & ! IN/OUT tile drainage
                    T2MVXY,    T2MBXY,     Q2MVXY,   Q2MBXY,                      & ! OUT Noah MP only
                    TRADXY,     NEEXY,      GPPXY,    NPPXY,   FVEGXY,  RUNSFXY,  & ! OUT Noah MP only
                    RUNSBXY,   ECANXY,     EDIRXY,  ETRANXY,    FSAXY,   FIRAXY,  & ! OUT Noah MP only
@@ -48,15 +48,15 @@ contains
                    SHGXY,      SHCXY,      SHBXY,    EVGXY,    EVBXY,    GHVXY,  & ! OUT Noah MP only
                    GHBXY,      IRGXY,      IRCXY,    IRBXY,     TRXY,    EVCXY,  & ! OUT Noah MP only
                    CHLEAFXY,  CHUCXY,     CHV2XY,   CHB2XY,       RS,            & ! OUT Noah MP only
-                   QINTSXY,  QINTRXY,   QDRIPSXY,                                & ! OUT Noah MP only
-                   QDRIPRXY,QTHROSXY,   QTHRORXY,                                & ! OUT Noah MP only
-                   QSNSUBXY,QSNFROXY,    QSUBCXY,                                & ! OUT Noah MP only
-                   QFROCXY,  QEVACXY,    QDEWCXY,  QFRZCXY, QMELTCXY,            & ! OUT Noah MP only
-                   QSNBOTXY, QMELTXY,  PONDINGXY,  PAHXY,PAHGXY,PAHVXY, PAHBXY,  & ! OUT Noah MP only
-                   FPICEXY,RAINLSM,SNOWLSM,FORCTLSM,FORCQLSM,FORCPLSM,FORCZLSM,  & ! OUT Noah MP only
-                   FORCWLSM,ACC_SSOILXY,ACC_QINSURXY,ACC_QSEVAXY, ACC_ETRANIXY,  & ! IN/OUT Noah MP
-                   EFLXBXY, SOILENERGY, SNOWENERGY, CANHSXY,                     & ! OUT Noah MP only
-                   ACC_DWATERXY, ACC_PRCPXY, ACC_ECANXY,ACC_ETRANXY,ACC_EDIRXY,  & ! IN/OUT Noah MP
+                !    QINTSXY,  QINTRXY,   QDRIPSXY,                                & ! OUT Noah MP only
+                !    QDRIPRXY,QTHROSXY,   QTHRORXY,                                & ! OUT Noah MP only
+                !    QSNSUBXY,QSNFROXY,    QSUBCXY,                                & ! OUT Noah MP only
+                !    QFROCXY,  QEVACXY,    QDEWCXY,  QFRZCXY, QMELTCXY,            & ! OUT Noah MP only
+                !    QSNBOTXY, QMELTXY,  PONDINGXY,  PAHXY,PAHGXY,PAHVXY, PAHBXY,  & ! OUT Noah MP only
+                !    FPICEXY,RAINLSM,SNOWLSM,FORCTLSM,FORCQLSM,FORCPLSM,FORCZLSM,  & ! OUT Noah MP only
+                !    FORCWLSM,ACC_SSOILXY,ACC_QINSURXY,ACC_QSEVAXY, ACC_ETRANIXY,  & ! IN/OUT Noah MP
+                !    EFLXBXY, SOILENERGY, SNOWENERGY, CANHSXY,                     & ! OUT Noah MP only
+                !    ACC_DWATERXY, ACC_PRCPXY, ACC_ECANXY,ACC_ETRANXY,ACC_EDIRXY,  & ! IN/OUT Noah MP
                    FSATXY, WSURFXY,                                              & ! IN/OUT Noah MP
                    SNICAR_BANDNUMBER_OPT, SNICAR_SOLARSPEC_OPT,                  & ! SNICAR variable
                    SNICAR_SNOWOPTICS_OPT, SNICAR_DUSTOPTICS_OPT,                 & ! SNICAR variable
@@ -178,7 +178,7 @@ contains
     REAL,    DIMENSION( ims:ime,          jms:jme ), INTENT(IN   ) ::  HARVEST     ! harvest date
     REAL,    DIMENSION( ims:ime,          jms:jme ), INTENT(IN   ) ::  SEASON_GDD  ! growing season GDD
     ! Tile drain variables    
-    REAL,    DIMENSION( ims:ime,          jms:jme ), INTENT(IN   ) ::  TD_FRACTION
+    ! REAL,    DIMENSION( ims:ime,          jms:jme ), INTENT(IN   ) ::  TD_FRACTION
     !2D inout irrigation variables 
     CHARACTER(LEN=256),                              INTENT(IN   ) ::  LLANDUSE    ! landuse data name (USGS or MODIS_IGBP)
     REAL,    DIMENSION( ims:ime,          jms:jme ), INTENT(IN   ) ::  IRFRACT     ! irrigation fraction
@@ -301,15 +301,15 @@ contains
     REAL,    DIMENSION( ims:ime,          jms:jme ), INTENT(INOUT) ::  GRAINXY      ! mass of grain XING [g/m2]
     REAL,    DIMENSION( ims:ime,          jms:jme ), INTENT(INOUT) ::  GDDXY        ! growing degree days XING (based on 10C) 
     INTEGER, DIMENSION( ims:ime,          jms:jme ), INTENT(INOUT) ::  PGSXY        ! growing stage
-    REAL,    DIMENSION( ims:ime,          jms:jme ), INTENT(INOUT) ::  ACC_SSOILXY  ! m/s * soil_dt/main_dt
-    REAL,    DIMENSION( ims:ime,          jms:jme ), INTENT(INOUT) ::  ACC_QINSURXY ! m/s * soil_dt/main_dt
-    REAL,    DIMENSION( ims:ime,          jms:jme ), INTENT(INOUT) ::  ACC_QSEVAXY  ! m/s * soil_dt/main_dt
-    REAL,    DIMENSION( ims:ime, 1:NSOIL, jms:jme ), INTENT(INOUT) ::  ACC_ETRANIXY ! m/s * soil_dt/main_dt
-    REAL,    DIMENSION( ims:ime,          jms:jme ), INTENT(INOUT) ::  ACC_DWATERXY ! m/s * soil_dt/main_dt
-    REAL,    DIMENSION( ims:ime,          jms:jme ), INTENT(INOUT) ::  ACC_PRCPXY   ! m/s * soil_dt/main_dt
-    REAL,    DIMENSION( ims:ime,          jms:jme ), INTENT(INOUT) ::  ACC_ECANXY   ! m/s * soil_dt/main_dt
-    REAL,    DIMENSION( ims:ime,          jms:jme ), INTENT(INOUT) ::  ACC_ETRANXY  ! m/s * soil_dt/main_dt
-    REAL,    DIMENSION( ims:ime,          jms:jme ), INTENT(INOUT) ::  ACC_EDIRXY   ! m/s * soil_dt/main_dt
+    ! REAL,    DIMENSION( ims:ime,          jms:jme ), INTENT(INOUT) ::  ACC_SSOILXY  ! m/s * soil_dt/main_dt
+    ! REAL,    DIMENSION( ims:ime,          jms:jme ), INTENT(INOUT) ::  ACC_QINSURXY ! m/s * soil_dt/main_dt
+    ! REAL,    DIMENSION( ims:ime,          jms:jme ), INTENT(INOUT) ::  ACC_QSEVAXY  ! m/s * soil_dt/main_dt
+    ! REAL,    DIMENSION( ims:ime, 1:NSOIL, jms:jme ), INTENT(INOUT) ::  ACC_ETRANIXY ! m/s * soil_dt/main_dt
+    ! REAL,    DIMENSION( ims:ime,          jms:jme ), INTENT(INOUT) ::  ACC_DWATERXY ! m/s * soil_dt/main_dt
+    ! REAL,    DIMENSION( ims:ime,          jms:jme ), INTENT(INOUT) ::  ACC_PRCPXY   ! m/s * soil_dt/main_dt
+    ! REAL,    DIMENSION( ims:ime,          jms:jme ), INTENT(INOUT) ::  ACC_ECANXY   ! m/s * soil_dt/main_dt
+    ! REAL,    DIMENSION( ims:ime,          jms:jme ), INTENT(INOUT) ::  ACC_ETRANXY  ! m/s * soil_dt/main_dt
+    ! REAL,    DIMENSION( ims:ime,          jms:jme ), INTENT(INOUT) ::  ACC_EDIRXY   ! m/s * soil_dt/main_dt
     !2D inout irrigation variables 
     INTEGER, DIMENSION( ims:ime,          jms:jme ), INTENT(INOUT) ::  IRNUMSI      ! irrigation event number, Sprinkler
     INTEGER, DIMENSION( ims:ime,          jms:jme ), INTENT(INOUT) ::  IRNUMMI      ! irrigation event number, Micro
@@ -399,39 +399,39 @@ contains
     REAL,    DIMENSION( ims:ime,          jms:jme ), INTENT(OUT  ) ::  CHV2XY       ! veg 2m exchange coefficient 
     REAL,    DIMENSION( ims:ime,          jms:jme ), INTENT(OUT  ) ::  CHB2XY       ! bare 2m exchange coefficient
     ! additional output variables
-    REAL,    DIMENSION( ims:ime,          jms:jme ), INTENT(OUT  ) ::  PAHXY        ! precipitation advected heat 
-    REAL,    DIMENSION( ims:ime,          jms:jme ), INTENT(OUT  ) ::  PAHGXY       ! precipitation advected heat 
-    REAL,    DIMENSION( ims:ime,          jms:jme ), INTENT(OUT  ) ::  PAHBXY       ! precipitation advected heat 
-    REAL,    DIMENSION( ims:ime,          jms:jme ), INTENT(OUT  ) ::  PAHVXY       ! precipitation advected heat 
-    REAL,    DIMENSION( ims:ime,          jms:jme ), INTENT(OUT  ) ::  QINTSXY
-    REAL,    DIMENSION( ims:ime,          jms:jme ), INTENT(OUT  ) ::  QINTRXY
-    REAL,    DIMENSION( ims:ime,          jms:jme ), INTENT(OUT  ) ::  QDRIPSXY
-    REAL,    DIMENSION( ims:ime,          jms:jme ), INTENT(OUT  ) ::  QDRIPRXY
-    REAL,    DIMENSION( ims:ime,          jms:jme ), INTENT(OUT  ) ::  QTHROSXY
-    REAL,    DIMENSION( ims:ime,          jms:jme ), INTENT(OUT  ) ::  QTHRORXY
-    REAL,    DIMENSION( ims:ime,          jms:jme ), INTENT(OUT  ) ::  QSNSUBXY
-    REAL,    DIMENSION( ims:ime,          jms:jme ), INTENT(OUT  ) ::  QSNFROXY
-    REAL,    DIMENSION( ims:ime,          jms:jme ), INTENT(OUT  ) ::  QSUBCXY
-    REAL,    DIMENSION( ims:ime,          jms:jme ), INTENT(OUT  ) ::  QFROCXY
-    REAL,    DIMENSION( ims:ime,          jms:jme ), INTENT(OUT  ) ::  QEVACXY
-    REAL,    DIMENSION( ims:ime,          jms:jme ), INTENT(OUT  ) ::  QDEWCXY
-    REAL,    DIMENSION( ims:ime,          jms:jme ), INTENT(OUT  ) ::  QFRZCXY
-    REAL,    DIMENSION( ims:ime,          jms:jme ), INTENT(OUT  ) ::  QMELTCXY
-    REAL,    DIMENSION( ims:ime,          jms:jme ), INTENT(OUT  ) ::  QSNBOTXY     ! total liquid water (snowmelt + rain through pack)out of snowpack bottom [mm/s]
-    REAL,    DIMENSION( ims:ime,          jms:jme ), INTENT(OUT  ) ::  QMELTXY      ! snowmelt due to phase change (mm/s)
-    REAL,    DIMENSION( ims:ime,          jms:jme ), INTENT(OUT  ) ::  PONDINGXY
-    REAL,    DIMENSION( ims:ime,          jms:jme ), INTENT(OUT  ) ::  FPICEXY      ! fraction of ice in precip
-    REAL,    DIMENSION( ims:ime,          jms:jme ), INTENT(OUT  ) ::  RAINLSM      ! rain rate                   (mm/s)  AJN
-    REAL,    DIMENSION( ims:ime,          jms:jme ), INTENT(OUT  ) ::  SNOWLSM      ! liquid equivalent snow rate (mm/s)  AJN
-    REAL,    DIMENSION( ims:ime,          jms:jme ), INTENT(OUT  ) ::  FORCTLSM
-    REAL,    DIMENSION( ims:ime,          jms:jme ), INTENT(OUT  ) ::  FORCQLSM
-    REAL,    DIMENSION( ims:ime,          jms:jme ), INTENT(OUT  ) ::  FORCPLSM
-    REAL,    DIMENSION( ims:ime,          jms:jme ), INTENT(OUT  ) ::  FORCZLSM
-    REAL,    DIMENSION( ims:ime,          jms:jme ), INTENT(OUT  ) ::  FORCWLSM
-    REAL,    DIMENSION( ims:ime,          jms:jme ), INTENT(OUT  ) ::  EFLXBXY
-    REAL,    DIMENSION( ims:ime,          jms:jme ), INTENT(OUT  ) ::  SOILENERGY
-    REAL,    DIMENSION( ims:ime,          jms:jme ), INTENT(OUT  ) ::  SNOWENERGY
-    REAL,    DIMENSION( ims:ime,          jms:jme ), INTENT(OUT  ) ::  CANHSXY
+    ! REAL,    DIMENSION( ims:ime,          jms:jme ), INTENT(OUT  ) ::  PAHXY        ! precipitation advected heat 
+    ! REAL,    DIMENSION( ims:ime,          jms:jme ), INTENT(OUT  ) ::  PAHGXY       ! precipitation advected heat 
+    ! REAL,    DIMENSION( ims:ime,          jms:jme ), INTENT(OUT  ) ::  PAHBXY       ! precipitation advected heat 
+    ! REAL,    DIMENSION( ims:ime,          jms:jme ), INTENT(OUT  ) ::  PAHVXY       ! precipitation advected heat 
+    ! REAL,    DIMENSION( ims:ime,          jms:jme ), INTENT(OUT  ) ::  QINTSXY
+    ! REAL,    DIMENSION( ims:ime,          jms:jme ), INTENT(OUT  ) ::  QINTRXY
+    ! REAL,    DIMENSION( ims:ime,          jms:jme ), INTENT(OUT  ) ::  QDRIPSXY
+    ! REAL,    DIMENSION( ims:ime,          jms:jme ), INTENT(OUT  ) ::  QDRIPRXY
+    ! REAL,    DIMENSION( ims:ime,          jms:jme ), INTENT(OUT  ) ::  QTHROSXY
+    ! REAL,    DIMENSION( ims:ime,          jms:jme ), INTENT(OUT  ) ::  QTHRORXY
+    ! REAL,    DIMENSION( ims:ime,          jms:jme ), INTENT(OUT  ) ::  QSNSUBXY
+    ! REAL,    DIMENSION( ims:ime,          jms:jme ), INTENT(OUT  ) ::  QSNFROXY
+    ! REAL,    DIMENSION( ims:ime,          jms:jme ), INTENT(OUT  ) ::  QSUBCXY
+    ! REAL,    DIMENSION( ims:ime,          jms:jme ), INTENT(OUT  ) ::  QFROCXY
+    ! REAL,    DIMENSION( ims:ime,          jms:jme ), INTENT(OUT  ) ::  QEVACXY
+    ! REAL,    DIMENSION( ims:ime,          jms:jme ), INTENT(OUT  ) ::  QDEWCXY
+    ! REAL,    DIMENSION( ims:ime,          jms:jme ), INTENT(OUT  ) ::  QFRZCXY
+    ! REAL,    DIMENSION( ims:ime,          jms:jme ), INTENT(OUT  ) ::  QMELTCXY
+    ! REAL,    DIMENSION( ims:ime,          jms:jme ), INTENT(OUT  ) ::  QSNBOTXY     ! total liquid water (snowmelt + rain through pack)out of snowpack bottom [mm/s]
+    ! REAL,    DIMENSION( ims:ime,          jms:jme ), INTENT(OUT  ) ::  QMELTXY      ! snowmelt due to phase change (mm/s)
+    ! REAL,    DIMENSION( ims:ime,          jms:jme ), INTENT(OUT  ) ::  PONDINGXY
+    ! REAL,    DIMENSION( ims:ime,          jms:jme ), INTENT(OUT  ) ::  FPICEXY      ! fraction of ice in precip
+    ! REAL,    DIMENSION( ims:ime,          jms:jme ), INTENT(OUT  ) ::  RAINLSM      ! rain rate                   (mm/s)  AJN
+    ! REAL,    DIMENSION( ims:ime,          jms:jme ), INTENT(OUT  ) ::  SNOWLSM      ! liquid equivalent snow rate (mm/s)  AJN
+    ! REAL,    DIMENSION( ims:ime,          jms:jme ), INTENT(OUT  ) ::  FORCTLSM
+    ! REAL,    DIMENSION( ims:ime,          jms:jme ), INTENT(OUT  ) ::  FORCQLSM
+    ! REAL,    DIMENSION( ims:ime,          jms:jme ), INTENT(OUT  ) ::  FORCPLSM
+    ! REAL,    DIMENSION( ims:ime,          jms:jme ), INTENT(OUT  ) ::  FORCZLSM
+    ! REAL,    DIMENSION( ims:ime,          jms:jme ), INTENT(OUT  ) ::  FORCWLSM
+    ! REAL,    DIMENSION( ims:ime,          jms:jme ), INTENT(OUT  ) ::  EFLXBXY
+    ! REAL,    DIMENSION( ims:ime,          jms:jme ), INTENT(OUT  ) ::  SOILENERGY
+    ! REAL,    DIMENSION( ims:ime,          jms:jme ), INTENT(OUT  ) ::  SNOWENERGY
+    ! REAL,    DIMENSION( ims:ime,          jms:jme ), INTENT(OUT  ) ::  CANHSXY
     ! local
     INTEGER :: I, J
 
@@ -556,7 +556,7 @@ contains
     NoahmpIO%SIFRACT(I,J)              = SIFRACT(I,J)
     NoahmpIO%MIFRACT(I,J)              = MIFRACT(I,J)
     NoahmpIO%FIFRACT(I,J)              = FIFRACT(I,J)
-    NoahmpIO%TD_FRACTION(I,J)          = TD_FRACTION(I,J)
+    ! NoahmpIO%TD_FRACTION(I,J)          = TD_FRACTION(I,J)
     if (present(MP_RAINC) .and. present(MP_RAINNC) .and. &
         present(MP_SHCV)  .and. present(MP_SNOW)   .and. &
         present(MP_GRAUP) .and. present(MP_HAIL) ) then
@@ -675,17 +675,17 @@ contains
     NoahmpIO%GRAINXY(I,J)              = GRAINXY(I,J)
     NoahmpIO%GDDXY(I,J)                = GDDXY(I,J)
     NoahmpIO%PGSXY(I,J)                = PGSXY(I,J)
-    NoahmpIO%QTDRAIN(I,J)              = QTDRAIN(I,J)
+    ! NoahmpIO%QTDRAIN(I,J)              = QTDRAIN(I,J)
     NoahmpIO%RS(I,J)                   = RS(I,J)
-    NoahmpIO%ACC_SSOILXY(I,J)          = ACC_SSOILXY(I,J)
-    NoahmpIO%ACC_QINSURXY(I,J)         = ACC_QINSURXY(I,J)
-    NoahmpIO%ACC_QSEVAXY(I,J)          = ACC_QSEVAXY(I,J)
-    NoahmpIO%ACC_ETRANIXY(I,:,J)       = ACC_ETRANIXY(I,:,J)
-    NoahmpIO%ACC_DWATERXY(I,J)         = ACC_DWATERXY(I,J)
-    NoahmpIO%ACC_PRCPXY(I,J)           = ACC_PRCPXY(I,J)
-    NoahmpIO%ACC_ECANXY(I,J)           = ACC_ECANXY(I,J)
-    NoahmpIO%ACC_ETRANXY(I,J)          = ACC_ETRANXY(I,J)
-    NoahmpIO%ACC_EDIRXY(I,J)           = ACC_EDIRXY(I,J)
+    ! NoahmpIO%ACC_SSOILXY(I,J)          = ACC_SSOILXY(I,J)
+    ! NoahmpIO%ACC_QINSURXY(I,J)         = ACC_QINSURXY(I,J)
+    ! NoahmpIO%ACC_QSEVAXY(I,J)          = ACC_QSEVAXY(I,J)
+    ! NoahmpIO%ACC_ETRANIXY(I,:,J)       = ACC_ETRANIXY(I,:,J)
+    ! NoahmpIO%ACC_DWATERXY(I,J)         = ACC_DWATERXY(I,J)
+    ! NoahmpIO%ACC_PRCPXY(I,J)           = ACC_PRCPXY(I,J)
+    ! NoahmpIO%ACC_ECANXY(I,J)           = ACC_ECANXY(I,J)
+    ! NoahmpIO%ACC_ETRANXY(I,J)          = ACC_ETRANXY(I,J)
+    ! NoahmpIO%ACC_EDIRXY(I,J)           = ACC_EDIRXY(I,J)
     NoahmpIO%ALBSOILDIRXY(I,:,J)       = ALBSOILDIRXY(I,:,J)
     NoahmpIO%ALBSOILDIFXY(I,:,J)       = ALBSOILDIFXY(I,:,J)
     if ( NoahmpIO%IOPT_WETLAND > 0 ) then
@@ -810,15 +810,15 @@ contains
     PGSXY(I,J)          = NoahmpIO%PGSXY(I,J)
     QTDRAIN(I,J)        = NoahmpIO%QTDRAIN(I,J)
     RS(I,J)             = NoahmpIO%RS(I,J)
-    ACC_SSOILXY(I,J)    = NoahmpIO%ACC_SSOILXY(I,J)
-    ACC_QINSURXY(I,J)   = NoahmpIO%ACC_QINSURXY(I,J)
-    ACC_QSEVAXY(I,J)    = NoahmpIO%ACC_QSEVAXY(I,J)
-    ACC_ETRANIXY(I,:,J) = NoahmpIO%ACC_ETRANIXY(I,:,J)
-    ACC_DWATERXY(I,J)   = NoahmpIO%ACC_DWATERXY(I,J)
-    ACC_PRCPXY(I,J)     = NoahmpIO%ACC_PRCPXY(I,J)
-    ACC_ECANXY(I,J)     = NoahmpIO%ACC_ECANXY(I,J)
-    ACC_ETRANXY(I,J)    = NoahmpIO%ACC_ETRANXY(I,J)
-    ACC_EDIRXY(I,J)     = NoahmpIO%ACC_EDIRXY(I,J)
+    ! ACC_SSOILXY(I,J)    = NoahmpIO%ACC_SSOILXY(I,J)
+    ! ACC_QINSURXY(I,J)   = NoahmpIO%ACC_QINSURXY(I,J)
+    ! ACC_QSEVAXY(I,J)    = NoahmpIO%ACC_QSEVAXY(I,J)
+    ! ACC_ETRANIXY(I,:,J) = NoahmpIO%ACC_ETRANIXY(I,:,J)
+    ! ACC_DWATERXY(I,J)   = NoahmpIO%ACC_DWATERXY(I,J)
+    ! ACC_PRCPXY(I,J)     = NoahmpIO%ACC_PRCPXY(I,J)
+    ! ACC_ECANXY(I,J)     = NoahmpIO%ACC_ECANXY(I,J)
+    ! ACC_ETRANXY(I,J)    = NoahmpIO%ACC_ETRANXY(I,J)
+    ! ACC_EDIRXY(I,J)     = NoahmpIO%ACC_EDIRXY(I,J)
     ALBSOILDIRXY(I,:,J) = NoahmpIO%ALBSOILDIRXY(I,:,J)
     ALBSOILDIFXY(I,:,J) = NoahmpIO%ALBSOILDIFXY(I,:,J)
     if ( NoahmpIO%IOPT_WETLAND > 0 ) then
@@ -900,39 +900,39 @@ contains
     CHUCXY(I,J)       = NoahmpIO%CHUCXY(I,J)
     CHV2XY(I,J)       = NoahmpIO%CHV2XY(I,J)
     CHB2XY(I,J)       = NoahmpIO%CHB2XY(I,J)
-    QINTSXY(I,J)      = NoahmpIO%QINTSXY(I,J)
-    QINTRXY(I,J)      = NoahmpIO%QINTRXY(I,J)
-    QDRIPSXY(I,J)     = NoahmpIO%QDRIPSXY(I,J)
-    QDRIPRXY(I,J)     = NoahmpIO%QDRIPRXY(I,J)
-    QTHROSXY(I,J)     = NoahmpIO%QTHROSXY(I,J)
-    QTHRORXY(I,J)     = NoahmpIO%QTHRORXY(I,J)
-    QSNSUBXY(I,J)     = NoahmpIO%QSNSUBXY(I,J)
-    QSNFROXY(I,J)     = NoahmpIO%QSNFROXY(I,J)
-    QSUBCXY(I,J)      = NoahmpIO%QSUBCXY(I,J)
-    QFROCXY(I,J)      = NoahmpIO%QFROCXY(I,J)
-    QEVACXY(I,J)      = NoahmpIO%QEVACXY(I,J)
-    QDEWCXY(I,J)      = NoahmpIO%QDEWCXY(I,J)
-    QFRZCXY(I,J)      = NoahmpIO%QFRZCXY(I,J)
-    QMELTCXY(I,J)     = NoahmpIO%QMELTCXY(I,J)
-    QSNBOTXY(I,J)     = NoahmpIO%QSNBOTXY(I,J)
-    QMELTXY(I,J)      = NoahmpIO%QMELTXY(I,J)
-    PONDINGXY(I,J)    = NoahmpIO%PONDINGXY(I,J)
-    PAHXY(I,J)        = NoahmpIO%PAHXY(I,J)
-    PAHGXY(I,J)       = NoahmpIO%PAHGXY(I,J)
-    PAHVXY(I,J)       = NoahmpIO%PAHVXY(I,J)
-    PAHBXY(I,J)       = NoahmpIO%PAHBXY(I,J)
-    FPICEXY(I,J)      = NoahmpIO%FPICEXY(I,J)
-    RAINLSM(I,J)      = NoahmpIO%RAINLSM(I,J)
-    SNOWLSM(I,J)      = NoahmpIO%SNOWLSM(I,J)
-    FORCTLSM(I,J)     = NoahmpIO%FORCTLSM(I,J)
-    FORCQLSM(I,J)     = NoahmpIO%FORCQLSM(I,J)
-    FORCPLSM(I,J)     = NoahmpIO%FORCPLSM(I,J)
-    FORCZLSM(I,J)     = NoahmpIO%FORCZLSM(I,J)
-    FORCWLSM(I,J)     = NoahmpIO%FORCWLSM(I,J)
-    EFLXBXY(I,J)      = NoahmpIO%EFLXBXY(I,J)
-    SOILENERGY(I,J)   = NoahmpIO%SOILENERGY(I,J)
-    SNOWENERGY(I,J)   = NoahmpIO%SNOWENERGY(I,J)
-    CANHSXY(I,J)      = NoahmpIO%CANHSXY(I,J)
+    ! QINTSXY(I,J)      = NoahmpIO%QINTSXY(I,J)
+    ! QINTRXY(I,J)      = NoahmpIO%QINTRXY(I,J)
+    ! QDRIPSXY(I,J)     = NoahmpIO%QDRIPSXY(I,J)
+    ! QDRIPRXY(I,J)     = NoahmpIO%QDRIPRXY(I,J)
+    ! QTHROSXY(I,J)     = NoahmpIO%QTHROSXY(I,J)
+    ! QTHRORXY(I,J)     = NoahmpIO%QTHRORXY(I,J)
+    ! QSNSUBXY(I,J)     = NoahmpIO%QSNSUBXY(I,J)
+    ! QSNFROXY(I,J)     = NoahmpIO%QSNFROXY(I,J)
+    ! QSUBCXY(I,J)      = NoahmpIO%QSUBCXY(I,J)
+    ! QFROCXY(I,J)      = NoahmpIO%QFROCXY(I,J)
+    ! QEVACXY(I,J)      = NoahmpIO%QEVACXY(I,J)
+    ! QDEWCXY(I,J)      = NoahmpIO%QDEWCXY(I,J)
+    ! QFRZCXY(I,J)      = NoahmpIO%QFRZCXY(I,J)
+    ! QMELTCXY(I,J)     = NoahmpIO%QMELTCXY(I,J)
+    ! QSNBOTXY(I,J)     = NoahmpIO%QSNBOTXY(I,J)
+    ! QMELTXY(I,J)      = NoahmpIO%QMELTXY(I,J)
+    ! PONDINGXY(I,J)    = NoahmpIO%PONDINGXY(I,J)
+    ! PAHXY(I,J)        = NoahmpIO%PAHXY(I,J)
+    ! PAHGXY(I,J)       = NoahmpIO%PAHGXY(I,J)
+    ! PAHVXY(I,J)       = NoahmpIO%PAHVXY(I,J)
+    ! PAHBXY(I,J)       = NoahmpIO%PAHBXY(I,J)
+    ! FPICEXY(I,J)      = NoahmpIO%FPICEXY(I,J)
+    ! RAINLSM(I,J)      = NoahmpIO%RAINLSM(I,J)
+    ! SNOWLSM(I,J)      = NoahmpIO%SNOWLSM(I,J)
+    ! FORCTLSM(I,J)     = NoahmpIO%FORCTLSM(I,J)
+    ! FORCQLSM(I,J)     = NoahmpIO%FORCQLSM(I,J)
+    ! FORCPLSM(I,J)     = NoahmpIO%FORCPLSM(I,J)
+    ! FORCZLSM(I,J)     = NoahmpIO%FORCZLSM(I,J)
+    ! FORCWLSM(I,J)     = NoahmpIO%FORCWLSM(I,J)
+    ! EFLXBXY(I,J)      = NoahmpIO%EFLXBXY(I,J)
+    ! SOILENERGY(I,J)   = NoahmpIO%SOILENERGY(I,J)
+    ! SNOWENERGY(I,J)   = NoahmpIO%SNOWENERGY(I,J)
+    ! CANHSXY(I,J)      = NoahmpIO%CANHSXY(I,J)
 
     enddo ! I
     enddo ! J
