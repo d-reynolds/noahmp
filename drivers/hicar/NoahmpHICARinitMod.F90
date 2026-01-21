@@ -234,10 +234,10 @@ contains
     NoahmpIO%DZS                = DZS
     NoahmpIO%FNDSNOWH           = FNDSNOWH
     NoahmpIO%restart_flag       = restart
-    NoahmpIO%DTBL               = DT
-    NoahmpIO%WTDDT              = WTDDT
-    NoahmpIO%DX                 = DX
-    NoahmpIO%DY                 = DY
+    if(present(DT)) NoahmpIO%DTBL               = DT
+    if(present(WTDDT)) NoahmpIO%WTDDT              = WTDDT
+    if(present(DX)) NoahmpIO%DX                 = DX
+    if(present(DY)) NoahmpIO%DY                 = DY
 
     ! 2D/3D variables
     do J = jts, jtf
@@ -250,11 +250,11 @@ contains
     NoahmpIO%TSK(I,J)                  = TSK(I,J)
     NoahmpIO%XICE(I,J)                 = XICE(I,J)
     NoahmpIO%CROPTYPE(I,:,J)           = CROPTYPE(I,:,J)
-    NoahmpIO%FDEPTHXY(I,J)             = FDEPTHXY(I,J)
-    NoahmpIO%MSFTX(I,J)                = MSFTX(I,J)
-    NoahmpIO%MSFTY(I,J)                = MSFTY(I,J)
-    NoahmpIO%TERRAIN(I,J)              = HT(I,J)
-    NoahmpIO%RECHCLIM(I,J)             = RECHCLIM(I,J)
+    if(present(FDEPTHXY)) NoahmpIO%FDEPTHXY(I,J)             = FDEPTHXY(I,J)
+    if(present(MSFTX)) NoahmpIO%MSFTX(I,J)                = MSFTX(I,J)
+    if(present(MSFTY)) NoahmpIO%MSFTY(I,J)                = MSFTY(I,J)
+    if(present(HT)) NoahmpIO%TERRAIN(I,J)              = HT(I,J)
+    if(present(RECHCLIM)) NoahmpIO%RECHCLIM(I,J)             = RECHCLIM(I,J)
     ! in/out variables
     NoahmpIO%SMOIS(I,:,J)              = SMOIS(I,:,J)
     NoahmpIO%SH2O(I,:,J)               = SH2O(I,:,J)
@@ -295,7 +295,7 @@ contains
     NoahmpIO%FASTCPXY(I,J)             = FASTCPXY(I,J)
     NoahmpIO%LAI(I,J)                  = LAI(I,J)
     NoahmpIO%XSAIXY(I,J)               = XSAIXY(I,J)
-    NoahmpIO%QTDRAIN(I,J)              = QTDRAIN(I,J)
+    if(present(QTDRAIN)) NoahmpIO%QTDRAIN(I,J)              = QTDRAIN(I,J)
     NoahmpIO%IRNUMSI(I,J)              = IRNUMSI(I,J)
     NoahmpIO%IRNUMMI(I,J)              = IRNUMMI(I,J)
     NoahmpIO%IRNUMFI(I,J)              = IRNUMFI(I,J)
@@ -309,18 +309,18 @@ contains
     NoahmpIO%IRRSPLH(I,J)              = IRRSPLH(I,J)
     NoahmpIO%T2MVXY(I,J)               = T2MVXY(I,J)
     NoahmpIO%T2MBXY(I,J)               = T2MBXY(I,J)
-    NoahmpIO%SMCWTDXY(I,J)             = SMCWTDXY(I,J)
-    NoahmpIO%DEEPRECHXY(I,J)           = DEEPRECHXY(I,J)
-    NoahmpIO%RECHXY(I,J)               = RECHXY(I,J)
-    NoahmpIO%QRFSXY(I,J)               = QRFSXY(I,J)
-    NoahmpIO%QSPRINGSXY(I,J)           = QSPRINGSXY(I,J)
-    NoahmpIO%QSLATXY(I,J)              = QSLATXY(I,J)
-    NoahmpIO%AREAXY(I,J)               = AREAXY(I,J)
-    NoahmpIO%RIVERBEDXY(I,J)           = RIVERBEDXY(I,J)
-    NoahmpIO%EQZWT(I,J)                = EQZWT(I,J)
-    NoahmpIO%RIVERCONDXY(I,J)          = RIVERCONDXY(I,J)
-    NoahmpIO%PEXPXY(I,J)               = PEXPXY(I,J)
-    NoahmpIO%SMOISEQ(I,:,J)            = SMOISEQ(I,:,J)
+    if(present(SMCWTDXY)) NoahmpIO%SMCWTDXY(I,J)             = SMCWTDXY(I,J)
+    if(present(DEEPRECHXY)) NoahmpIO%DEEPRECHXY(I,J)           = DEEPRECHXY(I,J)
+    if(present(RECHXY)) NoahmpIO%RECHXY(I,J)               = RECHXY(I,J)
+    if(present(QRFSXY)) NoahmpIO%QRFSXY(I,J)               = QRFSXY(I,J)
+    if(present(QSPRINGSXY)) NoahmpIO%QSPRINGSXY(I,J)           = QSPRINGSXY(I,J)
+    if(present(QSLATXY)) NoahmpIO%QSLATXY(I,J)              = QSLATXY(I,J)
+    if(present(AREAXY)) NoahmpIO%AREAXY(I,J)               = AREAXY(I,J)
+    if(present(RIVERBEDXY)) NoahmpIO%RIVERBEDXY(I,J)           = RIVERBEDXY(I,J)
+    if(present(EQZWT)) NoahmpIO%EQZWT(I,J)                = EQZWT(I,J)
+    if(present(RIVERCONDXY)) NoahmpIO%RIVERCONDXY(I,J)          = RIVERCONDXY(I,J)
+    if(present(PEXPXY)) NoahmpIO%PEXPXY(I,J)               = PEXPXY(I,J)
+    if(present(SMOISEQ)) NoahmpIO%SMOISEQ(I,:,J)            = SMOISEQ(I,:,J)
     NoahmpIO%ALBSOILDIRXY(I,:,J)       = ALBSOILDIRXY(I,:,J)
     NoahmpIO%ALBSOILDIFXY(I,:,J)       = ALBSOILDIFXY(I,:,J)
     if ( NoahmpIO%IOPT_WETLAND > 0 ) then
@@ -403,7 +403,7 @@ contains
     FASTCPXY(I,J)       = NoahmpIO%FASTCPXY(I,J)
     LAI(I,J)            = NoahmpIO%LAI(I,J)
     XSAIXY(I,J)         = NoahmpIO%XSAIXY(I,J)
-    QTDRAIN(I,J)        = NoahmpIO%QTDRAIN(I,J)
+    if(present(QTDRAIN)) QTDRAIN(I,J)        = NoahmpIO%QTDRAIN(I,J)
     IRNUMSI(I,J)        = NoahmpIO%IRNUMSI(I,J)
     IRNUMMI(I,J)        = NoahmpIO%IRNUMMI(I,J)
     IRNUMFI(I,J)        = NoahmpIO%IRNUMFI(I,J)
@@ -417,18 +417,18 @@ contains
     IRRSPLH(I,J)        = NoahmpIO%IRRSPLH(I,J)
     T2MVXY(I,J)         = NoahmpIO%T2MVXY(I,J)
     T2MBXY(I,J)         = NoahmpIO%T2MBXY(I,J)
-    SMCWTDXY(I,J)       = NoahmpIO%SMCWTDXY(I,J)
-    DEEPRECHXY(I,J)     = NoahmpIO%DEEPRECHXY(I,J)
-    RECHXY(I,J)         = NoahmpIO%RECHXY(I,J)
-    QRFSXY(I,J)         = NoahmpIO%QRFSXY(I,J)
-    QSPRINGSXY(I,J)     = NoahmpIO%QSPRINGSXY(I,J)
-    QSLATXY(I,J)        = NoahmpIO%QSLATXY(I,J)
-    AREAXY(I,J)         = NoahmpIO%AREAXY(I,J)
-    RIVERBEDXY(I,J)     = NoahmpIO%RIVERBEDXY(I,J)
-    EQZWT(I,J)          = NoahmpIO%EQZWT(I,J)
-    RIVERCONDXY(I,J)    = NoahmpIO%RIVERCONDXY(I,J)
-    PEXPXY(I,J)         = NoahmpIO%PEXPXY(I,J)
-    SMOISEQ(I,:,J)      = NoahmpIO%SMOISEQ(I,:,J)
+    if(present(SMCWTDXY)) SMCWTDXY(I,J)       = NoahmpIO%SMCWTDXY(I,J)
+    if(present(DEEPRECHXY)) DEEPRECHXY(I,J)     = NoahmpIO%DEEPRECHXY(I,J)
+    if(present(RECHXY)) RECHXY(I,J)         = NoahmpIO%RECHXY(I,J)
+    if(present(QRFSXY)) QRFSXY(I,J)         = NoahmpIO%QRFSXY(I,J)
+    if(present(QSPRINGSXY)) QSPRINGSXY(I,J)     = NoahmpIO%QSPRINGSXY(I,J)
+    if(present(QSLATXY)) QSLATXY(I,J)        = NoahmpIO%QSLATXY(I,J)
+    if(present(AREAXY)) AREAXY(I,J)         = NoahmpIO%AREAXY(I,J)
+    if(present(RIVERBEDXY)) RIVERBEDXY(I,J)     = NoahmpIO%RIVERBEDXY(I,J)
+    if(present(EQZWT)) EQZWT(I,J)          = NoahmpIO%EQZWT(I,J)
+    if(present(RIVERCONDXY)) RIVERCONDXY(I,J)    = NoahmpIO%RIVERCONDXY(I,J)
+    if(present(PEXPXY)) PEXPXY(I,J)         = NoahmpIO%PEXPXY(I,J)
+    if(present(SMOISEQ)) SMOISEQ(I,:,J)      = NoahmpIO%SMOISEQ(I,:,J)
     CHSTARXY(I,J)       = 0.1 ! dummy
     ALBSOILDIRXY(I,:,J) = NoahmpIO%ALBSOILDIRXY(I,:,J)
     ALBSOILDIFXY(I,:,J) = NoahmpIO%ALBSOILDIFXY(I,:,J)
@@ -465,7 +465,7 @@ contains
     enddo ! I
     enddo ! J
 
-    STEPWTD      = NoahmpIO%STEPWTD
+    if(present(STEPWTD)) STEPWTD      = NoahmpIO%STEPWTD
 
     !--------- NoahmpIO -> WRF variables mapping ends
 
