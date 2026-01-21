@@ -1,4 +1,4 @@
-module NoahmpWRFinitMod
+module NoahmpHICARinitMod
 
 ! --------------------------------------------------------------------------
 ! this is for NoahmpIO variable mapping & initialization in WRF physics_init
@@ -10,7 +10,7 @@ module NoahmpWRFinitMod
 
 contains
 
-  subroutine NoahmpWRFinit(NoahmpIO, MMINLU, SNOW, SNOWH, CANWAT, ISLTYP, IVGTYP, XLAT, &
+  subroutine NoahmpHICARinit(NoahmpIO, MMINLU, SNOW, SNOWH, CANWAT, ISLTYP, IVGTYP, XLAT, &
                    TSLB,  SMOIS, SH2O,   DZS, FNDSOILW, FNDSNOWH,                       &
                    TSK, isnowxy, tvxy,  tgxy, canicexy,      TMN,   XICE,               &
                    canliqxy,    eahxy, tahxy,     cmxy,     chxy,                       &
@@ -469,6 +469,6 @@ contains
 
     !--------- NoahmpIO -> WRF variables mapping ends
 
-  end subroutine NoahmpWRFinit
+  end subroutine NoahmpHICARinit
 
-end module NoahmpWRFinitMod
+end module NoahmpHICARinitMod

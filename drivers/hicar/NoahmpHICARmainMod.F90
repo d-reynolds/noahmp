@@ -1,4 +1,4 @@
-module NoahmpWRFmainMod 
+module NoahmpHICARmainMod 
 
 ! -------------------------------------------------------------
 ! this is the interface for NoahMP and WRF variable remapping
@@ -10,7 +10,7 @@ module NoahmpWRFmainMod
 
 contains
 
-  subroutine NoahmpWRFmain(NoahmpIO, ITIMESTEP, YR, JULIAN, COSZIN, XLAT, XLONG, & ! IN : Time/Space-related
+  subroutine NoahmpHICARmain(NoahmpIO, ITIMESTEP, YR, JULIAN, COSZIN, XLAT, XLONG, & ! IN : Time/Space-related
                    DZ8W,          DT,        DZS,    NSOIL,       DX,            & ! IN : Model configuration 
                    IVGTYP,    ISLTYP,     VEGFRA,   VEGMAX,      TMN,            & ! IN : Vegetation/Soil characteristics
                    XLAND,       XICE, XICE_THRES,  CROPCAT,                      & ! IN : Vegetation/Soil characteristics
@@ -939,6 +939,6 @@ contains
 
     !--------- Output variable mapping end ---------
 
-  end subroutine NoahmpWRFmain
+  end subroutine NoahmpHICARmain
 
-end module NoahmpWRFmainMod
+end module NoahmpHICARmainMod
