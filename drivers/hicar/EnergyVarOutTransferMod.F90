@@ -118,7 +118,6 @@ contains
     NoahmpIO%XSAIXY  (I,J) = noahmp%energy%state%StemAreaIndex
     NoahmpIO%TAUSSXY (I,J) = noahmp%energy%state%SnowAgeNondim
     NoahmpIO%Z0      (I,J) = noahmp%energy%state%RoughLenMomSfcToAtm
-    NoahmpIO%ZNT     (I,J) = noahmp%energy%state%RoughLenMomSfcToAtm
     NoahmpIO%T2MVXY  (I,J) = noahmp%energy%state%TemperatureAir2mVeg
     NoahmpIO%T2MBXY  (I,J) = noahmp%energy%state%TemperatureAir2mBare
     NoahmpIO%TRADXY  (I,J) = noahmp%energy%state%TemperatureRadSfc

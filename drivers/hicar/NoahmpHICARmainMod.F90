@@ -30,7 +30,7 @@ contains
                    SMSTOT, SFCRUNOFF,   UDRUNOFF,   ALBEDO,    SNOWC,    SMOIS,  & ! IN/OUT LSM eqv
                    SH2O,        TSLB,       SNOW,    SNOWH,   CANWAT,   ACSNOM,  & ! IN/OUT LSM eqv
                    ACSNOW,     EMISS,       QSFC,                                & ! IN/OUT LSM eqv
-                   Z0,      ZNT,                                                 & ! IN/OUT LSM eqv
+                   Z0,                                                           & ! IN/OUT LSM eqv
                    IRNUMSI,  IRNUMMI,    IRNUMFI,  IRWATSI,  IRWATMI,  IRWATFI,  & ! IN/OUT irrigation
                    IRELOSS,  IRSIVOL,    IRMIVOL,  IRFIVOL,  IRRSPLH, LLANDUSE,  & ! IN/OUT irrigation
                    ISNOWXY,     TVXY,       TGXY, CANICEXY, CANLIQXY,    EAHXY,  & ! IN/OUT Noah MP only
@@ -261,7 +261,6 @@ contains
     REAL,    DIMENSION( ims:ime,          jms:jme ), INTENT(INOUT) ::  EMISS        ! surface bulk emissivity
     REAL,    DIMENSION( ims:ime,          jms:jme ), INTENT(INOUT) ::  QSFC         ! bulk surface specific humidity
     REAL,    DIMENSION( ims:ime,          jms:jme ), INTENT(INOUT) ::  Z0           ! combined z0 sent to coupled model
-    REAL,    DIMENSION( ims:ime,          jms:jme ), INTENT(INOUT) ::  ZNT          ! combined z0 sent to coupled model
     REAL,    DIMENSION( ims:ime,          jms:jme ), INTENT(INOUT) ::  RS           ! Total stomatal resistance (s/m)
     INTEGER, DIMENSION( ims:ime,          jms:jme ), INTENT(INOUT) ::  ISNOWXY      ! actual no. of snow layers
     REAL,    DIMENSION( ims:ime,          jms:jme ), INTENT(INOUT) ::  TVXY         ! vegetation leaf temperature
@@ -630,7 +629,6 @@ contains
     NoahmpIO%EMISS(I,J)                = EMISS(I,J)
     NoahmpIO%QSFC(I,J)                 = QSFC(I,J)
     NoahmpIO%Z0(I,J)                   = Z0(I,J)
-    NoahmpIO%ZNT(I,J)                  = ZNT(I,J)
     NoahmpIO%IRNUMSI(I,J)              = IRNUMSI(I,J)
     NoahmpIO%IRNUMMI(I,J)              = IRNUMMI(I,J)
     NoahmpIO%IRNUMFI(I,J)              = IRNUMFI(I,J)
@@ -763,7 +761,6 @@ contains
     EMISS(I,J)          = NoahmpIO%EMISS(I,J)
     QSFC(I,J)           = NoahmpIO%QSFC(I,J)
     Z0(I,J)             = NoahmpIO%Z0(I,J)
-    ZNT(I,J)            = NoahmpIO%ZNT(I,J)
     IRNUMSI(I,J)        = NoahmpIO%IRNUMSI(I,J)
     IRNUMMI(I,J)        = NoahmpIO%IRNUMMI(I,J)
     IRNUMFI(I,J)        = NoahmpIO%IRNUMFI(I,J)

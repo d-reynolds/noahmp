@@ -22,7 +22,7 @@ contains
                    irnumsi, irnummi, irnumfi, irwatsi,                                  &
                    irwatmi, irwatfi, ireloss, irsivol,                                  &
                    irmivol, irfivol, irrsplh,                                           &
-                   t2mvxy,   t2mbxy, chstarxy, fsatxy, wsurfxy,                         &
+                   t2mvxy,   t2mbxy, fsatxy, wsurfxy,                                   &
                    snrdsxy, snfrxy, bcphixy, bcphoxy, ocphixy, ocphoxy, dust1xy,        &
                    dust2xy, dust3xy, dust4xy, dust5xy, massconcbcphixy, massconcbcphoxy,&
                    massconcocphixy, massconcocphoxy, massconcdust1xy, massconcdust2xy,  &
@@ -128,7 +128,6 @@ contains
     REAL,    DIMENSION(ims:ime,jms:jme), INTENT(INOUT)         :: irrsplh             ! irrigation evaporation heat
     REAL,    DIMENSION(ims:ime,jms:jme), INTENT(INOUT)         :: t2mvxy              ! 2m temperature vegetation part (k)
     REAL,    DIMENSION(ims:ime,jms:jme), INTENT(INOUT)         :: t2mbxy              ! 2m temperature bare ground part (k)
-    REAL,    DIMENSION(ims:ime,jms:jme), INTENT(INOUT)         :: chstarxy            ! dummy
     REAL,    DIMENSION(ims:ime,jms:jme), INTENT(INOUT)         :: fsatxy              ! saturation fraction of grid (-)
     REAL,    DIMENSION(ims:ime,jms:jme), INTENT(INOUT)         :: wsurfxy             ! wetland water storage (mm)
     REAL,    DIMENSION(ims:ime,-2:0,jms:jme), INTENT(INOUT)    :: snrdsxy             ! SNICAR snow radius
@@ -429,7 +428,6 @@ contains
     if(present(RIVERCONDXY)) RIVERCONDXY(I,J)    = NoahmpIO%RIVERCONDXY(I,J)
     if(present(PEXPXY)) PEXPXY(I,J)         = NoahmpIO%PEXPXY(I,J)
     if(present(SMOISEQ)) SMOISEQ(I,:,J)      = NoahmpIO%SMOISEQ(I,:,J)
-    CHSTARXY(I,J)       = 0.1 ! dummy
     ALBSOILDIRXY(I,:,J) = NoahmpIO%ALBSOILDIRXY(I,:,J)
     ALBSOILDIFXY(I,:,J) = NoahmpIO%ALBSOILDIFXY(I,:,J)
     if ( NoahmpIO%IOPT_WETLAND > 0 ) then

@@ -247,7 +247,6 @@ contains
     if ( .not. allocated (NoahmpIO%CHB2XY)     ) allocate ( NoahmpIO%CHB2XY      (XSTART:XEND,YSTART:YEND) ) ! bare 2m exchange coefficient 
     if ( .not. allocated (NoahmpIO%RS)         ) allocate ( NoahmpIO%RS          (XSTART:XEND,YSTART:YEND) ) ! Total stomatal resistance (s/m)
     if ( .not. allocated (NoahmpIO%Z0)         ) allocate ( NoahmpIO%Z0          (XSTART:XEND,YSTART:YEND) ) ! roughness length output to WRF 
-    if ( .not. allocated (NoahmpIO%ZNT)        ) allocate ( NoahmpIO%ZNT         (XSTART:XEND,YSTART:YEND) ) ! roughness length output to WRF 
     if ( .not. allocated (NoahmpIO%QTDRAIN)    ) allocate ( NoahmpIO%QTDRAIN     (XSTART:XEND,YSTART:YEND) ) ! tile drainage (mm)
     if ( .not. allocated (NoahmpIO%TD_FRACTION)) allocate ( NoahmpIO%TD_FRACTION (XSTART:XEND,YSTART:YEND) ) ! tile drainage fraction
     if ( .not. allocated (NoahmpIO%XLONG)      ) allocate ( NoahmpIO%XLONG       (XSTART:XEND,YSTART:YEND) ) ! longitude
@@ -697,7 +696,6 @@ contains
     NoahmpIO%RS              = undefined_real
     NoahmpIO%CANHSXY         = undefined_real
     NoahmpIO%Z0              = undefined_real
-    NoahmpIO%ZNT             = undefined_real
     NoahmpIO%ALBSNOWDIRXY    = undefined_real
     NoahmpIO%ALBSNOWDIFXY    = undefined_real
     NoahmpIO%ALBSFCDIRXY     = undefined_real
