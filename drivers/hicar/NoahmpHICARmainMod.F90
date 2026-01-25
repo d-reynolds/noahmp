@@ -162,7 +162,7 @@ contains
     REAL,    DIMENSION( ims:ime,          jms:jme ), INTENT(IN   ) ::  SWDDIF       ! solar down at surface [W m-2]
     REAL,    DIMENSION( ims:ime,          jms:jme ), INTENT(IN   ) ::  SWDDIR       ! solar down at surface [W m-2]
     REAL,    DIMENSION( ims:ime,          jms:jme ), INTENT(IN   ) ::  GLW          ! longwave down at surface [W m-2]
-    REAL,    DIMENSION( ims:ime, kms:kme, jms:jme ), INTENT(IN   ) ::  P8W3D        ! 3D pressure, valid at interface [Pa]
+    REAL,    DIMENSION( ims:ime, kms:kme+1, jms:jme ), INTENT(IN   ) ::  P8W3D        ! 3D pressure, valid at interface [Pa]
     REAL,    DIMENSION( ims:ime,          jms:jme ), INTENT(IN   ) ::  PRECIP_IN    ! total input precipitation [mm]
     REAL,    DIMENSION( ims:ime,          jms:jme ), INTENT(IN   ) ::  SR           ! frozen precipitation ratio [-]
     ! Optional Detailed Precipitation Partitioning Inputs
@@ -457,6 +457,8 @@ contains
     NoahmpIO%ite                = ite
     NoahmpIO%jts                = jts
     NoahmpIO%jte                = jte
+    NoahmpIO%kts                = kts
+    NoahmpIO%kte                = kte
     NoahmpIO%xstart             = ims
     NoahmpIO%xend               = ime
     NoahmpIO%ystart             = jms
@@ -548,8 +550,9 @@ contains
     NoahmpIO%SWDOWN(I,J)               = SWDOWN(I,J)
     NoahmpIO%SWDDIR(I,J)               = SWDDIR(I,J)
     NoahmpIO%SWDDIF(I,J)               = SWDDIF(I,J)
+    NoahmpIO%RadSwDirFrac(I,J)         = min(SWDDIR(I,J),SWDOWN(I,J))/max(SWDOWN(I,J), 0.001)
     NoahmpIO%GLW(I,J)                  = GLW(I,J)
-    NoahmpIO%P8W(I,:,J)                = P8W3D(I,:,J)
+    NoahmpIO%P8W(I,NoahmpIO%kts:NoahmpIO%kte,J) = P8W3D(I,NoahmpIO%kts:NoahmpIO%kte,J)
     NoahmpIO%RAINBL(I,J)               = PRECIP_IN(I,J)
     NoahmpIO%SR(I,J)                   = SR(I,J)
     NoahmpIO%IRFRACT(I,J)              = IRFRACT(I,J)
@@ -745,7 +748,7 @@ contains
     SMSTOT(I,J)         = NoahmpIO%SMSTOT(I,J)
     SFCRUNOFF(I,J)      = NoahmpIO%SFCRUNOFF(I,J)
     UDRUNOFF(I,J)       = NoahmpIO%UDRUNOFF(I,J)
-    ALBEDO(I,J)         = NoahmpIO%ALBEDO(I,J)
+    if (NoahmpIO%ALBEDO(I,J) > 0.0) ALBEDO(I,J)         = NoahmpIO%ALBEDO(I,J)
     SNOWC(I,J)          = NoahmpIO%SNOWC(I,J)
     SMOIS(I,:,J)        = NoahmpIO%SMOIS(I,:,J)
     SH2O(I,:,J)         = NoahmpIO%SH2O(I,:,J)

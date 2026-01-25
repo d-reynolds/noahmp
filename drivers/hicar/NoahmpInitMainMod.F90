@@ -47,7 +47,7 @@ contains
        ! initialize physical snow height SNOWH
        if ( .not. NoahmpIO%FNDSNOWH ) then
           ! If no SNOWH do the following
-          print*, 'SNOW HEIGHT NOT FOUND - VALUE DEFINED IN LSMINIT'
+         !  print*, 'SNOW HEIGHT NOT FOUND - VALUE DEFINED IN LSMINIT'
           do J = jts, jtf
              do I = its, itf
                 NoahmpIO%SNOWH(I,J) = NoahmpIO%SNOW(I,J) * 0.005  ! SNOW in mm and SNOWH in m
@@ -55,7 +55,7 @@ contains
           enddo
        endif
    
-       ! Check if snow/snowh are consistent and cap SWE at 2000mm
+       ! Check if snow/snowh are consistent and cap SWE at 5000mm
        ! the Noah-MP code does it internally but if we don't do it here, problems ensue
        do J = jts, jtf
           do I = its, itf
@@ -65,9 +65,9 @@ contains
                 NoahmpIO%SNOWH(I,J) = NoahmpIO%SNOW(I,J) * 0.005
              if ( (NoahmpIO%SNOWH(I,J) > 0.0) .and. (NoahmpIO%SNOW(I,J) == 0.0) ) &
                 NoahmpIO%SNOW(I,J)  = NoahmpIO%SNOWH(I,J) / 0.005
-             if ( NoahmpIO%SNOW(I,J) > 2000.0 ) then
-                NoahmpIO%SNOWH(I,J) = NoahmpIO%SNOWH(I,J) * 2000.0 / NoahmpIO%SNOW(I,J)      ! SNOW in mm and SNOWH in m
-                NoahmpIO%SNOW (I,J) = 2000.0                                                 ! cap SNOW at 2000, maintain density
+             if ( NoahmpIO%SNOW(I,J) > 5000.0 ) then
+                NoahmpIO%SNOWH(I,J) = NoahmpIO%SNOWH(I,J) * 5000.0 / NoahmpIO%SNOW(I,J)      ! SNOW in mm and SNOWH in m
+                NoahmpIO%SNOW (I,J) = 5000.0                                                 ! cap SNOW at 5000, maintain density
              endif
           enddo
        enddo
