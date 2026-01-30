@@ -13,8 +13,8 @@ module SoilWaterInfilPhilipMod
 
 contains
 
-  subroutine SoilWaterInfilPhilip(noahmp, TimeStep, IndInfilMax, InfilSfcAcc, InfilSfcTmp)
-
+  subroutine SoilWaterInfilPhilip(noahmp, TimeStep, IndInfilMax, InfilSfcAcc, InfilSfcTmp, I, J)
+  !$acc routine seq
 ! ------------------------ Code history --------------------------------------------------
 ! Original Noah-MP subroutine: PHILIP_INFIL
 ! Original code: Prasanth Valayamkunnath <prasanth@ucar.edu>
@@ -29,6 +29,7 @@ contains
     real(kind=kind_noahmp), intent(in)    :: TimeStep               ! timestep (may not be the same as model timestep)
     real(kind=kind_noahmp), intent(inout) :: InfilSfcAcc            ! accumulated infiltration rate [m/s]
     real(kind=kind_noahmp), intent(out)   :: InfilSfcTmp            ! surface infiltration rate [m/s]
+    integer               , intent(in)    :: I, J                   ! grid indices
 
 ! local variable
     integer                               :: IndSoil                ! soil layer index
@@ -42,7 +43,7 @@ contains
     associate(                                                                     &
               SoilMoisture           => noahmp%water%state%SoilMoisture           ,& ! in, total soil moisture [m3/m3]
               SoilIce                => noahmp%water%state%SoilIce                ,& ! in, soil ice content [m3/m3] 
-              SoilSfcInflowMean      => noahmp%water%flux%SoilSfcInflowMean       ,& ! in, mean water input on soil surface [m/s]
+              SoilSfcInflowMean      => noahmp%water%flux%SoilSfcInflowMean(I,J)       ,& ! in, mean water input on soil surface [m/s]
               SoilMoistureSat        => noahmp%water%param%SoilMoistureSat        ,& ! in, saturated value of soil moisture [m3/m3]
               SoilMoistureWilt       => noahmp%water%param%SoilMoistureWilt       ,& ! in, wilting point soil moisture [m3/m3]
               SoilWatDiffusivitySat  => noahmp%water%param%SoilWatDiffusivitySat  ,& ! in, saturated soil hydraulic diffusivity [m2/s]
@@ -56,16 +57,16 @@ contains
 
        ! estimate initial soil hydraulic conductivty and diffusivity (Ki, D(theta) in the equation)
        call SoilDiffusivityConductivityOpt2(noahmp, SoilWatDiffusivity, SoilWatConductivity, &
-                                            SoilMoistureWilt(IndSoil), IniSoilIce, IndSoil)
+                                            SoilMoistureWilt(I,IndSoil,J), IniSoilIce, IndSoil, I, J)
 
        ! Sorptivity based on Eq. 10b from Kutílek, Miroslav, and Jana Valentová (1986)
        ! Sorptivity approximations. Transport in Porous Media 1.1, 57-62.
-       SoilSorptivity = sqrt(2.0 * (SoilMoistureSat(IndSoil) - SoilMoistureWilt(IndSoil)) * &
-                             (SoilWatDiffusivitySat(IndSoil) - SoilWatDiffusivity))
+       SoilSorptivity = sqrt(2.0 * (SoilMoistureSat(I,IndSoil,J) - SoilMoistureWilt(I,IndSoil,J)) * &
+                             (SoilWatDiffusivitySat(I,IndSoil,J) - SoilWatDiffusivity))
 
        ! Parameter A in Eq. 9 of Valiantzas (2010) is given by
-       SoilWatConductTmp = min(SoilWatConductivity, (2.0/3.0)*SoilWatConductivitySat(IndSoil))
-       SoilWatConductTmp = max(SoilWatConductTmp,   (1.0/3.0)*SoilWatConductivitySat(IndSoil))
+       SoilWatConductTmp = min(SoilWatConductivity, (2.0/3.0)*SoilWatConductivitySat(I,IndSoil,J))
+       SoilWatConductTmp = max(SoilWatConductTmp,   (1.0/3.0)*SoilWatConductivitySat(I,IndSoil,J))
 
        ! Maximun infiltration rate
        InfilSfcTmp = (1.0/2.0) * SoilSorptivity * (TimeStep**(-1.0/2.0)) + SoilWatConductTmp
@@ -75,21 +76,21 @@ contains
 
        ! estimate initial soil hydraulic conductivty and diffusivity (Ki, D(theta) in the equation)
        call SoilDiffusivityConductivityOpt2(noahmp, SoilWatDiffusivity, SoilWatConductivity, &
-                                            SoilMoisture(IndSoil), SoilIce(IndSoil), IndSoil)
+                                            SoilMoisture(I,IndSoil,J), SoilIce(I,IndSoil,J), IndSoil, I, J)
 
        ! Sorptivity based on Eq. 10b from Kutílek, Miroslav, and Jana Valentová (1986) 
        ! Sorptivity approximations. Transport in Porous Media 1.1, 57-62.
-       SoilSorptivity = sqrt(2.0 * max(0.0, (SoilMoistureSat(IndSoil)-SoilMoisture(IndSoil))) * &
-                             (SoilWatDiffusivitySat(IndSoil) - SoilWatDiffusivity))
+       SoilSorptivity = sqrt(2.0 * max(0.0, (SoilMoistureSat(I,IndSoil,J)-SoilMoisture(I,IndSoil,J))) * &
+                             (SoilWatDiffusivitySat(I,IndSoil,J) - SoilWatDiffusivity))
        ! Parameter A in Eq. 9 of Valiantzas (2010) is given by
-       SoilWatConductTmp = min(SoilWatConductivity, (2.0/3.0)*SoilWatConductivitySat(IndSoil))
-       SoilWatConductTmp = max(SoilWatConductTmp,   (1.0/3.0)*SoilWatConductivitySat(IndSoil))
+       SoilWatConductTmp = min(SoilWatConductivity, (2.0/3.0)*SoilWatConductivitySat(I,IndSoil,J))
+       SoilWatConductTmp = max(SoilWatConductTmp,   (1.0/3.0)*SoilWatConductivitySat(I,IndSoil,J))
 
        ! Maximun infiltration rate
        InfilSfcTmp = (1.0/2.0) * SoilSorptivity * (TimeStep**(-1.0/2.0)) + SoilWatConductTmp
 
        ! infiltration rate at surface
-       if ( SoilWatConductivitySat(IndSoil) < SoilSfcInflowMean ) then
+       if ( SoilWatConductivitySat(I,IndSoil,J) < SoilSfcInflowMean ) then
           InfilSfcTmp = min(SoilSfcInflowMean, InfilSfcTmp)
        else
           InfilSfcTmp = SoilSfcInflowMean

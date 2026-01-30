@@ -16,6 +16,7 @@ contains
 ! Original Noah-MP subroutine: GROWING_GDD 
 ! Original code: Guo-Yue Niu and Noah-MP team (Niu et al. 2011)
 ! Refactered code: C. He, P. Valayamkunnath & refactor team (He et al. 2023)
+! GPU port (2D arrays): Full SoA transformation for OpenACC (2026)
 ! -------------------------------------------------------------------------
         
     implicit none
@@ -23,28 +24,34 @@ contains
     type(noahmp_type), intent(inout) :: noahmp
 
 ! local variables
+    integer                          :: I, J               ! grid indices
     real(kind=kind_noahmp)           :: GrowDegDayCnt      ! gap bewtween GrowDegreeDay and GrowDegreeDay8
     real(kind=kind_noahmp)           :: TemperatureDiff    ! temperature difference for growing degree days calculation
     real(kind=kind_noahmp)           :: TemperatureAirC    ! air temperature degC
+
+   !$acc parallel loop collapse(2) gang vector present(noahmp) &
+   !$acc private(GrowDegDayCnt, TemperatureDiff, TemperatureAirC)
+    do J = noahmp%config%domain%JTS, noahmp%config%domain%JTE
+      do I = noahmp%config%domain%ITS, noahmp%config%domain%ITE
 
 !------------------------------------------------------------------------
     associate(                                                                   &
               MainTimeStep         => noahmp%config%domain%MainTimeStep         ,& ! in,    main noahmp timestep [s]
               DayJulianInYear      => noahmp%config%domain%DayJulianInYear      ,& ! in,    Julian day of year
-              TemperatureAir2m     => noahmp%energy%state%TemperatureAir2m      ,& ! in,    2-m air temperature [K]
-              DatePlanting         => noahmp%biochem%param%DatePlanting         ,& ! in,    Planting day (day of year)
-              DateHarvest          => noahmp%biochem%param%DateHarvest          ,& ! in,    Harvest date (day of year)
-              TempBaseGrowDegDay   => noahmp%biochem%param%TempBaseGrowDegDay   ,& ! in,    Base temperature for grow degree day accumulation [C]
-              TempMaxGrowDegDay    => noahmp%biochem%param%TempMaxGrowDegDay    ,& ! in,    Max temperature for grow degree day accumulation [C]
-              GrowDegDayEmerg      => noahmp%biochem%param%GrowDegDayEmerg      ,& ! in,    grow degree day from seeding to emergence
-              GrowDegDayInitVeg    => noahmp%biochem%param%GrowDegDayInitVeg    ,& ! in,    grow degree day from seeding to initial vegetative
-              GrowDegDayPostVeg    => noahmp%biochem%param%GrowDegDayPostVeg    ,& ! in,    grow degree day from seeding to post vegetative
-              GrowDegDayInitReprod => noahmp%biochem%param%GrowDegDayInitReprod ,& ! in,    grow degree day from seeding to intial reproductive
-              GrowDegDayMature     => noahmp%biochem%param%GrowDegDayMature     ,& ! in,    grow degree day from seeding to physical maturity
-              GrowDegreeDay        => noahmp%biochem%state%GrowDegreeDay        ,& ! inout, crop growing degree days
-              IndexPlanting        => noahmp%biochem%state%IndexPlanting        ,& ! out,   Planting index index (0=off, 1=on)
-              IndexHarvest         => noahmp%biochem%state%IndexHarvest         ,& ! out,   Havest index (0=on,1=off) 
-              PlantGrowStage       => noahmp%biochem%state%PlantGrowStage        & ! out,   Plant growth stage (1=S1,2=S2,3=S3)
+              TemperatureAir2m     => noahmp%energy%state%TemperatureAir2m(I,J) ,& ! in,    2-m air temperature [K]
+              DatePlanting         => noahmp%biochem%param%DatePlanting(I,J)    ,& ! in,    Planting day (day of year)
+              DateHarvest          => noahmp%biochem%param%DateHarvest(I,J)     ,& ! in,    Harvest date (day of year)
+              TempBaseGrowDegDay   => noahmp%biochem%param%TempBaseGrowDegDay(I,J),& ! in,    Base temperature for grow degree day accumulation [C]
+              TempMaxGrowDegDay    => noahmp%biochem%param%TempMaxGrowDegDay(I,J),& ! in,    Max temperature for grow degree day accumulation [C]
+              GrowDegDayEmerg      => noahmp%biochem%param%GrowDegDayEmerg(I,J) ,& ! in,    grow degree day from seeding to emergence
+              GrowDegDayInitVeg    => noahmp%biochem%param%GrowDegDayInitVeg(I,J),& ! in,    grow degree day from seeding to initial vegetative
+              GrowDegDayPostVeg    => noahmp%biochem%param%GrowDegDayPostVeg(I,J),& ! in,    grow degree day from seeding to post vegetative
+              GrowDegDayInitReprod => noahmp%biochem%param%GrowDegDayInitReprod(I,J),& ! in,    grow degree day from seeding to intial reproductive
+              GrowDegDayMature     => noahmp%biochem%param%GrowDegDayMature(I,J),& ! in,    grow degree day from seeding to physical maturity
+              GrowDegreeDay        => noahmp%biochem%state%GrowDegreeDay(I,J)   ,& ! inout, crop growing degree days
+              IndexPlanting        => noahmp%biochem%state%IndexPlanting(I,J)   ,& ! out,   Planting index index (0=off, 1=on)
+              IndexHarvest         => noahmp%biochem%state%IndexHarvest(I,J)    ,& ! out,   Havest index (0=on,1=off)
+              PlantGrowStage       => noahmp%biochem%state%PlantGrowStage(I,J)   & ! out,   Plant growth stage (1=S1,2=S2,3=S3)
              )
 !------------------------------------------------------------------------
 
@@ -101,6 +108,10 @@ contains
     if ( DayJulianInYear < DatePlanting )        PlantGrowStage = 1   
 
     end associate
+
+      end do
+    end do
+   !$acc end parallel loop
 
   end subroutine CropGrowDegreeDay
 

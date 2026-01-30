@@ -198,13 +198,13 @@ contains
              !------------------------------------------------------------------------
          
              ! glacier ice
-             if (noahmp%config%domain%VegType == noahmp%config%domain%IndexIcePoint ) then
-                 noahmp%config%domain%IndicatorIceSfc = -1  ! Land-ice point      
-                 noahmp%forcing%TemperatureSoilBottom = min(noahmp%forcing%TemperatureSoilBottom,263.15) ! set deep glaicer temp to >= -10C
+             if (noahmp%config%domain%VegType(I,J) == noahmp%config%domain%IndexIcePoint ) then
+                 noahmp%config%domain%IndicatorIceSfc(I,J) = -1  ! Land-ice point      
+                 noahmp%forcing%TemperatureSoilBottom(I,J) = min(noahmp%forcing%TemperatureSoilBottom(I,J),263.15) ! set deep glaicer temp to >= -10C
                  call NoahmpMainGlacier(noahmp)
              ! non-glacier land
              else
-                 noahmp%config%domain%IndicatorIceSfc = 0   ! land soil point.
+                 noahmp%config%domain%IndicatorIceSfc(I,J) = 0   ! land soil point.
                  call NoahmpMain(noahmp)
              endif ! glacial split ends
 

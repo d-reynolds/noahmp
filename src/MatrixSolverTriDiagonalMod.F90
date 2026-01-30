@@ -11,11 +11,13 @@ module MatrixSolverTriDiagonalMod
 contains
 
   subroutine MatrixSolverTriDiagonal(P, A, B, C, D, Delta, IndTopLayer, NumSoilLayer, NumSnowLayerMax)
+  !$acc routine seq
 
 ! ------------------------ Code history --------------------------------------------------
 ! Original Noah-MP subroutine: ROSR12
 ! Original code: Guo-Yue Niu and Noah-MP team (Niu et al. 2011)
 ! Refactered code: C. He, P. Valayamkunnath, & refactor team (He et al. 2023)
+! GPU port: Added OpenACC routine directive for device execution (2026)
 ! ----------------------------------------------------------------------------------------
 ! INVERT (SOLVE) THE TRI-DIAGONAL MATRIX PROBLEM SHOWN BELOW:
 ! ###                                            ### ###  ###   ###  ###

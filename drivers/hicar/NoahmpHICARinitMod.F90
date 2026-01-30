@@ -46,7 +46,7 @@ contains
     use NoahmpIOVarInitMod
     use NoahmpReadTableMod
     use NoahmpInitMainMod
-    use SnowInputSnicarMod
+   !  use SnowInputSnicarMod
 
     implicit none
 
@@ -222,7 +222,7 @@ contains
     if ( NoahmpIO%IOPT_ALB == 3 ) then
        NoahmpIO%snicar_optic_flnm = "snicar_optics_5bnd_c013122.nc" 
        NoahmpIO%snicar_age_flnm   = "snicar_drdt_bst_fit_60_c070416.nc"
-       call SnowInputSnicar(NoahmpIO)
+      !  call SnowInputSnicar(NoahmpIO)
     endif
 
     !--------- WRF variables mapped to NoahmpIO variables
@@ -239,6 +239,17 @@ contains
     if(present(DY)) NoahmpIO%DY                 = DY
 
     ! 2D/3D variables
+    !$acc parallel loop gang vector collapse(2) present(NoahmpIO, &
+    !$acc& IVGTYP, ISLTYP, XLAT, TSK, XICE, CROPTYPE, FDEPTHXY, MSFTX, MSFTY, HT, RECHCLIM, &
+    !$acc& SMOIS, SH2O, TSLB, SNOW, SNOWH, CANWAT, CANICEXY, CANLIQXY, TMN, ISNOWXY, ZSNSOXY, TSNOXY, &
+    !$acc& SNICEXY, SNLIQXY, TVXY, TGXY, EAHXY, TAHXY, CMXY, CHXY, FWETXY, SNEQVOXY, ALBOLDXY, &
+    !$acc& QSNOWXY, QRAINXY, WSLAKEXY, ZWTXY, WAXY, WTXY, LFMASSXY, RTMASSXY, STMASSXY, WOODXY, GRAINXY, &
+    !$acc& GDDXY, STBLCPXY, FASTCPXY, LAI, XSAIXY, QTDRAIN, IRNUMSI, IRNUMMI, IRNUMFI, IRWATSI, &
+    !$acc& T2MVXY, T2MBXY, FSATXY, WSURFXY, SNRDSXY, SNFRXY, BCPHIXY, BCPHOXY, OCPHIXY, OCPHOXY, &
+    !$acc& DUST1XY, DUST2XY, DUST3XY, DUST4XY, DUST5XY, MASSCONCBCPHIXY, MASSCONCBCPHOXY, &
+    !$acc& MASSCONCOCPHIXY, MASSCONCOCPHOXY, MASSCONCDUST1XY, MASSCONCDUST2XY, MASSCONCDUST3XY, &
+    !$acc& MASSCONCDUST4XY, MASSCONCDUST5XY, ALBSOILDIRXY, ALBSOILDIFXY, &
+    !$acc& SMOWTDXY, DEEPRECHXY, RECHXY, QT DRAIN, AREAXY, RIVERBEDXY, EQZWT, RIVERCONDXY, PEXPXY)
     do J = jts, jtf
     do I = its, itf
     
@@ -359,6 +370,18 @@ contains
     !---------
 
     !--------- initialized NoahmpIO variable mapped to WRF variables
+    !$acc parallel loop gang vector collapse(2) present(NoahmpIO, &
+    !$acc& SMOIS, SH2O, TSLB, SNOW, SNOWH, CANWAT, CANICEXY, CANLIQXY, TMN, ISNOWXY, ZSNSOXY, TSNOXY, &
+    !$acc& SNICEXY, SNLIQXY, TVXY, TGXY, EAHXY, TAHXY, CMXY, CHXY, FWETXY, SNEQVOXY, ALBOLDXY, &
+    !$acc& QSNOWXY, QRAINXY, WSLAKEXY, ZWTXY, WAXY, WTXY, LFMASSXY, RTMASSXY, STMASSXY, WOODXY, GRAINXY, &
+    !$acc& GDDXY, STBLCPXY, FASTCPXY, LAI, XSAIXY, QTDRAIN, IRNUMSI, IRNUMMI, IRNUMFI, IRWATSI, &
+    !$acc& T2MVXY, T2MBXY, SMCWTDXY, DEEPRECHXY, RECHXY, &
+    !$acc& AREAXY, RIVERBEDXY, EQZWT, RIVERCONDXY, PEXPXY, &
+    !$acc& SMOISEQ, ALBSOILDIRXY, ALBSOILDIFXY, &
+    !$acc& FSATXY,  WSURFXY, SNRDSXY, SNFRXY, BCPHIXY, BCPHOXY, OCPHIXY, OCPHOXY, &
+    !$acc& DUST1XY, DUST2XY, DUST3XY, DUST4XY, DUST5XY, MASSCONCBCPHIXY, MASSCONCBCPHOXY, &
+    !$acc& MASSCONCOCPHIXY, MASSCONCOCPHOXY, MASSCONCDUST1XY, MASSCONCDUST2XY, MASSCONCDUST3XY, &
+    !$acc& MASSCONCDUST4XY, MASSCONCDUST5XY, CROPCAT)
     do J = jts, jtf
     do I = its, itf
 

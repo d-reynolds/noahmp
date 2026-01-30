@@ -70,13 +70,19 @@ contains
     real(kind=kind_noahmp)           :: FracNewSnow                          ! fraction of layer mass that is new snow [frc]
     real(kind=kind_noahmp)           :: FracOldSnow                          ! fraction of layer mass that is old snow [frc]
     real(kind=kind_noahmp)           :: FracLiqWater                         ! fraction of layer mass that is liquid water[frc]    
-    real(kind=kind_noahmp), allocatable, dimension(:) :: TemperatureGradient ! snow temperature gradient (lyr) [K m-1]
+    real(kind=kind_noahmp) :: TemperatureGradient(-noahmp%config%domain%NumSnowLayerMax:0) ! snow temperature gradient (lyr) [K m-1]
+    integer                          :: I, J ! grid indices
 
+    !$acc parallel loop collapse(2) gang vector present(noahmp) private(SnowLayerTop, SnowLayerBottom, TemperatureInd, TemperatureGradientInd, SnowDensityInd) &
+    !$acc private(LoopInd, bst_tau, bst_kappa, bst_drdt0, SnowMassLayer, TemperatureSnowLayerTop, TemperatureSnowLayerBottom, SnowDensity, SnowRadiusChgTot, SnowRadiusChgWet) &
+    !$acc private(SnowRadiusChgFresh, NewSnow, RefrzSnow, FracRefrz, FracNewSnow, FracOldSnow, FracLiqWater, TemperatureGradient)
+    do J = noahmp%config%domain%JTS, noahmp%config%domain%JTE
+      do I = noahmp%config%domain%ITS, noahmp%config%domain%ITE
 ! --------------------------------------------------------------------
     associate(                                                                         &
               MainTimeStep            => noahmp%config%domain%MainTimeStep            ,& ! in,  noahmp main time step [s]
               NumSnowLayerMax         => noahmp%config%domain%NumSnowLayerMax         ,& ! in,  maximum number of snow layers
-              NumSnowLayerNeg         => noahmp%config%domain%NumSnowLayerNeg         ,& ! in,  actual number of snow layers (negative)
+              NumSnowLayerNeg         => noahmp%config%domain%NumSnowLayerNeg(I,J)         ,& ! in,  actual number of snow layers (negative)
               ThicknessSnowSoilLayer  => noahmp%config%domain%ThicknessSnowSoilLayer  ,& ! in,  thickness of snow/soil layers [m]
               NumTempSnwAgeSnicar     => noahmp%config%domain%NumTempSnwAgeSnicar     ,& ! in,  maxiumum temperature index used in aging lookup table [idx]
               NumTempGradSnwAgeSnicar => noahmp%config%domain%NumTempGradSnwAgeSnicar ,& ! in,  maxiumum temperature gradient index used in aging lookup table [idx]   
@@ -84,17 +90,17 @@ contains
               TemperatureSoilSnow     => noahmp%energy%state%TemperatureSoilSnow      ,& ! in,  snow and soil layer temperature [K] 
               SnowIce                 => noahmp%water%state%SnowIce                   ,& ! in,  snow layer ice [mm]
               SnowLiqWater            => noahmp%water%state%SnowLiqWater              ,& ! in,  snow layer liquid water [mm]
-              SnowRadiusFresh         => noahmp%water%state%SnowRadiusFresh           ,& ! in,  fresh snow radius [microns]
-              SnowWaterEquiv          => noahmp%water%state%SnowWaterEquiv            ,& ! in,  snow water equivalent [mm]
-              SnowDepth               => noahmp%water%state%SnowDepth                 ,& ! in,  snow depth [m]
-              SnowfallGround          => noahmp%water%flux%SnowfallGround             ,& ! in,  snowfall at ground surface [mm/s]
+              SnowRadiusFresh         => noahmp%water%state%SnowRadiusFresh(I,J)           ,& ! in,  fresh snow radius [microns]
+              SnowWaterEquiv          => noahmp%water%state%SnowWaterEquiv(I,J)            ,& ! in,  snow water equivalent [mm]
+              SnowDepth               => noahmp%water%state%SnowDepth(I,J)                 ,& ! in,  snow depth [m]
+              SnowfallGround          => noahmp%water%flux%SnowfallGround(I,J)             ,& ! in,  snowfall at ground surface [mm/s]
               SnowFreezeRate          => noahmp%water%flux%SnowFreezeRate             ,& ! in,  rate of snow freezing [mm/s]
-              SnowRadiusMin           => noahmp%water%param%SnowRadiusMin             ,& ! in,  minimum allowed snow effective radius (also cold "fresh snow" value) [microns]
-              SnowRadiusMax           => noahmp%water%param%SnowRadiusMax             ,& ! in,  maximum allowed snow effective radius [microns]
-              SnowWetAgeC1Brun89      => noahmp%water%param%SnowWetAgeC1Brun89        ,& ! in,  constant for liquid water grain growth [m3 s-1], from Brun89
-              SnowWetAgeC2Brun89      => noahmp%water%param%SnowWetAgeC2Brun89        ,& ! in,  constant for liquid water grain growth [m3 s-1], from Brun89 corrected for LWC
-              SnowAgeScaleFac         => noahmp%water%param%SnowAgeScaleFac           ,& ! in,  arbitrary tuning/scaling factor applied to snow aging rate (-)
-              SnowRadiusRefrz         => noahmp%water%param%SnowRadiusRefrz           ,& ! in,  effective radius of re-frozen snow [microns]
+              SnowRadiusMin           => noahmp%water%param%SnowRadiusMin(I,J)             ,& ! in,  minimum allowed snow effective radius (also cold "fresh snow" value) [microns]
+              SnowRadiusMax           => noahmp%water%param%SnowRadiusMax(I,J)             ,& ! in,  maximum allowed snow effective radius [microns]
+              SnowWetAgeC1Brun89      => noahmp%water%param%SnowWetAgeC1Brun89(I,J)        ,& ! in,  constant for liquid water grain growth [m3 s-1], from Brun89
+              SnowWetAgeC2Brun89      => noahmp%water%param%SnowWetAgeC2Brun89(I,J)        ,& ! in,  constant for liquid water grain growth [m3 s-1], from Brun89 corrected for LWC
+              SnowAgeScaleFac         => noahmp%water%param%SnowAgeScaleFac(I,J)           ,& ! in,  arbitrary tuning/scaling factor applied to snow aging rate (-)
+              SnowRadiusRefrz         => noahmp%water%param%SnowRadiusRefrz(I,J)           ,& ! in,  effective radius of re-frozen snow [microns]
               snowage_tau             => noahmp%water%param%snowage_tau               ,& ! in,  snowage tau from table [hours]
               snowage_kappa           => noahmp%water%param%snowage_kappa             ,& ! in,  snowage kappa from table [unitless]
               snowage_drdt0           => noahmp%water%param%snowage_drdt0             ,& ! in,  snowage dr/dt_0 from table [m2 kg-1 hr-1]
@@ -103,41 +109,41 @@ contains
 ! ----------------------------------------------------------------------
 
     ! initialize
-    if (.not. allocated(TemperatureGradient)) allocate(TemperatureGradient(-NumSnowLayerMax:0))
     SnowLayerBottom = 0
     SnowLayerTop = NumSnowLayerNeg + 1
 
     ! loop over snow layers
+    !$acc loop seq
     do LoopInd = SnowLayerTop, SnowLayerBottom, 1
      
       !**********  1. DRY SNOW AGING  ***********
-      SnowMassLayer = SnowLiqWater(LoopInd) + SnowIce(LoopInd)
+      SnowMassLayer = SnowLiqWater(I,LoopInd,J) + SnowIce(I,LoopInd,J)
  
       ! temperature gradient
       if (LoopInd == SnowLayerTop) then ! top layer
-         TemperatureSnowLayerTop    = TemperatureSoilSnow(SnowLayerTop)
-         TemperatureSnowLayerBottom = (TemperatureSoilSnow(LoopInd+1) * ThicknessSnowSoilLayer(LoopInd) &
-                                      + TemperatureSoilSnow(LoopInd) * ThicknessSnowSoilLayer(LoopInd+1)) &
-                                      / (ThicknessSnowSoilLayer(LoopInd) + ThicknessSnowSoilLayer(LoopInd+1))
+         TemperatureSnowLayerTop    = TemperatureSoilSnow(I,SnowLayerTop,J)
+         TemperatureSnowLayerBottom = (TemperatureSoilSnow(I,LoopInd+1,J) * ThicknessSnowSoilLayer(I,LoopInd,J) &
+                                      + TemperatureSoilSnow(I,LoopInd,J) * ThicknessSnowSoilLayer(I,LoopInd+1,J)) &
+                                      / (ThicknessSnowSoilLayer(I,LoopInd,J) + ThicknessSnowSoilLayer(I,LoopInd+1,J))
       else
-         TemperatureSnowLayerTop    = (TemperatureSoilSnow(LoopInd-1) * ThicknessSnowSoilLayer(LoopInd) &
-                                      + TemperatureSoilSnow(LoopInd) * ThicknessSnowSoilLayer(LoopInd-1)) &
-                                      / (ThicknessSnowSoilLayer(LoopInd) + ThicknessSnowSoilLayer(LoopInd-1))
-         TemperatureSnowLayerBottom = (TemperatureSoilSnow(LoopInd+1) * ThicknessSnowSoilLayer(LoopInd) &
-                                      + TemperatureSoilSnow(LoopInd) * ThicknessSnowSoilLayer(LoopInd+1)) &
-                                      / (ThicknessSnowSoilLayer(LoopInd) + ThicknessSnowSoilLayer(LoopInd+1))
+         TemperatureSnowLayerTop    = (TemperatureSoilSnow(I,LoopInd-1,J) * ThicknessSnowSoilLayer(I,LoopInd,J) &
+                                      + TemperatureSoilSnow(I,LoopInd,J) * ThicknessSnowSoilLayer(I,LoopInd-1,J)) &
+                                      / (ThicknessSnowSoilLayer(I,LoopInd,J) + ThicknessSnowSoilLayer(I,LoopInd-1,J))
+         TemperatureSnowLayerBottom = (TemperatureSoilSnow(I,LoopInd+1,J) * ThicknessSnowSoilLayer(I,LoopInd,J) &
+                                      + TemperatureSoilSnow(I,LoopInd,J) * ThicknessSnowSoilLayer(I,LoopInd+1,J)) &
+                                      / (ThicknessSnowSoilLayer(I,LoopInd,J) + ThicknessSnowSoilLayer(I,LoopInd+1,J))
       endif
       TemperatureGradient(LoopInd) = abs((TemperatureSnowLayerTop - TemperatureSnowLayerBottom) / &
-                                         ThicknessSnowSoilLayer(LoopInd))
+                                         ThicknessSnowSoilLayer(I,LoopInd,J))
 
       ! snow density
-      SnowDensity = SnowMassLayer / ThicknessSnowSoilLayer(LoopInd)
+      SnowDensity = SnowMassLayer / ThicknessSnowSoilLayer(I,LoopInd,J)
 
       ! make sure snow density doesn't drop below 50 (see SnowDensityInd below)
       SnowDensity = max(50.0, SnowDensity)
 
       ! best-fit table indices
-      TemperatureInd         = nint((TemperatureSoilSnow(LoopInd)-223.15) / 5) + 1
+      TemperatureInd         = nint((TemperatureSoilSnow(I,LoopInd,J)-223.15) / 5) + 1
       TemperatureGradientInd = nint(TemperatureGradient(LoopInd) / 10) + 1
       SnowDensityInd         = nint((SnowDensity-50.0) / 50.0) + 1
 
@@ -167,15 +173,15 @@ contains
       bst_drdt0 = snowage_drdt0(SnowDensityInd,TemperatureGradientInd,TemperatureInd)
 
       ! extra boundary check, to prevent when using old restart file with lower SnowRadiusMin than current run
-      if (SnowRadius(LoopInd) < SnowRadiusMin) then
-         SnowRadius(LoopInd) = SnowRadiusMin
+      if (SnowRadius(I,LoopInd,J) < SnowRadiusMin) then
+         SnowRadius(I,LoopInd,J) = SnowRadiusMin
       endif
-      if (SnowRadius(LoopInd) < SnowRadiusFresh) then
-         SnowRadius(LoopInd) = SnowRadiusFresh
+      if (SnowRadius(I,LoopInd,J) < SnowRadiusFresh) then
+         SnowRadius(I,LoopInd,J) = SnowRadiusFresh
       endif
 
       ! change in snow effective radius, using best-fit parameters
-      SnowRadiusChgFresh = SnowRadius(LoopInd) - SnowRadiusMin
+      SnowRadiusChgFresh = SnowRadius(I,LoopInd,J) - SnowRadiusMin
       SnowRadiusChgTot   = (bst_drdt0 * (bst_tau/(SnowRadiusChgFresh+bst_tau))**(1.0/bst_kappa)) * &
                            (MainTimeStep/3600.0)
 
@@ -186,9 +192,9 @@ contains
       ! This is justified by setting the linear offset constant SnowWetAgeC1Brun89 to zero [Brun, 1989]
 
       ! liquid water faction
-      FracLiqWater = min(0.1, (SnowLiqWater(LoopInd)/SnowMassLayer))
+      FracLiqWater = min(0.1, (SnowLiqWater(I,LoopInd,J)/SnowMassLayer))
       SnowRadiusChgWet = 1.0e18 * ( MainTimeStep*(SnowWetAgeC1Brun89 + SnowWetAgeC2Brun89*(FracLiqWater**(3))) / &
-                         (4.0 * ConstPI * SnowRadius(LoopInd)**(2)) )
+                         (4.0 * ConstPI * SnowRadius(I,LoopInd,J)**(2)) )
       SnowRadiusChgTot = SnowRadiusChgTot + SnowRadiusChgWet
 
 
@@ -205,7 +211,7 @@ contains
       NewSnow = max(0.0, (SnowfallGround*MainTimeStep))
 
       ! snow that has re-frozen [kg/m2]
-      RefrzSnow = max(0.0, (SnowFreezeRate(LoopInd)*MainTimeStep)) 
+      RefrzSnow = max(0.0, (SnowFreezeRate(I,LoopInd,J)*MainTimeStep)) 
 
       ! fraction of layer mass that is re-frozen
       FracRefrz = RefrzSnow / SnowMassLayer
@@ -226,42 +232,48 @@ contains
       endif
 
       ! mass-weighted mean of fresh snow, old snow, and re-frozen snow effective radius
-      SnowRadius(LoopInd) = (SnowRadius(LoopInd) + SnowRadiusChgTot)*FracOldSnow + &
+      SnowRadius(I,LoopInd,J) = (SnowRadius(I,LoopInd,J) + SnowRadiusChgTot)*FracOldSnow + &
                             SnowRadiusFresh*FracNewSnow + SnowRadiusRefrz*FracRefrz
 
 
       !**********  5. CHECK BOUNDARIES   ***********
       ! boundary check
 
-      if (SnowRadius(LoopInd) < SnowRadiusMin) then
-         SnowRadius(LoopInd) = SnowRadiusMin
+      if (SnowRadius(I,LoopInd,J) < SnowRadiusMin) then
+         SnowRadius(I,LoopInd,J) = SnowRadiusMin
       endif
 
-      if (SnowRadius(LoopInd) > SnowRadiusMax) then
-         SnowRadius(LoopInd) = SnowRadiusMax
+      if (SnowRadius(I,LoopInd,J) > SnowRadiusMax) then
+         SnowRadius(I,LoopInd,J) = SnowRadiusMax
       end if
 
     enddo ! layer loop
 
     ! sanity check for snow layer
     if (-NumSnowLayerMax /= NumSnowLayerNeg) then
-       SnowRadius(-NumSnowLayerMax:NumSnowLayerNeg) = 0.0
+       !$acc loop seq
+       do LoopInd = -NumSnowLayerMax, NumSnowLayerNeg
+         SnowRadius(I,LoopInd,J) = 0.0
+       enddo
     endif
 
     if (NumSnowLayerNeg == 0) then
-       SnowRadius(:) = 0.0
+       !$acc loop seq
+       do LoopInd = -NumSnowLayerMax, 0
+         SnowRadius(I,LoopInd,J) = 0.0
+       enddo
     endif
 
     ! special case: snow on ground, but not enough to have defined a snow layer:
     ! set SnowRadius to fresh snow grain size
     if (NumSnowLayerNeg == 0 .and. &
         ((SnowfallGround > 0.0) .or. (SnowWaterEquiv > 0.0) .or. (SnowDepth > 0.0))) then
-       SnowRadius(SnowLayerBottom) = SnowRadiusFresh  !SnowRadiusMin
+       SnowRadius(I,SnowLayerBottom,J) = SnowRadiusFresh  !SnowRadiusMin
     endif
 
-    deallocate(TemperatureGradient)
-
     end associate
+   enddo
+enddo
 
   end subroutine SnowAgingSnicar
 

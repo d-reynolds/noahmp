@@ -11,11 +11,13 @@ module TileDrainageEquiDepthMod
 contains
 
   subroutine TileDrainageEquiDepth(DrainDepthToImp, DrainTubeDist, DrainTubeRadius, DrainWatHgtAbvImp)
+  !$acc routine seq
 
 ! ------------------------ Code history --------------------------------------------------
 ! Original Noah-MP subroutine: TD_EQUIVALENT_DEPTH
 ! Original code: P. Valayamkunnath (NCAR)
 ! Refactered code: C. He, P. Valayamkunnath, & refactor team (He et al. 2023)
+! GPU port (2D arrays): Added OpenACC routine directive for device execution (2026)
 ! ----------------------------------------------------------------------------------------
 
     implicit none

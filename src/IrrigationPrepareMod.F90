@@ -17,6 +17,7 @@ contains
 ! Original Noah-MP subroutine: None (embedded in NOAHMP_SFLX
 ! Original code: P. Valayamkunnath (NCAR) <prasanth@ucar.edu> (08/06/2020)
 ! Refactered code: C. He, P. Valayamkunnath, & refactor team (He et al. 2023)
+! GPU port (2D arrays): Full SoA transformation for OpenACC (2026)
 ! ----------------------------------------------------------------------------------------
 
     implicit none
@@ -24,22 +25,27 @@ contains
     type(noahmp_type), intent(inout) :: noahmp
 
 ! local variable
+    integer                          :: I, J     ! grid indices
+
+   !$acc parallel loop collapse(2) gang vector present(noahmp)
+    do J = noahmp%config%domain%JTS, noahmp%config%domain%JTE
+      do I = noahmp%config%domain%ITS, noahmp%config%domain%ITE
 
 ! ----------------------------------------------------------------------
-    associate(                                                                       &
-              FlagCropland            => noahmp%config%domain%FlagCropland          ,& ! in,    flag to identify croplands
-              FlagSoilProcess         => noahmp%config%domain%FlagSoilProcess       ,& ! in,    flag to calculate soil processes
-              OptIrrigationMethod     => noahmp%config%nmlist%OptIrrigationMethod   ,& ! in,    irrigation method option
-              IrriFracThreshold       => noahmp%water%param%IrriFracThreshold       ,& ! in,    irrigation fraction threshold
-              IrriStopPrecipThr       => noahmp%water%param%IrriStopPrecipThr       ,& ! in,    maximum precipitation to stop irrigation trigger
-              IrrigationFracGrid      => noahmp%water%state%IrrigationFracGrid      ,& ! in,    total input irrigation fraction of a grid
-              IrrigationAmtSprinkler  => noahmp%water%state%IrrigationAmtSprinkler  ,& ! inout, irrigation water amount [m] to be applied, Sprinkler
-              IrrigationAmtFlood      => noahmp%water%state%IrrigationAmtFlood      ,& ! inout, flood irrigation water amount [m]
-              IrrigationAmtMicro      => noahmp%water%state%IrrigationAmtMicro      ,& ! inout, micro irrigation water amount [m]
-              RainfallRefHeight       => noahmp%water%flux%RainfallRefHeight        ,& ! inout, rainfall [mm/s] at reference height
-              IrrigationFracSprinkler => noahmp%water%state%IrrigationFracSprinkler ,& ! out,   sprinkler irrigation fraction (0 to 1)
-              IrrigationFracMicro     => noahmp%water%state%IrrigationFracMicro     ,& ! out,   fraction of grid under micro irrigation (0 to 1)
-              IrrigationFracFlood     => noahmp%water%state%IrrigationFracFlood      & ! out,   fraction of grid under flood irrigation (0 to 1)
+    associate(                                                                           &
+              FlagCropland            => noahmp%config%domain%FlagCropland(I,J)         ,& ! in,    flag to identify croplands
+              FlagSoilProcess         => noahmp%config%domain%FlagSoilProcess           ,& ! in,    flag to calculate soil processes
+              OptIrrigationMethod     => noahmp%config%nmlist%OptIrrigationMethod       ,& ! in,    irrigation method option
+              IrriFracThreshold       => noahmp%water%param%IrriFracThreshold(I,J)      ,& ! in,    irrigation fraction threshold
+              IrriStopPrecipThr       => noahmp%water%param%IrriStopPrecipThr(I,J)      ,& ! in,    maximum precipitation to stop irrigation trigger
+              IrrigationFracGrid      => noahmp%water%state%IrrigationFracGrid(I,J)     ,& ! in,    total input irrigation fraction of a grid
+              IrrigationAmtSprinkler  => noahmp%water%state%IrrigationAmtSprinkler(I,J) ,& ! inout, irrigation water amount [m] to be applied, Sprinkler
+              IrrigationAmtFlood      => noahmp%water%state%IrrigationAmtFlood(I,J)     ,& ! inout, flood irrigation water amount [m]
+              IrrigationAmtMicro      => noahmp%water%state%IrrigationAmtMicro(I,J)     ,& ! inout, micro irrigation water amount [m]
+              RainfallRefHeight       => noahmp%water%flux%RainfallRefHeight(I,J)       ,& ! inout, rainfall [mm/s] at reference height
+              IrrigationFracSprinkler => noahmp%water%state%IrrigationFracSprinkler(I,J),& ! out,   sprinkler irrigation fraction (0 to 1)
+              IrrigationFracMicro     => noahmp%water%state%IrrigationFracMicro(I,J)    ,& ! out,   fraction of grid under micro irrigation (0 to 1)
+              IrrigationFracFlood     => noahmp%water%state%IrrigationFracFlood(I,J)     & ! out,   fraction of grid under flood irrigation (0 to 1)
              )
 ! ----------------------------------------------------------------------
 
@@ -69,7 +75,7 @@ contains
        if ( (FlagCropland .eqv. .true.) .and. (IrrigationFracGrid >= IrriFracThreshold) .and. &
             (RainfallRefHeight < (IrriStopPrecipThr/3600.0)) .and. &
             ((IrrigationAmtSprinkler+IrrigationAmtMicro+IrrigationAmtFlood) == 0.0) ) then
-          call IrrigationTrigger(noahmp)
+          call IrrigationTrigger(noahmp, I, J)
        endif
 
        ! set irrigation off if larger than IrriStopPrecipThr mm/h for this time step and irr triggered last time step
@@ -81,6 +87,10 @@ contains
     endif
 
     end associate
+
+      end do
+    end do
+   !$acc end parallel loop
 
   end subroutine IrrigationPrepare
 

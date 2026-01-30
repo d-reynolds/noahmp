@@ -9,12 +9,14 @@ module PiecewiseLinearInterp1dMod
 contains
 
   subroutine PiecewiseLinearInterp1d(ND, XD, YD, XI, YI)
+!$acc routine seq
 
 ! ------------------------ Code history --------------------------------------------------
 ! Piecewise linear interpolation method for 1-dimensional data
 ! Original author: John Burkardt, Florida State University, 09/22/2012
 ! Added and modified by Cenlin He (NCAR) in CTSM, 01/27/2022
 ! Added in Noah-MP by T.-S. Lin (NCAR), 2024
+! GPU port: Added !$acc routine seq for OpenACC (2026)
 ! ----------------------------------------------------------------------------------------
 
     implicit none

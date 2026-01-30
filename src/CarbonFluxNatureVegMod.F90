@@ -17,6 +17,7 @@ contains
 ! Original Noah-MP subroutine: CO2FLUX
 ! Original code: Guo-Yue Niu and Noah-MP team (Niu et al. 2011)
 ! Refactered code: C. He, P. Valayamkunnath & refactor team (He et al. 2023)
+! GPU port (2D arrays): Full SoA transformation for OpenACC (2026)
 ! -------------------------------------------------------------------------
         
     implicit none
@@ -24,6 +25,7 @@ contains
     type(noahmp_type), intent(inout) :: noahmp
 
 ! local variables
+    integer                          :: I, J                 ! grid indices
     real(kind=kind_noahmp)           :: DeathCoeffTemp       ! temperature stress death coefficient
     real(kind=kind_noahmp)           :: DeathCoeffWater      ! water stress death coefficient
     real(kind=kind_noahmp)           :: NetPriProdLeafAdd    ! leaf assimil after resp. losses removed [gC/m2/s] 
@@ -31,93 +33,98 @@ contains
     real(kind=kind_noahmp)           :: RespTmp, Temp0       ! temperary vars for function below
     RespTmp(Temp0) = exp(0.08 * (Temp0 - 298.16))            ! Respiration as a function of temperature
 
+   !$acc parallel loop collapse(2) gang vector present(noahmp) &
+   !$acc private(DeathCoeffTemp, DeathCoeffWater, NetPriProdLeafAdd, NetPriProdStemAdd, RespTmp, Temp0)
+    do J = noahmp%config%domain%JTS, noahmp%config%domain%JTE
+      do I = noahmp%config%domain%ITS, noahmp%config%domain%ITE
+
 !------------------------------------------------------------------------
     associate(                                                                           &
-              VegType                  => noahmp%config%domain%VegType                  ,& ! in,    vegetation type
-              MainTimeStep             => noahmp%config%domain%MainTimeStep             ,& ! in,    main noahmp timestep [s]
-              IndexEBLForest           => noahmp%config%domain%IndexEBLForest           ,& ! in,    flag for Evergreen Broadleaf Forest
-              WoodToRootRatio          => noahmp%biochem%param%WoodToRootRatio          ,& ! in,    wood to root ratio
-              TurnoverCoeffLeafVeg     => noahmp%biochem%param%TurnoverCoeffLeafVeg     ,& ! in,    leaf turnover coefficient [1/s] for generic vegetation
-              TemperaureLeafFreeze     => noahmp%biochem%param%TemperaureLeafFreeze     ,& ! in,    characteristic temperature for leaf freezing [K]
-              LeafDeathWaterCoeffVeg   => noahmp%biochem%param%LeafDeathWaterCoeffVeg   ,& ! in,    coeficient for leaf water stress death [1/s] for generic veg
-              LeafDeathTempCoeffVeg    => noahmp%biochem%param%LeafDeathTempCoeffVeg    ,& ! in,    coeficient for leaf temp. stress death [1/s] for generic veg
-              GrowthRespFrac           => noahmp%biochem%param%GrowthRespFrac           ,& ! in,    fraction of growth respiration
-              TemperatureMinPhotosyn   => noahmp%biochem%param%TemperatureMinPhotosyn   ,& ! in,    minimum temperature for photosynthesis [K]
-              MicroRespCoeff           => noahmp%biochem%param%MicroRespCoeff           ,& ! in,    microbial respiration parameter [umol CO2/kgC/s]
-              NitrogenConcFoliageMax   => noahmp%biochem%param%NitrogenConcFoliageMax   ,& ! in,    foliage nitrogen concentration when f(n)=1 (%)
-              RespMaintQ10             => noahmp%biochem%param%RespMaintQ10             ,& ! in,    q10 for maintenance respiration
-              RespMaintLeaf25C         => noahmp%biochem%param%RespMaintLeaf25C         ,& ! in,    leaf maintenance respiration at 25c [umol CO2/m2/s]
-              RespMaintRoot25C         => noahmp%biochem%param%RespMaintRoot25C         ,& ! in,    root maintenance respiration at 25c [umol CO2/kgC/s]
-              RespMaintStem25C         => noahmp%biochem%param%RespMaintStem25C         ,& ! in,    stem maintenance respiration at 25c [umol CO2/kgC/s]
-              WoodPoolIndex            => noahmp%biochem%param%WoodPoolIndex            ,& ! in,    wood pool index (0~1) depending on woody or not
-              TurnoverCoeffRootVeg     => noahmp%biochem%param%TurnoverCoeffRootVeg     ,& ! in,    root turnover coefficient [1/s] for generic vegetation
-              WoodRespCoeff            => noahmp%biochem%param%WoodRespCoeff            ,& ! in,    wood respiration coeficient [1/s]
-              WoodAllocFac             => noahmp%biochem%param%WoodAllocFac             ,& ! in,    parameter for present wood allocation
-              WaterStressCoeff         => noahmp%biochem%param%WaterStressCoeff         ,& ! in,    water stress coeficient
-              LeafAreaIndexMin         => noahmp%biochem%param%LeafAreaIndexMin         ,& ! in,    minimum leaf area index [m2/m2]
-              StemAreaIndexMin         => noahmp%biochem%param%StemAreaIndexMin         ,& ! in,    minimum stem area index [m2/m2]
-              IndexGrowSeason          => noahmp%biochem%state%IndexGrowSeason          ,& ! in,    growing season index (0=off, 1=on)
-              NitrogenConcFoliage      => noahmp%biochem%state%NitrogenConcFoliage      ,& ! in,    foliage nitrogen concentration [%]
-              LeafAreaPerMass          => noahmp%biochem%state%LeafAreaPerMass          ,& ! in,    leaf area per unit mass [m2/g]
-              PhotosynTotal            => noahmp%biochem%flux%PhotosynTotal             ,& ! in,    total leaf photosynthesis [umolCO2/m2/s]
-              SoilWaterRootZone        => noahmp%water%state%SoilWaterRootZone          ,& ! in,    root zone soil water
-              SoilWaterStress          => noahmp%water%state%SoilWaterStress            ,& ! in,    water stress coeficient (1.0 for wilting)
-              TemperatureSoilSnow      => noahmp%energy%state%TemperatureSoilSnow       ,& ! in,    snow and soil layer temperature [K]
-              TemperatureCanopy        => noahmp%energy%state%TemperatureCanopy         ,& ! in,    vegetation temperature [K]
-              LeafAreaIndex            => noahmp%energy%state%LeafAreaIndex             ,& ! inout, leaf area index
-              StemAreaIndex            => noahmp%energy%state%StemAreaIndex             ,& ! inout, stem area index
-              LeafMass                 => noahmp%biochem%state%LeafMass                 ,& ! inout, leaf mass [gC/m2]
-              RootMass                 => noahmp%biochem%state%RootMass                 ,& ! inout, mass of fine roots [gC/m2]
-              StemMass                 => noahmp%biochem%state%StemMass                 ,& ! inout, stem mass [gC/m2]
-              WoodMass                 => noahmp%biochem%state%WoodMass                 ,& ! inout, mass of wood (incl. woody roots) [gC/m2]
-              CarbonMassDeepSoil       => noahmp%biochem%state%CarbonMassDeepSoil       ,& ! inout, stable carbon in deep soil [gC/m2]
-              CarbonMassShallowSoil    => noahmp%biochem%state%CarbonMassShallowSoil    ,& ! inout, short-lived carbon in shallow soil [gC/m2]
-              CarbonMassSoilTot        => noahmp%biochem%state%CarbonMassSoilTot        ,& ! out,   total soil carbon [gC/m2]
-              CarbonMassLiveTot        => noahmp%biochem%state%CarbonMassLiveTot        ,& ! out,   total living carbon ([gC/m2]
-              LeafMassMin              => noahmp%biochem%state%LeafMassMin              ,& ! out,   minimum leaf mass [gC/m2]
-              CarbonFracToLeaf         => noahmp%biochem%state%CarbonFracToLeaf         ,& ! out,   fraction of carbon allocated to leaves
-              WoodCarbonFrac           => noahmp%biochem%state%WoodCarbonFrac           ,& ! out,   calculated wood to root ratio
-              CarbonFracToWoodRoot     => noahmp%biochem%state%CarbonFracToWoodRoot     ,& ! out,   fraction of carbon to root and wood
-              CarbonFracToRoot         => noahmp%biochem%state%CarbonFracToRoot         ,& ! out,   fraction of carbon flux to roots
-              CarbonFracToWood         => noahmp%biochem%state%CarbonFracToWood         ,& ! out,   fraction of carbon flux to wood
-              CarbonFracToStem         => noahmp%biochem%state%CarbonFracToStem         ,& ! out,   fraction of carbon flux to stem
-              MicroRespFactorSoilWater => noahmp%biochem%state%MicroRespFactorSoilWater ,& ! out,   soil water factor for microbial respiration
-              MicroRespFactorSoilTemp  => noahmp%biochem%state%MicroRespFactorSoilTemp  ,& ! out,   soil temperature factor for microbial respiration
-              RespFacNitrogenFoliage   => noahmp%biochem%state%RespFacNitrogenFoliage   ,& ! out,   foliage nitrogen adjustemt to respiration (<= 1)
-              RespFacTemperature       => noahmp%biochem%state%RespFacTemperature       ,& ! out,   temperature factor
-              RespReductionFac         => noahmp%biochem%state%RespReductionFac         ,& ! out,   respiration reduction factor (<= 1)
-              StemMassMin              => noahmp%biochem%state%StemMassMin              ,& ! out,   minimum stem mass [gC/m2]
-              StemAreaPerMass          => noahmp%biochem%state%StemAreaPerMass          ,& ! out,   stem area per unit mass [m2/g]
-              CarbonAssim              => noahmp%biochem%flux%CarbonAssim               ,& ! out,   carbon assimilated rate [gC/m2/s]
-              GrossPriProduction       => noahmp%biochem%flux%GrossPriProduction        ,& ! out,   gross primary production [gC/m2/s]
-              NetPriProductionTot      => noahmp%biochem%flux%NetPriProductionTot       ,& ! out,   total net primary productivity [gC/m2/s]
-              NetEcoExchange           => noahmp%biochem%flux%NetEcoExchange            ,& ! out,   net ecosystem exchange [gCO2/m2/s]
-              RespirationPlantTot      => noahmp%biochem%flux%RespirationPlantTot       ,& ! out,   total plant respiration [gC/m2/s]
-              RespirationSoilOrg       => noahmp%biochem%flux%RespirationSoilOrg        ,& ! out,   soil organic respiration [gC/m2/s]
-              CarbonToAtmos            => noahmp%biochem%flux%CarbonToAtmos             ,& ! out,   carbon flux to atmosphere [gC/m2/s]
-              NetPriProductionLeaf     => noahmp%biochem%flux%NetPriProductionLeaf      ,& ! out,   leaf net primary productivity [gC/m2/s]
-              NetPriProductionRoot     => noahmp%biochem%flux%NetPriProductionRoot      ,& ! out,   root net primary productivity [gC/m2/s]
-              NetPriProductionWood     => noahmp%biochem%flux%NetPriProductionWood      ,& ! out,   wood net primary productivity [gC/m2/s]
-              NetPriProductionStem     => noahmp%biochem%flux%NetPriProductionStem      ,& ! out,   stem net primary productivity [gC/m2/s]
-              GrowthRespLeaf           => noahmp%biochem%flux%GrowthRespLeaf            ,& ! out,   growth respiration rate for leaf [gC/m2/s]
-              GrowthRespRoot           => noahmp%biochem%flux%GrowthRespRoot            ,& ! out,   growth respiration rate for root [gC/m2/s]
-              GrowthRespWood           => noahmp%biochem%flux%GrowthRespWood            ,& ! out,   growth respiration rate for wood [gC/m2/s]
-              GrowthRespStem           => noahmp%biochem%flux%GrowthRespStem            ,& ! out,   growth respiration rate for stem [gC/m2/s]
-              LeafMassMaxChg           => noahmp%biochem%flux%LeafMassMaxChg            ,& ! out,   maximum leaf mass available to change [gC/m2/s]
-              CarbonDecayToStable      => noahmp%biochem%flux%CarbonDecayToStable       ,& ! out,   decay rate of fast carbon to slow carbon [gC/m2/s]
-              RespirationLeaf          => noahmp%biochem%flux%RespirationLeaf           ,& ! out,   leaf respiration rate [umol CO2/m2/s]
-              RespirationStem          => noahmp%biochem%flux%RespirationStem           ,& ! out,   stem respiration rate [gC/m2/s]
-              RespirationWood          => noahmp%biochem%flux%RespirationWood           ,& ! out,   wood respiration rate [gC/m2/s]
-              RespirationLeafMaint     => noahmp%biochem%flux%RespirationLeafMaint      ,& ! out,   leaf maintenance respiration rate [gC/m2/s]
-              RespirationRoot          => noahmp%biochem%flux%RespirationRoot           ,& ! out,   fine root respiration rate [gC/m2/s]
-              RespirationSoil          => noahmp%biochem%flux%RespirationSoil           ,& ! out,   soil respiration rate [gC/m2/s]
-              DeathLeaf                => noahmp%biochem%flux%DeathLeaf                 ,& ! out,   death rate of leaf mass [gC/m2/s]
-              DeathStem                => noahmp%biochem%flux%DeathStem                 ,& ! out,   death rate of stem mass [gC/m2/s]
-              TurnoverLeaf             => noahmp%biochem%flux%TurnoverLeaf              ,& ! out,   leaf turnover rate [gC/m2/s]
-              TurnoverStem             => noahmp%biochem%flux%TurnoverStem              ,& ! out,   stem turnover rate [gC/m2/s]
-              TurnoverWood             => noahmp%biochem%flux%TurnoverWood              ,& ! out,   wood turnover rate [gC/m2/s]
-              TurnoverRoot             => noahmp%biochem%flux%TurnoverRoot              ,& ! out,   root turnover rate [gC/m2/s]
-              StemMassMaxChg           => noahmp%biochem%flux%StemMassMaxChg             & ! out,   maximum steam mass available to change [gC/m2/s]
+              VegType                  => noahmp%config%domain%VegType(I,J)              ,& ! in,    vegetation type
+              MainTimeStep             => noahmp%config%domain%MainTimeStep              ,& ! in,    main noahmp timestep [s]
+              IndexEBLForest           => noahmp%config%domain%IndexEBLForest            ,& ! in,    flag for Evergreen Broadleaf Forest
+              WoodToRootRatio          => noahmp%biochem%param%WoodToRootRatio(I,J)      ,& ! in,    wood to root ratio
+              TurnoverCoeffLeafVeg     => noahmp%biochem%param%TurnoverCoeffLeafVeg(I,J) ,& ! in,    leaf turnover coefficient [1/s] for generic vegetation
+              TemperaureLeafFreeze     => noahmp%biochem%param%TemperaureLeafFreeze(I,J) ,& ! in,    characteristic temperature for leaf freezing [K]
+              LeafDeathWaterCoeffVeg   => noahmp%biochem%param%LeafDeathWaterCoeffVeg(I,J),& ! in,    coeficient for leaf water stress death [1/s] for generic veg
+              LeafDeathTempCoeffVeg    => noahmp%biochem%param%LeafDeathTempCoeffVeg(I,J),& ! in,    coeficient for leaf temp. stress death [1/s] for generic veg
+              GrowthRespFrac           => noahmp%biochem%param%GrowthRespFrac(I,J)       ,& ! in,    fraction of growth respiration
+              TemperatureMinPhotosyn   => noahmp%biochem%param%TemperatureMinPhotosyn(I,J),& ! in,    minimum temperature for photosynthesis [K]
+              MicroRespCoeff           => noahmp%biochem%param%MicroRespCoeff(I,J)       ,& ! in,    microbial respiration parameter [umol CO2/kgC/s]
+              NitrogenConcFoliageMax   => noahmp%biochem%param%NitrogenConcFoliageMax(I,J),& ! in,    foliage nitrogen concentration when f(n)=1 (%)
+              RespMaintQ10             => noahmp%biochem%param%RespMaintQ10(I,J)         ,& ! in,    q10 for maintenance respiration
+              RespMaintLeaf25C         => noahmp%biochem%param%RespMaintLeaf25C(I,J)     ,& ! in,    leaf maintenance respiration at 25c [umol CO2/m2/s]
+              RespMaintRoot25C         => noahmp%biochem%param%RespMaintRoot25C(I,J)     ,& ! in,    root maintenance respiration at 25c [umol CO2/kgC/s]
+              RespMaintStem25C         => noahmp%biochem%param%RespMaintStem25C(I,J)     ,& ! in,    stem maintenance respiration at 25c [umol CO2/kgC/s]
+              WoodPoolIndex            => noahmp%biochem%param%WoodPoolIndex(I,J)        ,& ! in,    wood pool index (0~1) depending on woody or not
+              TurnoverCoeffRootVeg     => noahmp%biochem%param%TurnoverCoeffRootVeg(I,J) ,& ! in,    root turnover coefficient [1/s] for generic vegetation
+              WoodRespCoeff            => noahmp%biochem%param%WoodRespCoeff(I,J)        ,& ! in,    wood respiration coeficient [1/s]
+              WoodAllocFac             => noahmp%biochem%param%WoodAllocFac(I,J)         ,& ! in,    parameter for present wood allocation
+              WaterStressCoeff         => noahmp%biochem%param%WaterStressCoeff(I,J)     ,& ! in,    water stress coeficient
+              LeafAreaIndexMin         => noahmp%biochem%param%LeafAreaIndexMin(I,J)     ,& ! in,    minimum leaf area index [m2/m2]
+              StemAreaIndexMin         => noahmp%biochem%param%StemAreaIndexMin(I,J)     ,& ! in,    minimum stem area index [m2/m2]
+              IndexGrowSeason          => noahmp%biochem%state%IndexGrowSeason(I,J)      ,& ! in,    growing season index (0=off, 1=on)
+              NitrogenConcFoliage      => noahmp%biochem%state%NitrogenConcFoliage(I,J)  ,& ! in,    foliage nitrogen concentration [%]
+              LeafAreaPerMass          => noahmp%biochem%state%LeafAreaPerMass(I,J)      ,& ! in,    leaf area per unit mass [m2/g]
+              PhotosynTotal            => noahmp%biochem%flux%PhotosynTotal(I,J)         ,& ! in,    total leaf photosynthesis [umolCO2/m2/s]
+              SoilWaterRootZone        => noahmp%water%state%SoilWaterRootZone(I,J)      ,& ! in,    root zone soil water
+              SoilWaterStress          => noahmp%water%state%SoilWaterStress(I,J)        ,& ! in,    water stress coeficient (1.0 for wilting)
+              TemperatureSoilSnow      => noahmp%energy%state%TemperatureSoilSnow        ,& ! in,    snow and soil layer temperature [K]
+              TemperatureCanopy        => noahmp%energy%state%TemperatureCanopy(I,J)     ,& ! in,    vegetation temperature [K]
+              LeafAreaIndex            => noahmp%energy%state%LeafAreaIndex(I,J)         ,& ! inout, leaf area index
+              StemAreaIndex            => noahmp%energy%state%StemAreaIndex(I,J)         ,& ! inout, stem area index
+              LeafMass                 => noahmp%biochem%state%LeafMass(I,J)             ,& ! inout, leaf mass [gC/m2]
+              RootMass                 => noahmp%biochem%state%RootMass(I,J)             ,& ! inout, mass of fine roots [gC/m2]
+              StemMass                 => noahmp%biochem%state%StemMass(I,J)             ,& ! inout, stem mass [gC/m2]
+              WoodMass                 => noahmp%biochem%state%WoodMass(I,J)             ,& ! inout, mass of wood (incl. woody roots) [gC/m2]
+              CarbonMassDeepSoil       => noahmp%biochem%state%CarbonMassDeepSoil(I,J)   ,& ! inout, stable carbon in deep soil [gC/m2]
+              CarbonMassShallowSoil    => noahmp%biochem%state%CarbonMassShallowSoil(I,J),& ! inout, short-lived carbon in shallow soil [gC/m2]
+              CarbonMassSoilTot        => noahmp%biochem%state%CarbonMassSoilTot(I,J)    ,& ! out,   total soil carbon [gC/m2]
+              CarbonMassLiveTot        => noahmp%biochem%state%CarbonMassLiveTot(I,J)    ,& ! out,   total living carbon ([gC/m2]
+              LeafMassMin              => noahmp%biochem%state%LeafMassMin(I,J)          ,& ! out,   minimum leaf mass [gC/m2]
+              CarbonFracToLeaf         => noahmp%biochem%state%CarbonFracToLeaf(I,J)     ,& ! out,   fraction of carbon allocated to leaves
+              WoodCarbonFrac           => noahmp%biochem%state%WoodCarbonFrac(I,J)       ,& ! out,   calculated wood to root ratio
+              CarbonFracToWoodRoot     => noahmp%biochem%state%CarbonFracToWoodRoot(I,J) ,& ! out,   fraction of carbon to root and wood
+              CarbonFracToRoot         => noahmp%biochem%state%CarbonFracToRoot(I,J)     ,& ! out,   fraction of carbon flux to roots
+              CarbonFracToWood         => noahmp%biochem%state%CarbonFracToWood(I,J)     ,& ! out,   fraction of carbon flux to wood
+              CarbonFracToStem         => noahmp%biochem%state%CarbonFracToStem(I,J)     ,& ! out,   fraction of carbon flux to stem
+              MicroRespFactorSoilWater => noahmp%biochem%state%MicroRespFactorSoilWater(I,J),& ! out,   soil water factor for microbial respiration
+              MicroRespFactorSoilTemp  => noahmp%biochem%state%MicroRespFactorSoilTemp(I,J),& ! out,   soil temperature factor for microbial respiration
+              RespFacNitrogenFoliage   => noahmp%biochem%state%RespFacNitrogenFoliage(I,J),& ! out,   foliage nitrogen adjustemt to respiration (<= 1)
+              RespFacTemperature       => noahmp%biochem%state%RespFacTemperature(I,J)   ,& ! out,   temperature factor
+              RespReductionFac         => noahmp%biochem%state%RespReductionFac(I,J)     ,& ! out,   respiration reduction factor (<= 1)
+              StemMassMin              => noahmp%biochem%state%StemMassMin(I,J)          ,& ! out,   minimum stem mass [gC/m2]
+              StemAreaPerMass          => noahmp%biochem%state%StemAreaPerMass(I,J)      ,& ! out,   stem area per unit mass [m2/g]
+              CarbonAssim              => noahmp%biochem%flux%CarbonAssim(I,J)           ,& ! out,   carbon assimilated rate [gC/m2/s]
+              GrossPriProduction       => noahmp%biochem%flux%GrossPriProduction(I,J)    ,& ! out,   gross primary production [gC/m2/s]
+              NetPriProductionTot      => noahmp%biochem%flux%NetPriProductionTot(I,J)   ,& ! out,   total net primary productivity [gC/m2/s]
+              NetEcoExchange           => noahmp%biochem%flux%NetEcoExchange(I,J)        ,& ! out,   net ecosystem exchange [gCO2/m2/s]
+              RespirationPlantTot      => noahmp%biochem%flux%RespirationPlantTot(I,J)   ,& ! out,   total plant respiration [gC/m2/s]
+              RespirationSoilOrg       => noahmp%biochem%flux%RespirationSoilOrg(I,J)    ,& ! out,   soil organic respiration [gC/m2/s]
+              CarbonToAtmos            => noahmp%biochem%flux%CarbonToAtmos(I,J)         ,& ! out,   carbon flux to atmosphere [gC/m2/s]
+              NetPriProductionLeaf     => noahmp%biochem%flux%NetPriProductionLeaf(I,J)  ,& ! out,   leaf net primary productivity [gC/m2/s]
+              NetPriProductionRoot     => noahmp%biochem%flux%NetPriProductionRoot(I,J)  ,& ! out,   root net primary productivity [gC/m2/s]
+              NetPriProductionWood     => noahmp%biochem%flux%NetPriProductionWood(I,J)  ,& ! out,   wood net primary productivity [gC/m2/s]
+              NetPriProductionStem     => noahmp%biochem%flux%NetPriProductionStem(I,J)  ,& ! out,   stem net primary productivity [gC/m2/s]
+              GrowthRespLeaf           => noahmp%biochem%flux%GrowthRespLeaf(I,J)        ,& ! out,   growth respiration rate for leaf [gC/m2/s]
+              GrowthRespRoot           => noahmp%biochem%flux%GrowthRespRoot(I,J)        ,& ! out,   growth respiration rate for root [gC/m2/s]
+              GrowthRespWood           => noahmp%biochem%flux%GrowthRespWood(I,J)        ,& ! out,   growth respiration rate for wood [gC/m2/s]
+              GrowthRespStem           => noahmp%biochem%flux%GrowthRespStem(I,J)        ,& ! out,   growth respiration rate for stem [gC/m2/s]
+              LeafMassMaxChg           => noahmp%biochem%flux%LeafMassMaxChg(I,J)        ,& ! out,   maximum leaf mass available to change [gC/m2/s]
+              CarbonDecayToStable      => noahmp%biochem%flux%CarbonDecayToStable(I,J)   ,& ! out,   decay rate of fast carbon to slow carbon [gC/m2/s]
+              RespirationLeaf          => noahmp%biochem%flux%RespirationLeaf(I,J)       ,& ! out,   leaf respiration rate [umol CO2/m2/s]
+              RespirationStem          => noahmp%biochem%flux%RespirationStem(I,J)       ,& ! out,   stem respiration rate [gC/m2/s]
+              RespirationWood          => noahmp%biochem%flux%RespirationWood(I,J)       ,& ! out,   wood respiration rate [gC/m2/s]
+              RespirationLeafMaint     => noahmp%biochem%flux%RespirationLeafMaint(I,J)  ,& ! out,   leaf maintenance respiration rate [gC/m2/s]
+              RespirationRoot          => noahmp%biochem%flux%RespirationRoot(I,J)       ,& ! out,   fine root respiration rate [gC/m2/s]
+              RespirationSoil          => noahmp%biochem%flux%RespirationSoil(I,J)       ,& ! out,   soil respiration rate [gC/m2/s]
+              DeathLeaf                => noahmp%biochem%flux%DeathLeaf(I,J)             ,& ! out,   death rate of leaf mass [gC/m2/s]
+              DeathStem                => noahmp%biochem%flux%DeathStem(I,J)             ,& ! out,   death rate of stem mass [gC/m2/s]
+              TurnoverLeaf             => noahmp%biochem%flux%TurnoverLeaf(I,J)          ,& ! out,   leaf turnover rate [gC/m2/s]
+              TurnoverStem             => noahmp%biochem%flux%TurnoverStem(I,J)          ,& ! out,   stem turnover rate [gC/m2/s]
+              TurnoverWood             => noahmp%biochem%flux%TurnoverWood(I,J)          ,& ! out,   wood turnover rate [gC/m2/s]
+              TurnoverRoot             => noahmp%biochem%flux%TurnoverRoot(I,J)          ,& ! out,   root turnover rate [gC/m2/s]
+              StemMassMaxChg           => noahmp%biochem%flux%StemMassMaxChg(I,J)         & ! out,   maximum steam mass available to change [gC/m2/s]
              )
 !-----------------------------------------------------------------------
 
@@ -215,7 +222,7 @@ contains
     ! soil carbon budgets 
     CarbonMassShallowSoil    = CarbonMassShallowSoil + &
                                (TurnoverRoot+TurnoverLeaf+TurnoverStem+TurnoverWood+DeathLeaf+DeathStem) * MainTimeStep  ! gC/m2, MB: add DeathStem v3.7
-    MicroRespFactorSoilTemp  = 2.0**( (TemperatureSoilSnow(1) - 283.16) / 10.0 ) 
+    MicroRespFactorSoilTemp  = 2.0**( (TemperatureSoilSnow(I,1,J) - 283.16) / 10.0 )
     MicroRespFactorSoilWater = SoilWaterRootZone / (0.20 + SoilWaterRootZone) * 0.23 / (0.23 + SoilWaterRootZone)
     RespirationSoil          = MicroRespFactorSoilWater * MicroRespFactorSoilTemp * &
                                MicroRespCoeff * max(0.0, CarbonMassShallowSoil*1.0e-3) * 12.0e-6              ! gC/m2/s
@@ -242,6 +249,10 @@ contains
     StemAreaIndex       = max(StemMass*StemAreaPerMass, StemAreaIndexMin)
 
     end associate
+
+      end do
+    end do
+   !$acc end parallel loop
 
   end subroutine CarbonFluxNatureVeg
 

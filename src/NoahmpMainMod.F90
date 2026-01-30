@@ -29,21 +29,16 @@ contains
 ! Original Noah-MP subroutine: NOAHMP_SFLX
 ! Original code: Guo-Yue Niu and Noah-MP team (Niu et al. 2011)
 ! Refactered code: C. He, P. Valayamkunnath, & refactor team (He et al. 2023)
+! GPU port (2D arrays): Full SoA transformation for OpenACC (2026)
 ! -------------------------------------------------------------------------
 
     implicit none
 
     type(noahmp_type), intent(inout) :: noahmp
 
-! --------------------------------------------------------------------
-    associate(                                                                     &
-              FlagDynamicVeg         => noahmp%config%domain%FlagDynamicVeg       ,& ! in,    flag to activate dynamic vegetation model
-              FlagDynamicCrop        => noahmp%config%domain%FlagDynamicCrop      ,& ! in,    flag to activate dynamic crop model
-              OptCropModel           => noahmp%config%nmlist%OptCropModel         ,& ! in,    option for crop model
-              IrrigationAmtSprinkler => noahmp%water%state%IrrigationAmtSprinkler ,& ! inout, irrigation water amount [m] for sprinkler
-              FlagCropland           => noahmp%config%domain%FlagCropland          & ! out,   flag to identify croplands
-             )
-! ----------------------------------------------------------------------
+    ! NoahmpMain is the top-level driver that calls other physics subroutines
+    ! Each called subroutine has its own OpenACC parallel regions
+    ! No I,J loops needed here as parallelism is handled in the called routines
 
     !---------------------------------------------------------------------
     ! Atmospheric forcing processing
@@ -79,9 +74,7 @@ contains
     ! Sprinkler irrigation
     !--------------------------------------------------------------------- 
 
-    ! call sprinkler irrigation before canopy process to have canopy interception
-    if ( (FlagCropland .eqv. .true.) .and. (IrrigationAmtSprinkler > 0.0) ) &
-       call IrrigationSprinkler(noahmp)
+    call IrrigationSprinkler(noahmp)
 
     !---------------------------------------------------------------------
     ! Canopy water interception and precip heat advection
@@ -106,12 +99,11 @@ contains
     ! Biochem processes (crop and carbon)
     !--------------------------------------------------------------------- 
 
-    ! for generic vegetation
-    if ( FlagDynamicVeg .eqv. .true. ) call BiochemNatureVegMain(noahmp)
-   
-    ! for explicit crop treatment
-    if ( (OptCropModel == 1) .and. (FlagDynamicCrop .eqv. .true.) ) &
-       call BiochemCropMain(noahmp)
+    ! for generic vegetation - handled within BiochemNatureVegMain
+    call BiochemNatureVegMain(noahmp)
+
+    ! for explicit crop treatment - handled within BiochemCropMain
+    call BiochemCropMain(noahmp)
 
     !---------------------------------------------------------------------
     ! Error check for energy and water balance
@@ -123,8 +115,6 @@ contains
     !---------------------------------------------------------------------
     ! End of all NoahMP column processes
     !--------------------------------------------------------------------- 
-
-    end associate
 
   end subroutine NoahmpMain
 

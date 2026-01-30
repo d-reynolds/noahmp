@@ -15,6 +15,7 @@ contains
 ! ------------------------ Code history -----------------------------------
 ! Refactered code: C. He, P. Valayamkunnath, & refactor team (He et al. 2023)
 ! Code updated: R. Abolafia-Rosenzweig and C. He (Abolafia-Rosenzweig et al., 2025)
+! GPU port (2D arrays): Full SoA transformation for OpenACC (2026)
 ! -------------------------------------------------------------------------
 
     implicit none
@@ -22,20 +23,26 @@ contains
     type(noahmp_type), intent(inout) :: noahmp
 
 ! local variable
+    integer                          :: I, J           ! grid indices
     real(kind=kind_noahmp)           :: SnowDensBulk   ! bulk density of snow [Kg/m3]
     real(kind=kind_noahmp)           :: MeltFac        ! melting factor for snow cover frac
     real(kind=kind_noahmp)           :: SnowMeltFac    ! snowmelt m parameter (scale-dependent)
     real(kind=kind_noahmp)           :: SnowCoverFac   ! snow cover factor [scfac] (scale-dependent)
+
 ! --------------------------------------------------------------------
-    associate(                                                           &
-              SnowDepth         => noahmp%water%state%SnowDepth         ,& ! in,  snow depth [m]
-              SnowWaterEquiv    => noahmp%water%state%SnowWaterEquiv    ,& ! in,  snow water equivalent [mm]
-              GridSize          => noahmp%config%domain%GridSize        ,& ! in,  noahmp model grid spacing [m]
-              SnowCoverM1AR25   => noahmp%water%param%SnowCoverM1AR25   ,& ! in,  SCFm1 parameter from AR2025
-              SnowCoverM2AR25   => noahmp%water%param%SnowCoverM2AR25   ,& ! in,  SCFm2 parameter from AR2025
-              SnowCoverFac1AR25 => noahmp%water%param%SnowCoverFac1AR25 ,& ! in,  SCfac1 parameter from AR2025
-              SnowCoverFac2AR25 => noahmp%water%param%SnowCoverFac2AR25 ,& ! in,  SCfac2 parameter from AR2025
-              SnowCoverFrac     => noahmp%water%state%SnowCoverFrac      & ! out, snow cover fraction
+   !$acc parallel loop collapse(2) gang vector present(noahmp) private(SnowDensBulk,MeltFac,SnowMeltFac,SnowCoverFac)
+    do J = noahmp%config%domain%JTS, noahmp%config%domain%JTE
+      do I = noahmp%config%domain%ITS, noahmp%config%domain%ITE
+
+    associate(                                                              &
+              SnowDepth         => noahmp%water%state%SnowDepth(I,J)        ,& ! in,  snow depth [m]
+              SnowWaterEquiv    => noahmp%water%state%SnowWaterEquiv(I,J)   ,& ! in,  snow water equivalent [mm]
+              GridSize          => noahmp%config%domain%GridSize            ,& ! in,  noahmp model grid spacing [m]
+              SnowCoverM1AR25   => noahmp%water%param%SnowCoverM1AR25(I,J)  ,& ! in,  SCFm1 parameter from AR2025
+              SnowCoverM2AR25   => noahmp%water%param%SnowCoverM2AR25(I,J)  ,& ! in,  SCFm2 parameter from AR2025
+              SnowCoverFac1AR25 => noahmp%water%param%SnowCoverFac1AR25(I,J),& ! in,  SCfac1 parameter from AR2025
+              SnowCoverFac2AR25 => noahmp%water%param%SnowCoverFac2AR25(I,J),& ! in,  SCfac2 parameter from AR2025
+              SnowCoverFrac     => noahmp%water%state%SnowCoverFrac(I,J)     & ! out, snow cover fraction
              )
 ! ----------------------------------------------------------------------
 
@@ -52,6 +59,10 @@ contains
     endif
 
     end associate
+
+      end do
+    end do
+   !$acc end parallel loop
 
   end subroutine SnowCoverGroundAR25
 

@@ -25,170 +25,176 @@ contains
     type(noahmp_type),   intent(inout) :: noahmp
 
     ! local variables
+    integer                          :: I, J
     integer                          :: LoopInd                   ! snow/soil layer loop index
     real(kind=kind_noahmp)           :: LeafAreaIndSunlit         ! sunlit leaf area index [m2/m2]
     real(kind=kind_noahmp)           :: LeafAreaIndShade          ! shaded leaf area index [m2/m2]
     real(kind=kind_noahmp)           :: ResistanceLeafBoundary    ! leaf boundary layer resistance [s/m]
     real(kind=kind_noahmp)           :: ThicknessSnowSoilLayer    ! temporary snow/soil layer thickness [m]
 
+    !$acc parallel loop collapse(2) present(noahmp, NoahmpIO)
+      do J = noahmp%config%domain%JTS, noahmp%config%domain%JTE
+         do I = noahmp%config%domain%ITS, noahmp%config%domain%ITE
 !-----------------------------------------------------------------------
     associate(                                                         &
-              I               => noahmp%config%domain%GridIndexI      ,&
-              J               => noahmp%config%domain%GridIndexJ      ,&
               NumSoilLayer    => noahmp%config%domain%NumSoilLayer    ,&
               NumSnowLayerMax => noahmp%config%domain%NumSnowLayerMax ,&
-              NumSnowLayerNeg => noahmp%config%domain%NumSnowLayerNeg ,&
+              NumSnowLayerNeg => noahmp%config%domain%NumSnowLayerNeg(I,J) ,&
               NumSwRadBand    => noahmp%config%domain%NumSwRadBand    ,&
-              IndicatorIceSfc => noahmp%config%domain%IndicatorIceSfc  &
+              IndicatorIceSfc => noahmp%config%domain%IndicatorIceSfc(I,J)  &
              )
 !-----------------------------------------------------------------------
 
     ! special treatment for glacier point output
     if ( IndicatorIceSfc == -1 ) then ! land ice point
-       noahmp%energy%state%VegFrac             = 0.0
-       noahmp%energy%state%RoughLenMomSfcToAtm = 0.002
-       noahmp%energy%flux%RadSwAbsVeg          = 0.0
-       noahmp%energy%flux%RadLwNetCanopy       = 0.0
-       noahmp%energy%flux%RadLwNetVegGrd       = 0.0
-       noahmp%energy%flux%HeatSensibleCanopy   = 0.0
-       noahmp%energy%flux%HeatSensibleVegGrd   = 0.0
-       noahmp%energy%flux%HeatLatentVegGrd     = 0.0
-       noahmp%energy%flux%HeatGroundVegGrd     = 0.0
-       noahmp%energy%flux%HeatCanStorageChg    = 0.0
-       noahmp%energy%flux%HeatLatentCanTransp  = 0.0
-       noahmp%energy%flux%HeatLatentCanEvap    = 0.0
-       noahmp%energy%flux%HeatPrecipAdvCanopy  = 0.0
-       noahmp%energy%flux%HeatPrecipAdvVegGrd  = 0.0
-       noahmp%energy%flux%HeatLatentCanopy     = 0.0
-       noahmp%energy%flux%HeatLatentTransp     = 0.0
-       noahmp%energy%flux%RadLwNetBareGrd      = noahmp%energy%flux%RadLwNetSfc
-       noahmp%energy%flux%HeatSensibleBareGrd  = noahmp%energy%flux%HeatSensibleSfc
-       noahmp%energy%flux%HeatLatentBareGrd    = noahmp%energy%flux%HeatLatentGrd
-       noahmp%energy%flux%HeatGroundBareGrd    = noahmp%energy%flux%HeatGroundTot
-       noahmp%energy%state%TemperatureGrdBare  = noahmp%energy%state%TemperatureGrd
-       noahmp%energy%state%ExchCoeffShBare     = noahmp%energy%state%ExchCoeffShSfc
-       NoahmpIO%LH(I,J)                        = noahmp%energy%flux%HeatLatentGrd
+       noahmp%energy%state%VegFrac(I,J)             = 0.0
+       noahmp%energy%state%RoughLenMomSfcToAtm(I,J) = 0.002
+       noahmp%energy%flux%RadSwAbsVeg(I,J)          = 0.0
+       noahmp%energy%flux%RadLwNetCanopy(I,J)       = 0.0
+       noahmp%energy%flux%RadLwNetVegGrd(I,J)       = 0.0
+       noahmp%energy%flux%HeatSensibleCanopy(I,J)   = 0.0
+       noahmp%energy%flux%HeatSensibleVegGrd(I,J)   = 0.0
+       noahmp%energy%flux%HeatLatentVegGrd(I,J)     = 0.0
+       noahmp%energy%flux%HeatGroundVegGrd(I,J)     = 0.0
+       noahmp%energy%flux%HeatCanStorageChg(I,J)    = 0.0
+       noahmp%energy%flux%HeatLatentCanTransp(I,J)  = 0.0
+       noahmp%energy%flux%HeatLatentCanEvap(I,J)    = 0.0
+       noahmp%energy%flux%HeatPrecipAdvCanopy(I,J)  = 0.0
+       noahmp%energy%flux%HeatPrecipAdvVegGrd(I,J)  = 0.0
+       noahmp%energy%flux%HeatLatentCanopy(I,J)     = 0.0
+       noahmp%energy%flux%HeatLatentTransp(I,J)     = 0.0
+       noahmp%energy%flux%RadLwNetBareGrd(I,J)      = noahmp%energy%flux%RadLwNetSfc(I,J)
+       noahmp%energy%flux%HeatSensibleBareGrd(I,J)  = noahmp%energy%flux%HeatSensibleSfc(I,J)
+       noahmp%energy%flux%HeatLatentBareGrd(I,J)    = noahmp%energy%flux%HeatLatentGrd(I,J)
+       noahmp%energy%flux%HeatGroundBareGrd(I,J)    = noahmp%energy%flux%HeatGroundTot(I,J)
+       noahmp%energy%state%TemperatureGrdBare(I,J)  = noahmp%energy%state%TemperatureGrd(I,J)
+       noahmp%energy%state%ExchCoeffShBare(I,J)     = noahmp%energy%state%ExchCoeffShSfc(I,J)
+       NoahmpIO%LH(I,J)                        = noahmp%energy%flux%HeatLatentGrd(I,J)
     endif
 
     if ( IndicatorIceSfc == 0 ) then ! land soil point
-       NoahmpIO%LH(I,J) = noahmp%energy%flux%HeatLatentGrd + noahmp%energy%flux%HeatLatentCanopy + &
-                          noahmp%energy%flux%HeatLatentTransp + noahmp%energy%flux%HeatLatentIrriEvap 
+       NoahmpIO%LH(I,J) = noahmp%energy%flux%HeatLatentGrd(I,J) + noahmp%energy%flux%HeatLatentCanopy(I,J) + &
+                          noahmp%energy%flux%HeatLatentTransp(I,J) + noahmp%energy%flux%HeatLatentIrriEvap(I,J) 
     endif
 
     ! energy flux variables
-    NoahmpIO%HFX        (I,J) = noahmp%energy%flux%HeatSensibleSfc
-    NoahmpIO%GRDFLX     (I,J) = noahmp%energy%flux%HeatGroundTot
-    NoahmpIO%FSAXY      (I,J) = noahmp%energy%flux%RadSwAbsSfc
-    NoahmpIO%FIRAXY     (I,J) = noahmp%energy%flux%RadLwNetSfc
-    NoahmpIO%APARXY     (I,J) = noahmp%energy%flux%RadPhotoActAbsCan
-    NoahmpIO%SAVXY      (I,J) = noahmp%energy%flux%RadSwAbsVeg
-    NoahmpIO%SAGXY      (I,J) = noahmp%energy%flux%RadSwAbsGrd
-    NoahmpIO%IRCXY      (I,J) = noahmp%energy%flux%RadLwNetCanopy
-    NoahmpIO%IRGXY      (I,J) = noahmp%energy%flux%RadLwNetVegGrd
-    NoahmpIO%SHCXY      (I,J) = noahmp%energy%flux%HeatSensibleCanopy
-    NoahmpIO%SHGXY      (I,J) = noahmp%energy%flux%HeatSensibleVegGrd
-    NoahmpIO%EVGXY      (I,J) = noahmp%energy%flux%HeatLatentVegGrd
-    NoahmpIO%GHVXY      (I,J) = noahmp%energy%flux%HeatGroundVegGrd
-    NoahmpIO%IRBXY      (I,J) = noahmp%energy%flux%RadLwNetBareGrd
-    NoahmpIO%SHBXY      (I,J) = noahmp%energy%flux%HeatSensibleBareGrd
-    NoahmpIO%EVBXY      (I,J) = noahmp%energy%flux%HeatLatentBareGrd
-    NoahmpIO%GHBXY      (I,J) = noahmp%energy%flux%HeatGroundBareGrd
-    NoahmpIO%TRXY       (I,J) = noahmp%energy%flux%HeatLatentCanTransp
-    NoahmpIO%EVCXY      (I,J) = noahmp%energy%flux%HeatLatentCanEvap
-    NoahmpIO%CANHSXY    (I,J) = noahmp%energy%flux%HeatCanStorageChg
-    NoahmpIO%PAHXY      (I,J) = noahmp%energy%flux%HeatPrecipAdvSfc
-    NoahmpIO%PAHGXY     (I,J) = noahmp%energy%flux%HeatPrecipAdvVegGrd
-    NoahmpIO%PAHVXY     (I,J) = noahmp%energy%flux%HeatPrecipAdvCanopy
-    NoahmpIO%PAHBXY     (I,J) = noahmp%energy%flux%HeatPrecipAdvBareGrd
-    NoahmpIO%ACC_SSOILXY(I,J) = noahmp%energy%flux%HeatGroundTotAcc
-    NoahmpIO%EFLXBXY    (I,J) = noahmp%energy%flux%HeatFromSoilBot
+    NoahmpIO%HFX        (I,J) = noahmp%energy%flux%HeatSensibleSfc(I,J)
+    NoahmpIO%GRDFLX     (I,J) = noahmp%energy%flux%HeatGroundTot(I,J)
+    NoahmpIO%FSAXY      (I,J) = noahmp%energy%flux%RadSwAbsSfc(I,J)
+    NoahmpIO%FIRAXY     (I,J) = noahmp%energy%flux%RadLwNetSfc(I,J)
+    NoahmpIO%APARXY     (I,J) = noahmp%energy%flux%RadPhotoActAbsCan(I,J)
+    NoahmpIO%SAVXY      (I,J) = noahmp%energy%flux%RadSwAbsVeg(I,J)
+    NoahmpIO%SAGXY      (I,J) = noahmp%energy%flux%RadSwAbsGrd(I,J)
+    NoahmpIO%IRCXY      (I,J) = noahmp%energy%flux%RadLwNetCanopy(I,J)
+    NoahmpIO%IRGXY      (I,J) = noahmp%energy%flux%RadLwNetVegGrd(I,J)
+    NoahmpIO%SHCXY      (I,J) = noahmp%energy%flux%HeatSensibleCanopy(I,J)
+    NoahmpIO%SHGXY      (I,J) = noahmp%energy%flux%HeatSensibleVegGrd(I,J)
+    NoahmpIO%EVGXY      (I,J) = noahmp%energy%flux%HeatLatentVegGrd(I,J)
+    NoahmpIO%GHVXY      (I,J) = noahmp%energy%flux%HeatGroundVegGrd(I,J)
+    NoahmpIO%IRBXY      (I,J) = noahmp%energy%flux%RadLwNetBareGrd(I,J)
+    NoahmpIO%SHBXY      (I,J) = noahmp%energy%flux%HeatSensibleBareGrd(I,J)
+    NoahmpIO%EVBXY      (I,J) = noahmp%energy%flux%HeatLatentBareGrd(I,J)
+    NoahmpIO%GHBXY      (I,J) = noahmp%energy%flux%HeatGroundBareGrd(I,J)
+    NoahmpIO%TRXY       (I,J) = noahmp%energy%flux%HeatLatentCanTransp(I,J)
+    NoahmpIO%EVCXY      (I,J) = noahmp%energy%flux%HeatLatentCanEvap(I,J)
+    NoahmpIO%CANHSXY    (I,J) = noahmp%energy%flux%HeatCanStorageChg(I,J)
+    NoahmpIO%PAHXY      (I,J) = noahmp%energy%flux%HeatPrecipAdvSfc(I,J)
+    NoahmpIO%PAHGXY     (I,J) = noahmp%energy%flux%HeatPrecipAdvVegGrd(I,J)
+    NoahmpIO%PAHVXY     (I,J) = noahmp%energy%flux%HeatPrecipAdvCanopy(I,J)
+    NoahmpIO%PAHBXY     (I,J) = noahmp%energy%flux%HeatPrecipAdvBareGrd(I,J)
+    NoahmpIO%ACC_SSOILXY(I,J) = noahmp%energy%flux%HeatGroundTotAcc(I,J)
+    NoahmpIO%EFLXBXY    (I,J) = noahmp%energy%flux%HeatFromSoilBot(I,J)
 
     ! energy state variables
-    NoahmpIO%TSK     (I,J) = noahmp%energy%state%TemperatureRadSfc
-    NoahmpIO%EMISS   (I,J) = noahmp%energy%state%EmissivitySfc
-    NoahmpIO%QSFC    (I,J) = noahmp%energy%state%SpecHumiditySfcMean
-    NoahmpIO%TVXY    (I,J) = noahmp%energy%state%TemperatureCanopy
-    NoahmpIO%TGXY    (I,J) = noahmp%energy%state%TemperatureGrd
-    NoahmpIO%EAHXY   (I,J) = noahmp%energy%state%PressureVaporCanAir
-    NoahmpIO%TAHXY   (I,J) = noahmp%energy%state%TemperatureCanopyAir
-    NoahmpIO%CMXY    (I,J) = noahmp%energy%state%ExchCoeffMomSfc
-    NoahmpIO%CHXY    (I,J) = noahmp%energy%state%ExchCoeffShSfc
-    NoahmpIO%ALBOLDXY(I,J) = noahmp%energy%state%AlbedoSnowPrev
-    NoahmpIO%LAI     (I,J) = noahmp%energy%state%LeafAreaIndex
-    NoahmpIO%XSAIXY  (I,J) = noahmp%energy%state%StemAreaIndex
-    NoahmpIO%TAUSSXY (I,J) = noahmp%energy%state%SnowAgeNondim
-    NoahmpIO%Z0      (I,J) = noahmp%energy%state%RoughLenMomSfcToAtm
-    NoahmpIO%T2MVXY  (I,J) = noahmp%energy%state%TemperatureAir2mVeg
-    NoahmpIO%T2MBXY  (I,J) = noahmp%energy%state%TemperatureAir2mBare
-    NoahmpIO%TRADXY  (I,J) = noahmp%energy%state%TemperatureRadSfc
-    NoahmpIO%FVEGXY  (I,J) = noahmp%energy%state%VegFrac
-    NoahmpIO%RSSUNXY (I,J) = noahmp%energy%state%ResistanceStomataSunlit
-    NoahmpIO%RSSHAXY (I,J) = noahmp%energy%state%ResistanceStomataShade
-    NoahmpIO%BGAPXY  (I,J) = noahmp%energy%state%GapBtwCanopy
-    NoahmpIO%WGAPXY  (I,J) = noahmp%energy%state%GapInCanopy
-    NoahmpIO%TGVXY   (I,J) = noahmp%energy%state%TemperatureGrdVeg
-    NoahmpIO%TGBXY   (I,J) = noahmp%energy%state%TemperatureGrdBare
-    NoahmpIO%CHVXY   (I,J) = noahmp%energy%state%ExchCoeffShAbvCan
-    NoahmpIO%CHBXY   (I,J) = noahmp%energy%state%ExchCoeffShBare
-    NoahmpIO%CHLEAFXY(I,J) = noahmp%energy%state%ExchCoeffShLeaf
-    NoahmpIO%CHUCXY  (I,J) = noahmp%energy%state%ExchCoeffShUndCan
-    NoahmpIO%CHV2XY  (I,J) = noahmp%energy%state%ExchCoeffSh2mVeg
-    NoahmpIO%CHB2XY  (I,J) = noahmp%energy%state%ExchCoeffSh2mBare
-    NoahmpIO%Q2MVXY  (I,J) = noahmp%energy%state%SpecHumidity2mVeg /(1.0-noahmp%energy%state%SpecHumidity2mVeg)  ! spec humidity to mixing ratio
-    NoahmpIO%Q2MBXY  (I,J) = noahmp%energy%state%SpecHumidity2mBare/(1.0-noahmp%energy%state%SpecHumidity2mBare)
-    NoahmpIO%ALBEDO  (I,J) = noahmp%energy%state%AlbedoSfc
+    NoahmpIO%TSK     (I,J) = noahmp%energy%state%TemperatureRadSfc(I,J)
+    NoahmpIO%EMISS   (I,J) = noahmp%energy%state%EmissivitySfc(I,J)
+    NoahmpIO%QSFC    (I,J) = noahmp%energy%state%SpecHumiditySfcMean(I,J)
+    NoahmpIO%TVXY    (I,J) = noahmp%energy%state%TemperatureCanopy(I,J)
+    NoahmpIO%TGXY    (I,J) = noahmp%energy%state%TemperatureGrd(I,J)
+    NoahmpIO%EAHXY   (I,J) = noahmp%energy%state%PressureVaporCanAir(I,J)
+    NoahmpIO%TAHXY   (I,J) = noahmp%energy%state%TemperatureCanopyAir(I,J)
+    NoahmpIO%CMXY    (I,J) = noahmp%energy%state%ExchCoeffMomSfc(I,J)
+    NoahmpIO%CHXY    (I,J) = noahmp%energy%state%ExchCoeffShSfc(I,J)
+    NoahmpIO%ALBOLDXY(I,J) = noahmp%energy%state%AlbedoSnowPrev(I,J)
+    NoahmpIO%LAI     (I,J) = noahmp%energy%state%LeafAreaIndex(I,J)
+    NoahmpIO%XSAIXY  (I,J) = noahmp%energy%state%StemAreaIndex(I,J)
+    NoahmpIO%TAUSSXY (I,J) = noahmp%energy%state%SnowAgeNondim(I,J)
+    NoahmpIO%Z0      (I,J) = noahmp%energy%state%RoughLenMomSfcToAtm(I,J)
+    NoahmpIO%T2MVXY  (I,J) = noahmp%energy%state%TemperatureAir2mVeg(I,J)
+    NoahmpIO%T2MBXY  (I,J) = noahmp%energy%state%TemperatureAir2mBare(I,J)
+    NoahmpIO%TRADXY  (I,J) = noahmp%energy%state%TemperatureRadSfc(I,J)
+    NoahmpIO%FVEGXY  (I,J) = noahmp%energy%state%VegFrac(I,J)
+    NoahmpIO%RSSUNXY (I,J) = noahmp%energy%state%ResistanceStomataSunlit(I,J)
+    NoahmpIO%RSSHAXY (I,J) = noahmp%energy%state%ResistanceStomataShade(I,J)
+    NoahmpIO%BGAPXY  (I,J) = noahmp%energy%state%GapBtwCanopy(I,J)
+    NoahmpIO%WGAPXY  (I,J) = noahmp%energy%state%GapInCanopy(I,J)
+    NoahmpIO%TGVXY   (I,J) = noahmp%energy%state%TemperatureGrdVeg(I,J)
+    NoahmpIO%TGBXY   (I,J) = noahmp%energy%state%TemperatureGrdBare(I,J)
+    NoahmpIO%CHVXY   (I,J) = noahmp%energy%state%ExchCoeffShAbvCan(I,J)
+    NoahmpIO%CHBXY   (I,J) = noahmp%energy%state%ExchCoeffShBare(I,J)
+    NoahmpIO%CHLEAFXY(I,J) = noahmp%energy%state%ExchCoeffShLeaf(I,J)
+    NoahmpIO%CHUCXY  (I,J) = noahmp%energy%state%ExchCoeffShUndCan(I,J)
+    NoahmpIO%CHV2XY  (I,J) = noahmp%energy%state%ExchCoeffSh2mVeg(I,J)
+    NoahmpIO%CHB2XY  (I,J) = noahmp%energy%state%ExchCoeffSh2mBare(I,J)
+    NoahmpIO%Q2MVXY  (I,J) = noahmp%energy%state%SpecHumidity2mVeg(I,J) /(1.0-noahmp%energy%state%SpecHumidity2mVeg(I,J))  ! spec humidity to mixing ratio
+    NoahmpIO%Q2MBXY  (I,J) = noahmp%energy%state%SpecHumidity2mBare(I,J)/(1.0-noahmp%energy%state%SpecHumidity2mBare(I,J))
+    NoahmpIO%ALBEDO  (I,J) = noahmp%energy%state%AlbedoSfc(I,J)
     NoahmpIO%IRRSPLH (I,J) = NoahmpIO%IRRSPLH(I,J) + &
-                             (noahmp%energy%flux%HeatLatentIrriEvap * noahmp%config%domain%MainTimeStep)
-    NoahmpIO%TSLB    (I,1:NumSoilLayer,J)       = noahmp%energy%state%TemperatureSoilSnow(1:NumSoilLayer)
-    NoahmpIO%TSNOXY  (I,-NumSnowLayerMax+1:0,J) = noahmp%energy%state%TemperatureSoilSnow(-NumSnowLayerMax+1:0)
+                             (noahmp%energy%flux%HeatLatentIrriEvap(I,J) * noahmp%config%domain%MainTimeStep)
+    NoahmpIO%TSLB    (I,1:NumSoilLayer,J)       = noahmp%energy%state%TemperatureSoilSnow(I,1:NumSoilLayer,J)
+    NoahmpIO%TSNOXY  (I,-NumSnowLayerMax+1:0,J) = noahmp%energy%state%TemperatureSoilSnow(I,-NumSnowLayerMax+1:0,J)
 
-    NoahmpIO%ALBSOILDIRXY(I,1:NumSwRadBand,J) = noahmp%energy%state%AlbedoSoilDir(1:NumSwRadBand)
-    NoahmpIO%ALBSOILDIFXY(I,1:NumSwRadBand,J) = noahmp%energy%state%AlbedoSoilDif(1:NumSwRadBand)
-    NoahmpIO%ALBSFCDIRXY (I,1:NumSwRadBand,J) = noahmp%energy%state%AlbedoSfcDir (1:NumSwRadBand)
-    NoahmpIO%ALBSFCDIFXY (I,1:NumSwRadBand,J) = noahmp%energy%state%AlbedoSfcDif (1:NumSwRadBand)
-    NoahmpIO%ALBSNOWDIRXY(I,1:NumSwRadBand,J) = noahmp%energy%state%AlbedoSnowDir(1:NumSwRadBand)
-    NoahmpIO%ALBSNOWDIFXY(I,1:NumSwRadBand,J) = noahmp%energy%state%AlbedoSnowDif(1:NumSwRadBand)
+    NoahmpIO%ALBSOILDIRXY(I,1:NumSwRadBand,J) = noahmp%energy%state%AlbedoSoilDir(I,1:NumSwRadBand,J)
+    NoahmpIO%ALBSOILDIFXY(I,1:NumSwRadBand,J) = noahmp%energy%state%AlbedoSoilDif(I,1:NumSwRadBand,J)
+    NoahmpIO%ALBSFCDIRXY (I,1:NumSwRadBand,J) = noahmp%energy%state%AlbedoSfcDir (I,1:NumSwRadBand,J)
+    NoahmpIO%ALBSFCDIFXY (I,1:NumSwRadBand,J) = noahmp%energy%state%AlbedoSfcDif (I,1:NumSwRadBand,J)
+    NoahmpIO%ALBSNOWDIRXY(I,1:NumSwRadBand,J) = noahmp%energy%state%AlbedoSnowDir(I,1:NumSwRadBand,J)
+    NoahmpIO%ALBSNOWDIFXY(I,1:NumSwRadBand,J) = noahmp%energy%state%AlbedoSnowDif(I,1:NumSwRadBand,J)
 
     ! New Calculation of total Canopy/Stomatal Conductance Based on Bonan et al. (2011), Inverse of Canopy Resistance (below)
-    LeafAreaIndSunlit      = max(noahmp%energy%state%LeafAreaIndSunlit, 0.0)
-    LeafAreaIndShade       = max(noahmp%energy%state%LeafAreaIndShade, 0.0)
-    ResistanceLeafBoundary = max(noahmp%energy%state%ResistanceLeafBoundary, 0.0)
-    if ( (noahmp%energy%state%ResistanceStomataSunlit <= 0.0) .or. (noahmp%energy%state%ResistanceStomataShade <= 0.0) .or. &
+    LeafAreaIndSunlit      = max(noahmp%energy%state%LeafAreaIndSunlit(I,J), 0.0)
+    LeafAreaIndShade       = max(noahmp%energy%state%LeafAreaIndShade(I,J), 0.0)
+    ResistanceLeafBoundary = max(noahmp%energy%state%ResistanceLeafBoundary(I,J), 0.0)
+    if ( (noahmp%energy%state%ResistanceStomataSunlit(I,J) <= 0.0) .or. (noahmp%energy%state%ResistanceStomataShade(I,J) <= 0.0) .or. &
          (LeafAreaIndSunlit == 0.0) .or. (LeafAreaIndShade == 0.0)       .or. &
-         (noahmp%energy%state%ResistanceStomataSunlit == undefined_real) .or. &
-         (noahmp%energy%state%ResistanceStomataShade == undefined_real) ) then
+         (noahmp%energy%state%ResistanceStomataSunlit(I,J) == undefined_real) .or. &
+         (noahmp%energy%state%ResistanceStomataShade(I,J) == undefined_real) ) then
        NoahmpIO%RS   (I,J) = 0.0
     else
-       NoahmpIO%RS   (I,J) = ((1.0 / (noahmp%energy%state%ResistanceStomataSunlit + ResistanceLeafBoundary) * &
-                              noahmp%energy%state%LeafAreaIndSunlit) + &
-                             ((1.0 / (noahmp%energy%state%ResistanceStomataShade + ResistanceLeafBoundary)) * &
-                              noahmp%energy%state%LeafAreaIndShade))
+       NoahmpIO%RS   (I,J) = ((1.0 / (noahmp%energy%state%ResistanceStomataSunlit(I,J) + ResistanceLeafBoundary) * &
+                              noahmp%energy%state%LeafAreaIndSunlit(I,J)) + &
+                             ((1.0 / (noahmp%energy%state%ResistanceStomataShade(I,J) + ResistanceLeafBoundary)) * &
+                              noahmp%energy%state%LeafAreaIndShade(I,J)))
        NoahmpIO%RS   (I,J) = 1.0 / NoahmpIO%RS (I,J) ! Resistance
     endif
 
     ! calculation of snow and soil energy storage
     NoahmpIO%SNOWENERGY(I,J) = 0.0
     NoahmpIO%SOILENERGY(I,J) = 0.0
+    !$acc loop seq
     do LoopInd = NumSnowLayerNeg+1, NumSoilLayer
        if ( LoopInd == NumSnowLayerNeg+1 ) then
-          ThicknessSnowSoilLayer = -noahmp%config%domain%DepthSnowSoilLayer(LoopInd)
+          ThicknessSnowSoilLayer = -noahmp%config%domain%DepthSnowSoilLayer(I,LoopInd,J)
        else
-          ThicknessSnowSoilLayer = noahmp%config%domain%DepthSnowSoilLayer(LoopInd-1) - &
-                                   noahmp%config%domain%DepthSnowSoilLayer(LoopInd)
+          ThicknessSnowSoilLayer = noahmp%config%domain%DepthSnowSoilLayer(I,LoopInd-1,J) - &
+                                   noahmp%config%domain%DepthSnowSoilLayer(I,LoopInd,J)
        endif
        if ( LoopInd >= 1 ) then
           NoahmpIO%SOILENERGY(I,J) = NoahmpIO%SOILENERGY(I,J) + ThicknessSnowSoilLayer * &
-                                     noahmp%energy%state%HeatCapacSoilSnow(LoopInd) * &
-                                     (noahmp%energy%state%TemperatureSoilSnow(LoopInd) - 273.16) * 0.001
+                                     noahmp%energy%state%HeatCapacSoilSnow(I,LoopInd,J) * &
+                                     (noahmp%energy%state%TemperatureSoilSnow(I,LoopInd,J) - 273.16) * 0.001
        else
           NoahmpIO%SNOWENERGY(I,J) = NoahmpIO%SNOWENERGY(I,J) + ThicknessSnowSoilLayer * &
-                                     noahmp%energy%state%HeatCapacSoilSnow(LoopInd) * &
-                                     (noahmp%energy%state%TemperatureSoilSnow(LoopInd) - 273.16) * 0.001
+                                     noahmp%energy%state%HeatCapacSoilSnow(I,LoopInd,J) * &
+                                     (noahmp%energy%state%TemperatureSoilSnow(I,LoopInd,J) - 273.16) * 0.001
        endif
     enddo
 
     end associate
 
+      end do
+      end do
+      !$acc end parallel loop
   end subroutine EnergyVarOutTransfer
 
 end module EnergyVarOutTransferMod

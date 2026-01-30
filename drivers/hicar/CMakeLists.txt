@@ -9,6 +9,9 @@ if(CMAKE_CURRENT_SOURCE_DIR STREQUAL CMAKE_SOURCE_DIR)
 endif()
 
 if(NOT DEFINED NETCDF_INCLUDES AND NOT DEFINED NETCDF_LIBRARIES)
+    if (NOT DEFINED NETCDF_DIR OR NETCDF_DIR STREQUAL "")
+        set(NETCDF_DIR $ENV{NETCDF_DIR} CACHE PATH "Path to NETCDF installation")
+    endif()
     list(APPEND CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/cmake-modules)
     set(CMAKE_PREFIX_PATH ${NETCDF_DIR} ${CMAKE_PREFIX_PATH})
     set(NETCDF_F90 "YES")
@@ -21,6 +24,10 @@ file(GLOB_RECURSE NOAHMP_SOURCES
     "${CMAKE_CURRENT_SOURCE_DIR}/../../utility/*.F90" 
     "${CMAKE_CURRENT_SOURCE_DIR}/*.F90"
 )
+
+#Remove SnowInputSnicarMod.F90 and SnowRadiationSnicarMod.F90 from the build
+list(FILTER NOAHMP_SOURCES EXCLUDE REGEX "SnowInputSnicarMod\\.F90$")
+list(FILTER NOAHMP_SOURCES EXCLUDE REGEX "SnowRadiationSnicarMod\\.F90$")
 
 # Create a static library
 add_library(noahmp STATIC ${NOAHMP_SOURCES})

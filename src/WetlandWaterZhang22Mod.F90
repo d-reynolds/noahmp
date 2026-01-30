@@ -15,6 +15,7 @@ contains
 ! ------------------------ Code history --------------------------------------------------
 ! Refactered code: C. He, P. Valayamkunnath, & refactor team (He et al. 2023)
 ! Implementation by Z. Zhang (Zhang et al. 2022)
+! GPU port (2D arrays): Full SoA transformation for OpenACC (2026)
 ! ----------------------------------------------------------------------------------------
 
     implicit none
@@ -23,6 +24,7 @@ contains
     real(kind=kind_noahmp), intent(in)    :: TimeStep       ! timestep (may not be the same as main model timestep)
 
 ! local variables
+    integer                               :: I, J          ! grid indices
     real(kind=kind_noahmp)                :: LatHeatSpec    ! latent heat vap./sublimation [J/kg]
     real(kind=kind_noahmp)                :: VapPresSlope   ! slope of saturation vapor pressure curve
     real(kind=kind_noahmp)                :: LatHeatPot     ! evaporation from P-T method, energy flux [W/m2]
@@ -30,20 +32,23 @@ contains
     real(kind=kind_noahmp)                :: EvapLatentHeat ! evaporation heat from surface [W/m2]
     real(kind=kind_noahmp)                :: EvapWaterFlux  ! evaporation water from surface [mm/s]
 
+    !$acc parallel loop collapse(2) gang vector present(noahmp)
+    do J = noahmp%config%domain%JTS, noahmp%config%domain%JTE
+      do I = noahmp%config%domain%ITS, noahmp%config%domain%ITE
 ! --------------------------------------------------------------------
     associate(                                                                &
-              TemperatureSfc      => noahmp%energy%state%TemperatureSfc      ,& ! in,    surface air temperature [K]
-              RadSwAbsSfc         => noahmp%energy%flux%RadSwAbsSfc          ,& ! in,    total absorbed solar radiation [W/m2]
-              RadSwReflSfc        => noahmp%energy%flux%RadSwReflSfc         ,& ! in,    total reflected solar radiation [W/m2]
-              RadLwNetSfc         => noahmp%energy%flux%RadLwNetSfc          ,& ! in,    total net longwave rad [W/m2] (+ to atm)
-              HeatGroundTot       => noahmp%energy%flux%HeatGroundTot        ,& ! in,    total ground heat flux [W/m2] (+ to soil/snow)
-              HeatSensibleSfc     => noahmp%energy%flux%HeatSensibleSfc      ,& ! in,    total sensible heat [W/m2] (+ to atm)
-              SoilSaturateFrac    => noahmp%water%state%SoilSaturateFrac     ,& ! in,    fractional saturated area for soil moisture
-              WetlandCapMax       => noahmp%water%param%WetlandCapMax        ,& ! in,    maximum wetland capacity [m]
-              WaterStorageWetland => noahmp%water%state%WaterStorageWetland  ,& ! inout, wetland water storage [mm] 
-              RunoffSurface       => noahmp%water%flux%RunoffSurface         ,& ! inout, surface runoff [mm] per soil timestep
-              EvapGroundNet       => noahmp%water%flux%EvapGroundNet         ,& ! inout, accumulated net ground evaporation per soil timestep [mm]
-              HeatLatentGrd       => noahmp%energy%flux%HeatLatentGrd         & ! inout, ground evaporation heat flux [W/m2] (+ to atm)
+              TemperatureSfc      => noahmp%energy%state%TemperatureSfc(I,J)      ,& ! in,    surface air temperature [K]
+              RadSwAbsSfc         => noahmp%energy%flux%RadSwAbsSfc(I,J)          ,& ! in,    total absorbed solar radiation [W/m2]
+              RadSwReflSfc        => noahmp%energy%flux%RadSwReflSfc(I,J)         ,& ! in,    total reflected solar radiation [W/m2]
+              RadLwNetSfc         => noahmp%energy%flux%RadLwNetSfc(I,J)          ,& ! in,    total net longwave rad [W/m2] (+ to atm)
+              HeatGroundTot       => noahmp%energy%flux%HeatGroundTot(I,J)        ,& ! in,    total ground heat flux [W/m2] (+ to soil/snow)
+              HeatSensibleSfc     => noahmp%energy%flux%HeatSensibleSfc(I,J)      ,& ! in,    total sensible heat [W/m2] (+ to atm)
+              SoilSaturateFrac    => noahmp%water%state%SoilSaturateFrac(I,J)     ,& ! in,    fractional saturated area for soil moisture
+              WetlandCapMax       => noahmp%water%param%WetlandCapMax(I,J)        ,& ! in,    maximum wetland capacity [m]
+              WaterStorageWetland => noahmp%water%state%WaterStorageWetland(I,J)  ,& ! inout, wetland water storage [mm] 
+              RunoffSurface       => noahmp%water%flux%RunoffSurface(I,J)         ,& ! inout, surface runoff [mm] per soil timestep
+              EvapGroundNet       => noahmp%water%flux%EvapGroundNet(I,J)         ,& ! inout, accumulated net ground evaporation per soil timestep [mm]
+              HeatLatentGrd       => noahmp%energy%flux%HeatLatentGrd(I,J)         & ! inout, ground evaporation heat flux [W/m2] (+ to atm)
              )
 ! ----------------------------------------------------------------------
 
@@ -96,6 +101,9 @@ contains
     WaterStorageWetland = min(WetlandCapMax*1000.0, WaterStorageWetland)
 
     end associate
+
+   enddo
+enddo
 
   end subroutine WetlandWaterZhang22
 

@@ -10,8 +10,8 @@ module PedoTransferSR2006Mod
 
 contains
 
-  subroutine PedoTransferSR2006(NoahmpIO, noahmp, Sand, Clay, Orgm)
-
+  subroutine PedoTransferSR2006(NoahmpIO, noahmp, Sand, Clay, Orgm, I, J)
+  !$acc routine seq
 ! ------------------------ Code history -----------------------------------
 ! Original Noah-MP subroutine: PEDOTRANSFER_SR2006
 ! Original code: Guo-Yue Niu and Noah-MP team (Niu et al. 2011)
@@ -22,6 +22,7 @@ contains
 
     type(NoahmpIO_type), intent(inout) :: NoahmpIO
     type(noahmp_type)  , intent(inout) :: noahmp
+    integer, intent(in)                :: I, J
 
     real(kind=kind_noahmp), dimension(1:NoahmpIO%NSOIL), intent(inout) :: Sand
     real(kind=kind_noahmp), dimension(1:NoahmpIO%NSOIL), intent(inout) :: Clay
@@ -196,16 +197,18 @@ contains
     dwsat  = max(1.e-6,min(dwsat,   3.e-5))
     quartz = max(0.05 ,min(quartz,  0.95 ))
 
-    noahmp%water%param%SoilMoistureWilt       = smcwlt  
-    noahmp%water%param%SoilMoistureFieldCap   = smcref    
-    noahmp%water%param%SoilMoistureSat        = smcmax    
-    noahmp%water%param%SoilMoistureDry        = smcdry    
-    noahmp%water%param%SoilExpCoeffB          = bexp    
-    noahmp%water%param%SoilMatPotentialSat    = psisat    
-    noahmp%water%param%SoilWatConductivitySat = dksat     
-    noahmp%water%param%SoilWatDiffusivitySat  = dwsat
-    noahmp%energy%param%SoilQuartzFrac        = quartz     
-
+    !$acc loop seq
+    do k = 1,NoahmpIO%NSOIL
+      noahmp%water%param%SoilMoistureWilt(I,k,J)       = smcwlt(k)  
+      noahmp%water%param%SoilMoistureFieldCap(I,k,J)   = smcref(k)    
+      noahmp%water%param%SoilMoistureSat(I,k,J)        = smcmax(k)    
+      noahmp%water%param%SoilMoistureDry(I,k,J)        = smcdry(k)    
+      noahmp%water%param%SoilExpCoeffB(I,k,J)          = bexp(k)    
+      noahmp%water%param%SoilMatPotentialSat(I,k,J)    = psisat(k)    
+      noahmp%water%param%SoilWatConductivitySat(I,k,J) = dksat(k)     
+      noahmp%water%param%SoilWatDiffusivitySat(I,k,J)  = dwsat(k)
+      noahmp%energy%param%SoilQuartzFrac(I,k,J)        = quartz(k)     
+    enddo
     end associate
 
   end subroutine PedoTransferSR2006

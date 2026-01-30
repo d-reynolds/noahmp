@@ -1,7 +1,7 @@
 module ResistanceBareGroundMostMod
 
 !!! Compute bare ground resistance and drag coefficient for momentum and heat
-!!! based on Monin-Obukhov (M-O) Similarity Theory (MOST)
+!!! based on Monin-Obukhov (M-O) Similarity Theory (MOST) (2D GPU-optimized)
 
   use Machine
   use NoahmpVarType
@@ -17,14 +17,15 @@ contains
 ! Original Noah-MP subroutine: SFCDIF1 for bare ground portion
 ! Original code: Guo-Yue Niu and Noah-MP team (Niu et al. 2011)
 ! Refactered code: C. He, P. Valayamkunnath, & refactor team (He et al. 2023)
+! GPU port (2D arrays): Full SoA transformation for OpenACC (2026)
 ! -------------------------------------------------------------------------
 
     implicit none
 
 ! in & out variables
     integer               , intent(in   ) :: IndIter                     ! iteration index
-    integer               , intent(inout) :: MoStabParaSgn               ! number of times moz changes sign
-    real(kind=kind_noahmp), intent(in   ) :: HeatSensibleTmp             ! temporary sensible heat flux (w/m2) in each iteration
+    integer, allocatable, intent(inout   ) :: MoStabParaSgn(:,:)   ! number of times moz changes sign
+    real(kind=kind_noahmp), allocatable, intent(in   ) :: HeatSensibleTmp(:,:)   ! temporary effective vegetation area index with constraint (<=6.0)
     type(noahmp_type)     , intent(inout) :: noahmp
 
 ! local variable
@@ -42,39 +43,47 @@ contains
     real(kind=kind_noahmp)                :: FH2NEW                      ! stability correction factor, sen heat, for current moz
     real(kind=kind_noahmp)                :: TMP12,TMP22,TMP32           ! temporary calculation
     real(kind=kind_noahmp)                :: CMFM, CHFH, CM2FM2, CH2FH2  ! temporary calculation
+    integer                               :: I, J                         ! grid indices
 
+   !$acc parallel loop collapse(2) gang vector present(noahmp, MoStabParaSgn, HeatSensibleTmp) &
+   !$acc  private(MPE, TMPCM, TMPCH, FMNEW, FHNEW, MOZOLD, TMP1,TMP2,TMP3,TMP4,TMP5, TVIR) &
+   !$acc  private(TMPCM2, TMPCH2, FM2NEW, FH2NEW, TMP12,TMP22,TMP32, CMFM, CHFH, CM2FM2, CH2FH2  )
+    do J = noahmp%config%domain%JTS, noahmp%config%domain%JTE
+      do I = noahmp%config%domain%ITS, noahmp%config%domain%ITE
 ! --------------------------------------------------------------------
-    associate(                                                                     &
-              TemperatureAirRefHeight => noahmp%forcing%TemperatureAirRefHeight   ,& ! in,    air temperature [K] at reference height
-              SpecHumidityRefHeight   => noahmp%forcing%SpecHumidityRefHeight     ,& ! in,    specific humidity [kg/kg] at reference height
-              RefHeightAboveGrd       => noahmp%energy%state%RefHeightAboveGrd    ,& ! in,    reference height [m] above ground
-              DensityAirRefHeight     => noahmp%energy%state%DensityAirRefHeight  ,& ! in,    density air [kg/m3]
-              WindSpdRefHeight        => noahmp%energy%state%WindSpdRefHeight     ,& ! in,    wind speed [m/s] at reference height
-              ZeroPlaneDispGrd        => noahmp%energy%state%ZeroPlaneDispGrd     ,& ! in,    ground zero plane displacement [m]
-              RoughLenShBareGrd       => noahmp%energy%state%RoughLenShBareGrd    ,& ! in,    roughness length [m], sensible heat, bare ground
-              RoughLenMomGrd          => noahmp%energy%state%RoughLenMomGrd       ,& ! in,    roughness length [m], momentum, ground
-              MoStabCorrMomBare       => noahmp%energy%state%MoStabCorrMomBare    ,& ! inout, M-O momentum stability correction, above ZeroPlaneDisp, bare ground
-              MoStabCorrShBare        => noahmp%energy%state%MoStabCorrShBare     ,& ! inout, M-O sen heat stability correction, above ZeroPlaneDisp, bare ground
-              MoStabCorrMomBare2m     => noahmp%energy%state%MoStabCorrMomBare2m  ,& ! inout, M-O momentum stability correction, 2m, bare ground
-              MoStabCorrShBare2m      => noahmp%energy%state%MoStabCorrShBare2m   ,& ! inout, M-O sen heat stability correction, 2m, bare ground
-              FrictionVelBare         => noahmp%energy%state%FrictionVelBare      ,& ! inout, friction velocity [m/s], bare ground
-              MoStabParaBare          => noahmp%energy%state%MoStabParaBare       ,& ! inout, Monin-Obukhov stability (z/L), above ZeroPlaneDisp, bare ground
-              MoStabParaBare2m        => noahmp%energy%state%MoStabParaBare2m     ,& ! out,   Monin-Obukhov stability (z/L), 2m, bare ground
-              MoLengthBare            => noahmp%energy%state%MoLengthBare         ,& ! out,   Monin-Obukhov length [m], above ZeroPlaneDisp, bare ground
-              ExchCoeffMomBare        => noahmp%energy%state%ExchCoeffMomBare     ,& ! out,   exchange coeff [m/s] for momentum, above ZeroPlaneDisp, bare ground
-              ExchCoeffShBare         => noahmp%energy%state%ExchCoeffShBare      ,& ! out,   exchange coeff [m/s]  for heat, above ZeroPlaneDisp, bare ground
-              ExchCoeffSh2mBareMo     => noahmp%energy%state%ExchCoeffSh2mBareMo  ,& ! out,   exchange coeff [m/s] for heat, 2m, bare ground
-              ResistanceMomBareGrd    => noahmp%energy%state%ResistanceMomBareGrd ,& ! out,   aerodynamic resistance for momentum [s/m], bare ground
-              ResistanceShBareGrd     => noahmp%energy%state%ResistanceShBareGrd  ,& ! out,   aerodynamic resistance for sensible heat [s/m], bare ground
-              ResistanceLhBareGrd     => noahmp%energy%state%ResistanceLhBareGrd   & ! out,   aerodynamic resistance for water vapor [s/m], bare ground
-             )
+        associate(                                                                     &
+                  TemperatureAirRefHeight => noahmp%forcing%TemperatureAirRefHeight(I,J) ,& ! in,    air temperature [K] at reference height
+                  SpecHumidityRefHeight   => noahmp%forcing%SpecHumidityRefHeight(I,J) ,& ! in,    specific humidity [kg/kg] at reference height
+                  RefHeightAboveGrd       => noahmp%energy%state%RefHeightAboveGrd(I,J) ,& ! in,    reference height [m] above ground
+                  DensityAirRefHeight     => noahmp%energy%state%DensityAirRefHeight(I,J) ,& ! in,    density air [kg/m3]
+                  WindSpdRefHeight        => noahmp%energy%state%WindSpdRefHeight(I,J) ,& ! in,    wind speed [m/s] at reference height
+                  ZeroPlaneDispGrd        => noahmp%energy%state%ZeroPlaneDispGrd(I,J) ,& ! in,    ground zero plane displacement [m]
+                  RoughLenShBareGrd       => noahmp%energy%state%RoughLenShBareGrd(I,J) ,& ! in,    roughness length [m], sensible heat, bare ground
+                  RoughLenMomGrd          => noahmp%energy%state%RoughLenMomGrd(I,J)   ,& ! in,    roughness length [m], momentum, ground
+                  MoStabCorrMomBare       => noahmp%energy%state%MoStabCorrMomBare(I,J) ,& ! inout, M-O momentum stability correction, above ZeroPlaneDisp, bare ground
+                  MoStabCorrShBare        => noahmp%energy%state%MoStabCorrShBare(I,J)  ,& ! inout, M-O sen heat stability correction, above ZeroPlaneDisp, bare ground
+                  MoStabCorrMomBare2m     => noahmp%energy%state%MoStabCorrMomBare2m(I,J) ,& ! inout, M-O momentum stability correction, 2m, bare ground
+                  MoStabCorrShBare2m      => noahmp%energy%state%MoStabCorrShBare2m(I,J) ,& ! inout, M-O sen heat stability correction, 2m, bare ground
+                  FrictionVelBare         => noahmp%energy%state%FrictionVelBare(I,J)   ,& ! inout, friction velocity [m/s], bare ground
+                  MoStabParaBare          => noahmp%energy%state%MoStabParaBare(I,J)    ,& ! inout, Monin-Obukhov stability (z/L), above ZeroPlaneDisp, bare ground
+                  MoStabParaBare2m        => noahmp%energy%state%MoStabParaBare2m(I,J)  ,& ! out,   Monin-Obukhov stability (z/L), 2m, bare ground
+                  MoLengthBare            => noahmp%energy%state%MoLengthBare(I,J)      ,& ! out,   Monin-Obukhov length [m], above ZeroPlaneDisp, bare ground
+                  ExchCoeffMomBare        => noahmp%energy%state%ExchCoeffMomBare(I,J)  ,& ! out,   exchange coeff [m/s] for momentum, above ZeroPlaneDisp, bare ground
+                  ExchCoeffShBare         => noahmp%energy%state%ExchCoeffShBare(I,J)   ,& ! out,   exchange coeff [m/s]  for heat, above ZeroPlaneDisp, bare ground
+                  ExchCoeffSh2mBareMo     => noahmp%energy%state%ExchCoeffSh2mBareMo(I,J) ,& ! out,   exchange coeff [m/s] for heat, 2m, bare ground
+                  ResistanceMomBareGrd    => noahmp%energy%state%ResistanceMomBareGrd(I,J) ,& ! out,   aerodynamic resistance for momentum [s/m], bare ground
+                  ResistanceShBareGrd     => noahmp%energy%state%ResistanceShBareGrd(I,J) ,& ! out,   aerodynamic resistance for sensible heat [s/m], bare ground
+                  ResistanceLhBareGrd     => noahmp%energy%state%ResistanceLhBareGrd(I,J)  & ! out,   aerodynamic resistance for water vapor [s/m], bare ground
+                 )
 ! ----------------------------------------------------------------------
 
     ! initialization
     MPE    = 1.0e-6
     MOZOLD = MoStabParaBare  ! M-O stability parameter for next iteration
     if ( RefHeightAboveGrd <= ZeroPlaneDispGrd ) then
-       write(*,*) "WARNING: critical problem: RefHeightAboveGrd <= ZeroPlaneDispGrd; model stops"
+#ifndef _OPENACC        
+         write(*,*) "WARNING: critical problem: RefHeightAboveGrd <= ZeroPlaneDispGrd; model stops"
+#endif
        stop "Error in ResistanceBareGroundMostMod.F90"
     endif
 
@@ -92,7 +101,7 @@ contains
        MoStabParaBare2m = 0.0
     else
        TVIR = (1.0 + 0.61*SpecHumidityRefHeight) * TemperatureAirRefHeight
-       TMP1 = ConstVonKarman * (ConstGravityAcc/TVIR) * HeatSensibleTmp / (DensityAirRefHeight*ConstHeatCapacAir)
+       TMP1 = ConstVonKarman * (ConstGravityAcc/TVIR) * HeatSensibleTmp(I,J) / (DensityAirRefHeight*ConstHeatCapacAir)
        if ( abs(TMP1) <= MPE ) TMP1 = MPE
        MoLengthBare     = -1.0 * FrictionVelBare**3 / TMP1
        MoStabParaBare   = min((RefHeightAboveGrd - ZeroPlaneDispGrd) / MoLengthBare, 1.0)
@@ -100,8 +109,8 @@ contains
     endif
 
     ! accumulate number of times moz changes sign.
-    if ( MOZOLD*MoStabParaBare < 0.0 ) MoStabParaSgn = MoStabParaSgn + 1
-    if ( MoStabParaSgn >= 2 ) then
+    if ( MOZOLD*MoStabParaBare < 0.0 ) MoStabParaSgn(I,J) = MoStabParaSgn(I,J) + 1
+    if ( MoStabParaSgn(I,J) >= 2 ) then
        MoStabParaBare      = 0.0
        MoStabCorrMomBare   = 0.0
        MoStabCorrShBare    = 0.0
@@ -171,6 +180,8 @@ contains
     ResistanceLhBareGrd  = ResistanceShBareGrd
 
     end associate
+      end do
+    end do
 
   end subroutine ResistanceBareGroundMOST
 

@@ -16,6 +16,7 @@ contains
 ! Original Noah-MP subroutine: None (embedded in ENERGY_GLACIER subroutine)
 ! Original code: Guo-Yue Niu and Noah-MP team (Niu et al. 2011)
 ! Refactered code: C. He, P. Valayamkunnath, & refactor team (He et al. 2023)
+! GPU port (2D arrays): Full SoA transformation for OpenACC (2026)
 ! -------------------------------------------------------------------------
 
     implicit none
@@ -23,16 +24,23 @@ contains
 ! in & out variables
     type(noahmp_type), intent(inout) :: noahmp
 
+! local variable
+    integer                          :: I, J      ! grid indices
+
 ! --------------------------------------------------------------------
-    associate(                                                             &
-              RefHeightAboveSfc => noahmp%config%domain%RefHeightAboveSfc ,& ! in,  reference height [m] above surface zero plane
-              SnowDepth         => noahmp%water%state%SnowDepth           ,& ! in,  snow depth [m]
-              RoughLenMomSnow   => noahmp%energy%param%RoughLenMomSnow    ,& ! in,  snow surface roughness length [m]
-              RoughLenMomSfc    => noahmp%energy%state%RoughLenMomSfc     ,& ! out, roughness length [m], momentum, surface
-              RoughLenMomGrd    => noahmp%energy%state%RoughLenMomGrd     ,& ! out, roughness length [m], momentum, ground
-              ZeroPlaneDispSfc  => noahmp%energy%state%ZeroPlaneDispSfc   ,& ! out, surface zero plane displacement [m]
-              ZeroPlaneDispGrd  => noahmp%energy%state%ZeroPlaneDispGrd   ,& ! out, ground zero plane displacement [m]
-              RefHeightAboveGrd => noahmp%energy%state%RefHeightAboveGrd   & ! out, reference height [m] above ground
+   !$acc parallel loop collapse(2) gang vector present(noahmp)
+    do J = noahmp%config%domain%JTS, noahmp%config%domain%JTE
+      do I = noahmp%config%domain%ITS, noahmp%config%domain%ITE
+
+    associate(                                                                &
+              RefHeightAboveSfc => noahmp%config%domain%RefHeightAboveSfc(I,J),& ! in,  reference height [m] above surface zero plane
+              SnowDepth         => noahmp%water%state%SnowDepth(I,J)          ,& ! in,  snow depth [m]
+              RoughLenMomSnow   => noahmp%energy%param%RoughLenMomSnow(I,J)   ,& ! in,  snow surface roughness length [m]
+              RoughLenMomSfc    => noahmp%energy%state%RoughLenMomSfc(I,J)    ,& ! out, roughness length [m], momentum, surface
+              RoughLenMomGrd    => noahmp%energy%state%RoughLenMomGrd(I,J)    ,& ! out, roughness length [m], momentum, ground
+              ZeroPlaneDispSfc  => noahmp%energy%state%ZeroPlaneDispSfc(I,J)  ,& ! out, surface zero plane displacement [m]
+              ZeroPlaneDispGrd  => noahmp%energy%state%ZeroPlaneDispGrd(I,J)  ,& ! out, ground zero plane displacement [m]
+              RefHeightAboveGrd => noahmp%energy%state%RefHeightAboveGrd(I,J)  & ! out, reference height [m] above ground
              )
 ! ----------------------------------------------------------------------
 
@@ -48,6 +56,10 @@ contains
     RefHeightAboveGrd = ZeroPlaneDispSfc + RefHeightAboveSfc
 
     end associate
+
+      end do
+    end do
+   !$acc end parallel loop
 
   end subroutine GroundRoughnessPropertyGlacier
 

@@ -1,6 +1,6 @@
 module PrecipitationHeatAdvectMod
 
-!!! Estimate heat flux advected from precipitation to vegetation and ground
+!!! Estimate heat flux advected from precipitation to vegetation and ground (2D GPU-optimized)
 
   use Machine
   use NoahmpVarType
@@ -16,6 +16,7 @@ contains
 ! Original Noah-MP subroutine: PRECIP_HEAT
 ! Original code: Guo-Yue Niu and Noah-MP team (Niu et al. 2011)
 ! Refactered code: C. He, P. Valayamkunnath, & refactor team (He et al. 2023)
+! GPU port (2D arrays): Full SoA transformation for OpenACC (2026)
 ! The water and heat portions of PRECIP_HEAT are separated in refactored code
 ! -------------------------------------------------------------------------
 
@@ -23,27 +24,33 @@ contains
 
     type(noahmp_type), intent(inout) :: noahmp
 
-! local variable
+! local variables
+    integer                          :: I, J                ! grid indices
     real(kind=kind_noahmp)           :: HeatPrcpAirToCan    ! precipitation advected heat - air to canopy [W/m2]
     real(kind=kind_noahmp)           :: HeatPrcpCanToGrd    ! precipitation advected heat - canopy to ground [W/m2]
     real(kind=kind_noahmp)           :: HeatPrcpAirToGrd    ! precipitation advected heat - air to ground [W/m2]
 
 ! --------------------------------------------------------------------
-    associate(                                                                    &
-              TemperatureAirRefHeight => noahmp%forcing%TemperatureAirRefHeight  ,& ! in,  air temperature [K] at reference height
-              TemperatureCanopy       => noahmp%energy%state%TemperatureCanopy   ,& ! in,  vegetation temperature [K]
-              TemperatureGrd          => noahmp%energy%state%TemperatureGrd      ,& ! in,  ground temperature [K]
-              VegFrac                 => noahmp%energy%state%VegFrac             ,& ! in,  greeness vegetation fraction
-              RainfallRefHeight       => noahmp%water%flux%RainfallRefHeight     ,& ! in,  total liquid rainfall [mm/s] before interception
-              SnowfallRefHeight       => noahmp%water%flux%SnowfallRefHeight     ,& ! in,  total snowfall [mm/s] before interception
-              DripCanopyRain          => noahmp%water%flux%DripCanopyRain        ,& ! in,  drip rate for intercepted rain [mm/s]
-              ThroughfallRain         => noahmp%water%flux%ThroughfallRain       ,& ! in,  throughfall for rain [mm/s]
-              DripCanopySnow          => noahmp%water%flux%DripCanopySnow        ,& ! in,  drip (unloading) rate for intercepted snow [mm/s]
-              ThroughfallSnow         => noahmp%water%flux%ThroughfallSnow       ,& ! in,  throughfall of snowfall [mm/s]
-              HeatPrecipAdvCanopy     => noahmp%energy%flux%HeatPrecipAdvCanopy  ,& ! out, precipitation advected heat - vegetation net [W/m2]
-              HeatPrecipAdvVegGrd     => noahmp%energy%flux%HeatPrecipAdvVegGrd  ,& ! out, precipitation advected heat - under canopy net [W/m2]
-              HeatPrecipAdvBareGrd    => noahmp%energy%flux%HeatPrecipAdvBareGrd  & ! out, precipitation advected heat - bare ground net [W/m2]
-             )
+    !$acc parallel loop collapse(2) gang vector present(noahmp) &
+    !$acc private(HeatPrcpAirToCan, HeatPrcpCanToGrd, HeatPrcpAirToGrd)
+    do J = noahmp%config%domain%JTS, noahmp%config%domain%JTE
+      do I = noahmp%config%domain%ITS, noahmp%config%domain%ITE
+
+        associate(                                                                          &
+                  TemperatureAirRefHeight => noahmp%forcing%TemperatureAirRefHeight(I,J)  ,& ! in,  air temperature [K] at reference height
+                  TemperatureCanopy       => noahmp%energy%state%TemperatureCanopy(I,J)   ,& ! in,  vegetation temperature [K]
+                  TemperatureGrd          => noahmp%energy%state%TemperatureGrd(I,J)      ,& ! in,  ground temperature [K]
+                  VegFrac                 => noahmp%energy%state%VegFrac(I,J)             ,& ! in,  greeness vegetation fraction
+                  RainfallRefHeight       => noahmp%water%flux%RainfallRefHeight(I,J)     ,& ! in,  total liquid rainfall [mm/s] before interception
+                  SnowfallRefHeight       => noahmp%water%flux%SnowfallRefHeight(I,J)     ,& ! in,  total snowfall [mm/s] before interception
+                  DripCanopyRain          => noahmp%water%flux%DripCanopyRain(I,J)        ,& ! in,  drip rate for intercepted rain [mm/s]
+                  ThroughfallRain         => noahmp%water%flux%ThroughfallRain(I,J)       ,& ! in,  throughfall for rain [mm/s]
+                  DripCanopySnow          => noahmp%water%flux%DripCanopySnow(I,J)        ,& ! in,  drip (unloading) rate for intercepted snow [mm/s]
+                  ThroughfallSnow         => noahmp%water%flux%ThroughfallSnow(I,J)       ,& ! in,  throughfall of snowfall [mm/s]
+                  HeatPrecipAdvCanopy     => noahmp%energy%flux%HeatPrecipAdvCanopy(I,J)  ,& ! out, precipitation advected heat - vegetation net [W/m2]
+                  HeatPrecipAdvVegGrd     => noahmp%energy%flux%HeatPrecipAdvVegGrd(I,J)  ,& ! out, precipitation advected heat - under canopy net [W/m2]
+                  HeatPrecipAdvBareGrd    => noahmp%energy%flux%HeatPrecipAdvBareGrd(I,J)  & ! out, precipitation advected heat - bare ground net [W/m2]
+                 )
 ! ----------------------------------------------------------------------
 
     ! initialization
@@ -92,7 +99,11 @@ contains
     HeatPrecipAdvBareGrd = max(HeatPrecipAdvBareGrd, -20.0)
     HeatPrecipAdvBareGrd = min(HeatPrecipAdvBareGrd,  20.0)
 
-    end associate
+        end associate
+
+      end do
+    end do
+    !$acc end parallel loop
 
   end subroutine PrecipitationHeatAdvect
 

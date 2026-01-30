@@ -22,6 +22,7 @@ contains
 ! Original Noah-MP subroutine: CANRES
 ! Original code: Guo-Yue Niu and Noah-MP team (Niu et al. 2011)
 ! Refactered code: C. He, P. Valayamkunnath, & refactor team (He et al. 2023)
+! GPU port (2D arrays): Full SoA transformation for OpenACC (2026)
 ! -------------------------------------------------------------------------
 
     implicit none
@@ -30,6 +31,7 @@ contains
     type(noahmp_type), intent(inout) :: noahmp
 
 ! local variables
+    integer                          :: I, J                  ! grid indices
     real(kind=kind_noahmp)           :: ResistanceVapDef      ! canopy resistance multiplier
     real(kind=kind_noahmp)           :: ResistanceSolar       ! canopy resistance multiplier
     real(kind=kind_noahmp)           :: ResistanceTemp        ! canopy resistance multiplier
@@ -43,23 +45,31 @@ contains
     real(kind=kind_noahmp)           :: PhotosynLeafTmp       ! temporary leaf photosynthesis [umol co2/m2/s]
 
 ! --------------------------------------------------------------------
-    associate(                                                                        &
-              PressureAirRefHeight    => noahmp%forcing%PressureAirRefHeight         ,& ! in,  air pressure [Pa] at reference height
-              SoilTranspFacAcc        => noahmp%water%state%SoilTranspFacAcc         ,& ! in,  accumulated soil water transpiration factor (0 to 1)
-              RadiationStressFac      => noahmp%energy%param%RadiationStressFac      ,& ! in,  Parameter used in radiation stress function
-              ResistanceStomataMin    => noahmp%energy%param%ResistanceStomataMin    ,& ! in,  Minimum stomatal resistance [s m-1]
-              ResistanceStomataMax    => noahmp%energy%param%ResistanceStomataMax    ,& ! in,  Maximal stomatal resistance [s m-1]
-              AirTempOptimTransp      => noahmp%energy%param%AirTempOptimTransp      ,& ! in,  Optimum transpiration air temperature [K]
-              VaporPresDeficitFac     => noahmp%energy%param%VaporPresDeficitFac     ,& ! in,  Parameter used in vapor pressure deficit function
-              TemperatureCanopy       => noahmp%energy%state%TemperatureCanopy       ,& ! in,  vegetation temperature [K]
-              PressureVaporCanAir     => noahmp%energy%state%PressureVaporCanAir     ,& ! in,  canopy air vapor pressure [Pa]
-              VegFrac                 => noahmp%energy%state%VegFrac                 ,& ! in,  greeness vegetation fraction
-              RadPhotoActAbsSunlit    => noahmp%energy%flux%RadPhotoActAbsSunlit     ,& ! in,  average absorbed par for sunlit leaves [W/m2]
-              RadPhotoActAbsShade     => noahmp%energy%flux%RadPhotoActAbsShade      ,& ! in,  average absorbed par for shaded leaves [W/m2]
-              ResistanceStomataSunlit => noahmp%energy%state%ResistanceStomataSunlit ,& ! out, sunlit leaf stomatal resistance [s/m]
-              ResistanceStomataShade  => noahmp%energy%state%ResistanceStomataShade  ,& ! out, shaded leaf stomatal resistance [s/m]
-              PhotosynLeafSunlit      => noahmp%biochem%flux%PhotosynLeafSunlit      ,& ! out, sunlit leaf photosynthesis [umol CO2/m2/s]
-              PhotosynLeafShade       => noahmp%biochem%flux%PhotosynLeafShade        & ! out, shaded leaf photosynthesis [umol CO2/m2/s]
+
+   !$acc parallel loop collapse(2) gang vector present(noahmp) &
+   !$acc private(ResistanceVapDef,ResistanceSolar,ResistanceTemp,RadFac,SpecHumidityTmp) &
+   !$acc private(MixingRatioTmp,MixingRatioSat,MixingRatioSatTempD,RadPhotoActAbsTmp) &
+   !$acc private(ResistanceStomataTmp,PhotosynLeafTmp)
+    do J = noahmp%config%domain%JTS, noahmp%config%domain%JTE
+      do I = noahmp%config%domain%ITS, noahmp%config%domain%ITE
+
+    associate(                                                                           &
+              PressureAirRefHeight    => noahmp%forcing%PressureAirRefHeight(I,J)        ,& ! in,  air pressure [Pa] at reference height
+              SoilTranspFacAcc        => noahmp%water%state%SoilTranspFacAcc(I,J)        ,& ! in,  accumulated soil water transpiration factor (0 to 1)
+              RadiationStressFac      => noahmp%energy%param%RadiationStressFac(I,J)     ,& ! in,  Parameter used in radiation stress function
+              ResistanceStomataMin    => noahmp%energy%param%ResistanceStomataMin(I,J)   ,& ! in,  Minimum stomatal resistance [s m-1]
+              ResistanceStomataMax    => noahmp%energy%param%ResistanceStomataMax(I,J)   ,& ! in,  Maximal stomatal resistance [s m-1]
+              AirTempOptimTransp      => noahmp%energy%param%AirTempOptimTransp(I,J)     ,& ! in,  Optimum transpiration air temperature [K]
+              VaporPresDeficitFac     => noahmp%energy%param%VaporPresDeficitFac(I,J)    ,& ! in,  Parameter used in vapor pressure deficit function
+              TemperatureCanopy       => noahmp%energy%state%TemperatureCanopy(I,J)      ,& ! in,  vegetation temperature [K]
+              PressureVaporCanAir     => noahmp%energy%state%PressureVaporCanAir(I,J)    ,& ! in,  canopy air vapor pressure [Pa]
+              VegFrac                 => noahmp%energy%state%VegFrac(I,J)                ,& ! in,  greeness vegetation fraction
+              RadPhotoActAbsSunlit    => noahmp%energy%flux%RadPhotoActAbsSunlit(I,J)    ,& ! in,  average absorbed par for sunlit leaves [W/m2]
+              RadPhotoActAbsShade     => noahmp%energy%flux%RadPhotoActAbsShade(I,J)     ,& ! in,  average absorbed par for shaded leaves [W/m2]
+              ResistanceStomataSunlit => noahmp%energy%state%ResistanceStomataSunlit(I,J),& ! out, sunlit leaf stomatal resistance [s/m]
+              ResistanceStomataShade  => noahmp%energy%state%ResistanceStomataShade(I,J) ,& ! out, shaded leaf stomatal resistance [s/m]
+              PhotosynLeafSunlit      => noahmp%biochem%flux%PhotosynLeafSunlit(I,J)     ,& ! out, sunlit leaf photosynthesis [umol CO2/m2/s]
+              PhotosynLeafShade       => noahmp%biochem%flux%PhotosynLeafShade(I,J)       & ! out, shaded leaf photosynthesis [umol CO2/m2/s]
              )
 ! ----------------------------------------------------------------------
 
@@ -106,6 +116,10 @@ contains
     endif
 
     end associate
+
+      end do
+    end do
+   !$acc end parallel loop
 
   end subroutine ResistanceCanopyStomataJarvis
 

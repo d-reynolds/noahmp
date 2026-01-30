@@ -18,6 +18,7 @@ contains
 ! Original Noah-MP subroutine: SFCDIF2 for vegetated portion
 ! Original code: Guo-Yue Niu and Noah-MP team (Niu et al. 2011)
 ! Refactered code: C. He, P. Valayamkunnath, & refactor team (He et al. 2023)
+! GPU port (2D arrays): Full SoA transformation for OpenACC (2026)
 ! -------------------------------------------------------------------------
 
     implicit none
@@ -26,6 +27,7 @@ contains
     type(noahmp_type)     , intent(inout) :: noahmp
 
 ! local variables
+    integer                               :: I, J             ! grid indices
     integer                               :: ILECH, ITR
     real(kind=kind_noahmp)                :: ZZ, PSLMU, PSLMS, PSLHU, PSLHS
     real(kind=kind_noahmp)                :: XX, PSPMU, YY, PSPMS, PSPHU, PSPHS
@@ -72,21 +74,28 @@ contains
     PSPHS(YY) = 5.0 * YY
 
 ! --------------------------------------------------------------------
-    associate(                                                                        &
-              ZilitinkevichCoeff      => noahmp%energy%param%ZilitinkevichCoeff      ,& ! in,    Calculate roughness length of heat
-              RefHeightAboveGrd       => noahmp%energy%state%RefHeightAboveGrd       ,& ! in,    reference height [m] above ground
-              TemperaturePotRefHeight => noahmp%energy%state%TemperaturePotRefHeight ,& ! in,    potential temp at reference height [K]
-              WindSpdRefHeight        => noahmp%energy%state%WindSpdRefHeight        ,& ! in,    wind speed [m/s] at reference height
-              RoughLenMomSfc          => noahmp%energy%state%RoughLenMomSfc          ,& ! in,    roughness length [m], momentum, surface
-              TemperatureCanopyAir    => noahmp%energy%state%TemperatureCanopyAir    ,& ! in,    canopy air temperature [K]
-              ExchCoeffMomAbvCan      => noahmp%energy%state%ExchCoeffMomAbvCan      ,& ! inout, exchange coeff [m/s] for momentum, above ZeroPlaneDisp, vegetated
-              ExchCoeffShAbvCan       => noahmp%energy%state%ExchCoeffShAbvCan       ,& ! inout, exchange coeff [m/s] for heat, above ZeroPlaneDisp, vegetated
-              MoStabParaAbvCan        => noahmp%energy%state%MoStabParaAbvCan        ,& ! inout, Monin-Obukhov stability (z/L), above ZeroPlaneDisp, vegetated
-              FrictionVelVertVeg      => noahmp%energy%state%FrictionVelVertVeg      ,& ! inout, friction velocity [m/s] in vertical direction, vegetated
-              FrictionVelVeg          => noahmp%energy%state%FrictionVelVeg          ,& ! inout, friction velocity [m/s], vegetated
-              ResistanceMomAbvCan     => noahmp%energy%state%ResistanceMomAbvCan     ,& ! out,   aerodynamic resistance for momentum [s/m], above canopy
-              ResistanceShAbvCan      => noahmp%energy%state%ResistanceShAbvCan      ,& ! out,   aerodynamic resistance for sensible heat [s/m], above canopy
-              ResistanceLhAbvCan      => noahmp%energy%state%ResistanceLhAbvCan       & ! out,   aerodynamic resistance for water vapor [s/m], above canopy
+   !$acc parallel loop collapse(2) gang vector present(noahmp) &
+   !$acc private(ILECH,ZILFC,ZU,ZT,RDZ,CXCH,DTHV,DU2,BTGH,ZSLU,ZSLT,RLOGU,RLOGT,RLMA) &
+   !$acc private(ZETALT,ZETALU,ZETAU,ZETAT,XLU4,XLT4,XU4,XT4,XLU,XLT,XU,XT) &
+   !$acc private(PSMZ,SIMM,PSHZ,SIMH,USTARK,RLMN)
+    do J = noahmp%config%domain%JTS, noahmp%config%domain%JTE
+      do I = noahmp%config%domain%ITS, noahmp%config%domain%ITE
+
+    associate(                                                                           &
+              ZilitinkevichCoeff      => noahmp%energy%param%ZilitinkevichCoeff(I,J)     ,& ! in,    Calculate roughness length of heat
+              RefHeightAboveGrd       => noahmp%energy%state%RefHeightAboveGrd(I,J)      ,& ! in,    reference height [m] above ground
+              TemperaturePotRefHeight => noahmp%energy%state%TemperaturePotRefHeight(I,J),& ! in,    potential temp at reference height [K]
+              WindSpdRefHeight        => noahmp%energy%state%WindSpdRefHeight(I,J)       ,& ! in,    wind speed [m/s] at reference height
+              RoughLenMomSfc          => noahmp%energy%state%RoughLenMomSfc(I,J)         ,& ! in,    roughness length [m], momentum, surface
+              TemperatureCanopyAir    => noahmp%energy%state%TemperatureCanopyAir(I,J)   ,& ! in,    canopy air temperature [K]
+              ExchCoeffMomAbvCan      => noahmp%energy%state%ExchCoeffMomAbvCan(I,J)     ,& ! inout, exchange coeff [m/s] for momentum, above ZeroPlaneDisp, vegetated
+              ExchCoeffShAbvCan       => noahmp%energy%state%ExchCoeffShAbvCan(I,J)      ,& ! inout, exchange coeff [m/s] for heat, above ZeroPlaneDisp, vegetated
+              MoStabParaAbvCan        => noahmp%energy%state%MoStabParaAbvCan(I,J)       ,& ! inout, Monin-Obukhov stability (z/L), above ZeroPlaneDisp, vegetated
+              FrictionVelVertVeg      => noahmp%energy%state%FrictionVelVertVeg(I,J)     ,& ! inout, friction velocity [m/s] in vertical direction, vegetated
+              FrictionVelVeg          => noahmp%energy%state%FrictionVelVeg(I,J)         ,& ! inout, friction velocity [m/s], vegetated
+              ResistanceMomAbvCan     => noahmp%energy%state%ResistanceMomAbvCan(I,J)    ,& ! out,   aerodynamic resistance for momentum [s/m], above canopy
+              ResistanceShAbvCan      => noahmp%energy%state%ResistanceShAbvCan(I,J)     ,& ! out,   aerodynamic resistance for sensible heat [s/m], above canopy
+              ResistanceLhAbvCan      => noahmp%energy%state%ResistanceLhAbvCan(I,J)      & ! out,   aerodynamic resistance for water vapor [s/m], above canopy
              )
 ! ----------------------------------------------------------------------
 
@@ -203,6 +212,10 @@ contains
     ResistanceLhAbvCan  = ResistanceShAbvCan
 
     end associate
+
+      end do
+    end do
+   !$acc end parallel loop
 
   end subroutine ResistanceAboveCanopyChen97
 

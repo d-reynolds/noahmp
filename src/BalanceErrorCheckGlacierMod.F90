@@ -17,16 +17,24 @@ contains
 ! Original Noah-MP subroutine: None (embedded in NOAHMP_GLACIER)
 ! Original code: Guo-Yue Niu and Noah-MP team (Niu et al. 2011)
 ! Refactered code: C. He, P. Valayamkunnath, & refactor team (He et al. 2023)
+! GPU port (2D arrays): Full SoA transformation for OpenACC (2026)
 ! -------------------------------------------------------------------------
 
     implicit none
 
     type(noahmp_type), intent(inout) :: noahmp
 
+! local variables
+    integer                          :: I, J                        ! grid indices
+
 ! --------------------------------------------------------------------
+   !$acc parallel loop collapse(2) gang vector present(noahmp)
+    do J = noahmp%config%domain%JTS, noahmp%config%domain%JTE
+      do I = noahmp%config%domain%ITS, noahmp%config%domain%ITE
+
     associate(                                                             &
-              SnowWaterEquiv     => noahmp%water%state%SnowWaterEquiv     ,& ! in,  snow water equivalent [mm]
-              WaterStorageTotBeg => noahmp%water%state%WaterStorageTotBeg  & ! out, total water storage [mm] at the beginning
+              SnowWaterEquiv     => noahmp%water%state%SnowWaterEquiv(I,J)     ,& ! in,  snow water equivalent [mm]
+              WaterStorageTotBeg => noahmp%water%state%WaterStorageTotBeg(I,J)  & ! out, total water storage [mm] at the beginning
              )
 ! ----------------------------------------------------------------------
 
@@ -35,6 +43,10 @@ contains
     WaterStorageTotBeg = SnowWaterEquiv
 
     end associate
+
+      end do
+    end do
+   !$acc end parallel loop
 
   end subroutine BalanceWaterInitGlacier
 
@@ -46,25 +58,31 @@ contains
 ! Original Noah-MP subroutine: ERROR_GLACIER
 ! Original code: Guo-Yue Niu and Noah-MP team (Niu et al. 2011)
 ! Refactered code: C. He, P. Valayamkunnath, & refactor team (He et al. 2023)
+! GPU port (2D arrays): Full SoA transformation for OpenACC (2026)
 ! -------------------------------------------------------------------------
 
     implicit none
 
     type(noahmp_type), intent(inout) :: noahmp
 
+! local variables
+    integer                          :: I, J                        ! grid indices
+
 ! --------------------------------------------------------------------
+   !$acc parallel loop collapse(2) gang vector present(noahmp)
+    do J = noahmp%config%domain%JTS, noahmp%config%domain%JTE
+      do I = noahmp%config%domain%ITS, noahmp%config%domain%ITE
+
     associate(                                                             &
-              GridIndexI         => noahmp%config%domain%GridIndexI       ,& ! in,  grid index in x-direction
-              GridIndexJ         => noahmp%config%domain%GridIndexJ       ,& ! in,  grid index in y-direction
               MainTimeStep       => noahmp%config%domain%MainTimeStep     ,& ! in,  main noahmp timestep [s]
-              SnowWaterEquiv     => noahmp%water%state%SnowWaterEquiv     ,& ! in,  snow water equivalent [mm]
-              WaterStorageTotBeg => noahmp%water%state%WaterStorageTotBeg ,& ! in,  total water storage [mm] at the beginning
-              PrecipTotRefHeight => noahmp%water%flux%PrecipTotRefHeight  ,& ! in,  total precipitation [mm/s] at reference height
-              EvapGroundNet      => noahmp%water%flux%EvapGroundNet       ,& ! in,  net ground evaporation [mm/s]
-              RunoffSurface      => noahmp%water%flux%RunoffSurface       ,& ! in,  surface runoff [mm/s]
-              RunoffSubsurface   => noahmp%water%flux%RunoffSubsurface    ,& ! in,  subsurface runoff [mm/s]
-              WaterStorageTotEnd => noahmp%water%state%WaterStorageTotEnd ,& ! out, total water storage [mm] at the end
-              WaterBalanceError  => noahmp%water%state%WaterBalanceError   & ! out, water balance error [mm] per time step
+              SnowWaterEquiv     => noahmp%water%state%SnowWaterEquiv(I,J)     ,& ! in,  snow water equivalent [mm]
+              WaterStorageTotBeg => noahmp%water%state%WaterStorageTotBeg(I,J) ,& ! in,  total water storage [mm] at the beginning
+              PrecipTotRefHeight => noahmp%water%flux%PrecipTotRefHeight(I,J)  ,& ! in,  total precipitation [mm/s] at reference height
+              EvapGroundNet      => noahmp%water%flux%EvapGroundNet(I,J)       ,& ! in,  net ground evaporation [mm/s]
+              RunoffSurface      => noahmp%water%flux%RunoffSurface(I,J)       ,& ! in,  surface runoff [mm/s]
+              RunoffSubsurface   => noahmp%water%flux%RunoffSubsurface(I,J)    ,& ! in,  subsurface runoff [mm/s]
+              WaterStorageTotEnd => noahmp%water%state%WaterStorageTotEnd(I,J) ,& ! out, total water storage [mm] at the end
+              WaterBalanceError  => noahmp%water%state%WaterBalanceError(I,J)   & ! out, water balance error [mm] per time step
              )
 ! ----------------------------------------------------------------------
 
@@ -75,7 +93,7 @@ contains
     WaterBalanceError  = WaterStorageTotEnd - WaterStorageTotBeg - &
                          (PrecipTotRefHeight - EvapGroundNet - RunoffSurface - RunoffSubsurface) * MainTimeStep
 
-#ifndef WRF_HYDRO
+#if !defined(WRF_HYDRO) && !defined(_OPENACC)
     if ( abs(WaterBalanceError) > 0.1 ) then
        if ( WaterBalanceError > 0) then
           write(*,*) "The model is gaining water (WaterBalanceError is positive)"
@@ -86,7 +104,7 @@ contains
        write(*, &
            '("  GridIndexI   GridIndexJ     WaterStorageTotEnd  WaterStorageTotBeg  PrecipTotRefHeight  &
                 EvapGroundNet  RunoffSurface  RunoffSubsurface")')
-       write(*,'(i6,1x,i6,1x,2f15.3,9f11.5)') GridIndexI, GridIndexJ, WaterStorageTotEnd, WaterStorageTotBeg, &
+       write(*,'(i6,1x,i6,1x,2f15.3,9f11.5)') I, J, WaterStorageTotEnd, WaterStorageTotBeg, &
                                               PrecipTotRefHeight*MainTimeStep, EvapGroundNet*MainTimeStep,    &
                                               RunoffSurface*MainTimeStep, RunoffSubsurface*MainTimeStep
        stop "Error: Water budget problem in NoahMP LSM"
@@ -94,6 +112,10 @@ contains
 #endif
 
     end associate
+
+      end do
+    end do
+   !$acc end parallel loop
 
   end subroutine BalanceWaterCheckGlacier
 
@@ -105,29 +127,35 @@ contains
 ! Original Noah-MP subroutine: ERROR_GLACIER
 ! Original code: Guo-Yue Niu and Noah-MP team (Niu et al. 2011)
 ! Refactered code: C. He, P. Valayamkunnath, & refactor team (He et al. 2023)
+! GPU port (2D arrays): Full SoA transformation for OpenACC (2026)
 ! -------------------------------------------------------------------------
 
     implicit none
 
     type(noahmp_type), intent(inout) :: noahmp
 
+! local variables
+    integer                          :: I, J                        ! grid indices
+
 ! --------------------------------------------------------------------
+   !$acc parallel loop collapse(2) gang vector present(noahmp)
+    do J = noahmp%config%domain%JTS, noahmp%config%domain%JTE
+      do I = noahmp%config%domain%ITS, noahmp%config%domain%ITE
+
     associate(                                                                 &
-              GridIndexI           => noahmp%config%domain%GridIndexI         ,& ! in,  grid index in x-direction
-              GridIndexJ           => noahmp%config%domain%GridIndexJ         ,& ! in,  grid index in y-direction
               OptSnowAlbedo        => noahmp%config%nmlist%OptSnowAlbedo      ,& ! in,  options for ground snow surface albedo
-              RadSwDownRefHeight   => noahmp%forcing%RadSwDownRefHeight       ,& ! in,  downward shortwave radiation [W/m2] at reference height
-              RadSwAbsSfc          => noahmp%energy%flux%RadSwAbsSfc          ,& ! in,  total absorbed solar radiation [W/m2]
-              RadSwAbsSnowSoilLayer=> noahmp%energy%flux%RadSwAbsSnowSoilLayer,& ! in,  total absorbed solar radiation by snow/soil for each layer [W/m2]
-              RadSwReflSfc         => noahmp%energy%flux%RadSwReflSfc         ,& ! in,  total reflected solar radiation [W/m2]
-              RadLwNetSfc          => noahmp%energy%flux%RadLwNetSfc          ,& ! in,  total net longwave rad [W/m2] (+ to atm)
-              HeatSensibleSfc      => noahmp%energy%flux%HeatSensibleSfc      ,& ! in,  total sensible heat [W/m2] (+ to atm)
-              HeatLatentGrd        => noahmp%energy%flux%HeatLatentGrd        ,& ! in,  total ground latent heat [W/m2] (+ to atm)
-              HeatGroundTot        => noahmp%energy%flux%HeatGroundTot        ,& ! in,  total ground heat flux [W/m2] (+ to soil/snow)
-              RadSwAbsGrd          => noahmp%energy%flux%RadSwAbsGrd          ,& ! in,  solar radiation absorbed by ground [W/m2]
-              HeatPrecipAdvSfc     => noahmp%energy%flux%HeatPrecipAdvSfc     ,& ! in,  precipitation advected heat - total [W/m2]
-              EnergyBalanceError   => noahmp%energy%state%EnergyBalanceError  ,& ! out, error in surface energy balance [W/m2]
-              RadSwBalanceError    => noahmp%energy%state%RadSwBalanceError    & ! out, error in shortwave radiation balance [W/m2]
+              RadSwDownRefHeight   => noahmp%forcing%RadSwDownRefHeight(I,J)       ,& ! in,  downward shortwave radiation [W/m2] at reference height
+              RadSwAbsSfc          => noahmp%energy%flux%RadSwAbsSfc(I,J)          ,& ! in,  total absorbed solar radiation [W/m2]
+              RadSwAbsSnowSoilLayer=> noahmp%energy%flux%RadSwAbsSnowSoilLayer     ,& ! in,  total absorbed solar radiation by snow/soil for each layer [W/m2]
+              RadSwReflSfc         => noahmp%energy%flux%RadSwReflSfc(I,J)         ,& ! in,  total reflected solar radiation [W/m2]
+              RadLwNetSfc          => noahmp%energy%flux%RadLwNetSfc(I,J)          ,& ! in,  total net longwave rad [W/m2] (+ to atm)
+              HeatSensibleSfc      => noahmp%energy%flux%HeatSensibleSfc(I,J)      ,& ! in,  total sensible heat [W/m2] (+ to atm)
+              HeatLatentGrd        => noahmp%energy%flux%HeatLatentGrd(I,J)        ,& ! in,  total ground latent heat [W/m2] (+ to atm)
+              HeatGroundTot        => noahmp%energy%flux%HeatGroundTot(I,J)        ,& ! in,  total ground heat flux [W/m2] (+ to soil/snow)
+              RadSwAbsGrd          => noahmp%energy%flux%RadSwAbsGrd(I,J)          ,& ! in,  solar radiation absorbed by ground [W/m2]
+              HeatPrecipAdvSfc     => noahmp%energy%flux%HeatPrecipAdvSfc(I,J)     ,& ! in,  precipitation advected heat - total [W/m2]
+              EnergyBalanceError   => noahmp%energy%state%EnergyBalanceError(I,J)  ,& ! out, error in surface energy balance [W/m2]
+              RadSwBalanceError    => noahmp%energy%state%RadSwBalanceError(I,J)    & ! out, error in shortwave radiation balance [W/m2]
              )
 ! ----------------------------------------------------------------------
 
@@ -135,8 +163,11 @@ contains
     RadSwBalanceError = RadSwDownRefHeight - (RadSwAbsSfc + RadSwReflSfc)
 
     ! print out diagnostics when error is large
+#ifdef _OPENACC
+    ! Skip error checking on GPU
+#else
     if ( abs(RadSwBalanceError) > 0.01 ) then
-       write(*,*) "GridIndexI, GridIndexJ = ", GridIndexI, GridIndexJ
+       write(*,*) "GridIndexI, GridIndexJ = ", I, J
        write(*,*) "RadSwBalanceError      = ", RadSwBalanceError
        write(*,*) "RadSwDownRefHeight     = ", RadSwDownRefHeight
        write(*,*) "RadSwReflSfc           = ", RadSwReflSfc
@@ -147,11 +178,11 @@ contains
 
     ! SNICAR
     if ( OptSnowAlbedo == 3 ) then
-       if ( abs(RadSwAbsGrd-sum(RadSwAbsSnowSoilLayer))>0.001 ) then ! original check is 0.0001, precision issue
+       if ( abs(RadSwAbsGrd-sum(RadSwAbsSnowSoilLayer(I,:,J)))>0.001 ) then ! original check is 0.0001, precision issue
           write(*,*) "RadSwAbsGrd gridmean                            = ", RadSwAbsGrd
-          write(*,*) "sum(RadSwAbsSnowSoilLayer) gridmean             = ", sum(RadSwAbsSnowSoilLayer)
-          write(*,*) "RadSwAbsSnowSoilLayer gridmean                  = ", RadSwAbsSnowSoilLayer
-          write(*,*) "RadSwAbsGrd-sum(RadSwAbsSnowSoilLayer) gridmean = ", RadSwAbsGrd-sum(RadSwAbsSnowSoilLayer)
+          write(*,*) "sum(RadSwAbsSnowSoilLayer) gridmean             = ", sum(RadSwAbsSnowSoilLayer(I,:,J))
+          write(*,*) "RadSwAbsSnowSoilLayer gridmean                  = ", RadSwAbsSnowSoilLayer(I,:,J)
+          write(*,*) "RadSwAbsGrd-sum(RadSwAbsSnowSoilLayer) gridmean = ", RadSwAbsGrd-sum(RadSwAbsSnowSoilLayer(I,:,J))
           stop "Error: SNICAR snow albedo radiation budget problem in NoahMP LSM"
        endif
     endif
@@ -160,7 +191,7 @@ contains
     EnergyBalanceError = RadSwAbsGrd + HeatPrecipAdvSfc - (RadLwNetSfc + HeatSensibleSfc + HeatLatentGrd + HeatGroundTot)
     ! print out diagnostics when error is large
     if ( abs(EnergyBalanceError) > 0.01 ) then
-       write(*,*) 'EnergyBalanceError = ', EnergyBalanceError, ' at GridIndexI,GridIndexJ: ', GridIndexI, GridIndexJ
+       write(*,*) 'EnergyBalanceError = ', EnergyBalanceError, ' at GridIndexI,GridIndexJ: ', I, J
        write(*,'(a17,F10.4)' ) "Net longwave:       ", RadLwNetSfc
        write(*,'(a17,F10.4)' ) "Total sensible:     ", HeatSensibleSfc
        write(*,'(a17,F10.4)' ) "Ground evap:        ", HeatLatentGrd
@@ -169,8 +200,13 @@ contains
        write(*,'(a17,F10.4)' ) "absorbed shortwave: ", RadSwAbsGrd
        stop "Error: Surface energy budget problem in NoahMP LSM"
     endif
+#endif
 
     end associate
+
+      end do
+    end do
+   !$acc end parallel loop
 
   end subroutine BalanceEnergyCheckGlacier
 

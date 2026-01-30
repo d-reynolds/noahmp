@@ -15,53 +15,56 @@ module IrrigationTriggerMod
 
 contains
 
-  subroutine IrrigationTrigger(noahmp)
+  subroutine IrrigationTrigger(noahmp, I, J)
 
 ! ------------------------ Code history --------------------------------------------------
 ! Original Noah-MP subroutine: TRIGGER_IRRIGATION
 ! Original code: P. Valayamkunnath (NCAR) <prasanth@ucar.edu> (08/06/2020)
 ! Refactered code: C. He, P. Valayamkunnath, & refactor team (He et al. 2023)
+! GPU port (2D arrays): Full SoA transformation for OpenACC (2026)
 ! ----------------------------------------------------------------------------------------
+!$acc routine seq
 
     implicit none
 
     type(noahmp_type), intent(inout) :: noahmp
+    integer, intent(in)              :: I, J          ! grid indices
 
 ! local variable
     logical                          :: FlagIrri           ! flag for irrigation activation
-    integer                          :: LoopInd            ! loop index  
+    integer                          :: LoopInd            ! loop index
     real(kind=kind_noahmp)           :: SoilMoistAvail     ! available soil moisture [m] at timestep
     real(kind=kind_noahmp)           :: SoilMoistAvailMax  ! maximum available moisture [m]
     real(kind=kind_noahmp)           :: IrrigationWater    ! irrigation water amount [m]
 
 ! --------------------------------------------------------------------
-    associate(                                                                       &
-              DepthSoilLayer          => noahmp%config%domain%DepthSoilLayer        ,& ! in,    depth [m] of layer-bottom from soil surface
-              DayJulianInYear         => noahmp%config%domain%DayJulianInYear       ,& ! in,    Julian day of the year
-              OptIrrigation           => noahmp%config%nmlist%OptIrrigation         ,& ! in,    irrigation option
-              OptIrrigationMethod     => noahmp%config%nmlist%OptIrrigationMethod   ,& ! in,    irrigation method option
-              DatePlanting            => noahmp%biochem%param%DatePlanting          ,& ! in,    Planting day (day of year)
-              DateHarvest             => noahmp%biochem%param%DateHarvest           ,& ! in,    Harvest date (day of year)
-              SoilMoistureWilt        => noahmp%water%param%SoilMoistureWilt        ,& ! in,    wilting point soil moisture [m3/m3]
-              SoilMoistureFieldCap    => noahmp%water%param%SoilMoistureFieldCap    ,& ! in,    reference soil moisture (field capacity) (m3/m3)
-              NumSoilLayerRoot        => noahmp%water%param%NumSoilLayerRoot        ,& ! in,    number of soil layers with root present
-              IrriStopDayBfHarvest    => noahmp%water%param%IrriStopDayBfHarvest    ,& ! in,    number of days before harvest date to stop irrigation
-              IrriTriggerLaiMin       => noahmp%water%param%IrriTriggerLaiMin       ,& ! in,    minimum lai to trigger irrigation
-              SoilWatDeficitAllow     => noahmp%water%param%SoilWatDeficitAllow     ,& ! in,    management allowable deficit (0-1)
-              IrriFloodLossFrac       => noahmp%water%param%IrriFloodLossFrac       ,& ! in,    factor of flood irrigation loss
-              VegFrac                 => noahmp%energy%state%VegFrac                ,& ! in,    greeness vegetation fraction
-              LeafAreaIndex           => noahmp%energy%state%LeafAreaIndex          ,& ! in,    leaf area index [m2/m2]
-              IrrigationFracGrid      => noahmp%water%state%IrrigationFracGrid      ,& ! in,    irrigated area fraction of a grid
-              SoilLiqWater            => noahmp%water%state%SoilLiqWater            ,& ! in,    soil water content [m3/m3]
-              IrrigationFracMicro     => noahmp%water%state%IrrigationFracMicro     ,& ! in,    fraction of grid under micro irrigation (0 to 1)
-              IrrigationFracFlood     => noahmp%water%state%IrrigationFracFlood     ,& ! in,    fraction of grid under flood irrigation (0 to 1)
-              IrrigationFracSprinkler => noahmp%water%state%IrrigationFracSprinkler ,& ! in,    sprinkler irrigation fraction (0 to 1)
-              IrrigationAmtMicro      => noahmp%water%state%IrrigationAmtMicro      ,& ! inout, irrigation water amount [m] to be applied, Micro
-              IrrigationAmtFlood      => noahmp%water%state%IrrigationAmtFlood      ,& ! inout, irrigation water amount [m] to be applied, Flood
-              IrrigationAmtSprinkler  => noahmp%water%state%IrrigationAmtSprinkler  ,& ! inout, irrigation water amount [m] to be applied, Sprinkler
-              IrrigationCntSprinkler  => noahmp%water%state%IrrigationCntSprinkler  ,& ! inout, irrigation event number, Sprinkler
-              IrrigationCntMicro      => noahmp%water%state%IrrigationCntMicro      ,& ! inout, irrigation event number, Micro
-              IrrigationCntFlood      => noahmp%water%state%IrrigationCntFlood       & ! inout, irrigation event number, Flood
+    associate(                                                                            &
+              DepthSoilLayer          => noahmp%config%domain%DepthSoilLayer             ,& ! in,    depth [m] of layer-bottom from soil surface
+              DayJulianInYear         => noahmp%config%domain%DayJulianInYear            ,& ! in,    Julian day of the year
+              OptIrrigation           => noahmp%config%nmlist%OptIrrigation              ,& ! in,    irrigation option
+              OptIrrigationMethod     => noahmp%config%nmlist%OptIrrigationMethod        ,& ! in,    irrigation method option
+              DatePlanting            => noahmp%biochem%param%DatePlanting(I,J)          ,& ! in,    Planting day (day of year)
+              DateHarvest             => noahmp%biochem%param%DateHarvest(I,J)           ,& ! in,    Harvest date (day of year)
+              SoilMoistureWilt        => noahmp%water%param%SoilMoistureWilt             ,& ! in,    wilting point soil moisture [m3/m3]
+              SoilMoistureFieldCap    => noahmp%water%param%SoilMoistureFieldCap         ,& ! in,    reference soil moisture (field capacity) (m3/m3)
+              NumSoilLayerRoot        => noahmp%water%param%NumSoilLayerRoot(I,J)        ,& ! in,    number of soil layers with root present
+              IrriStopDayBfHarvest    => noahmp%water%param%IrriStopDayBfHarvest(I,J)    ,& ! in,    number of days before harvest date to stop irrigation
+              IrriTriggerLaiMin       => noahmp%water%param%IrriTriggerLaiMin(I,J)       ,& ! in,    minimum lai to trigger irrigation
+              SoilWatDeficitAllow     => noahmp%water%param%SoilWatDeficitAllow(I,J)     ,& ! in,    management allowable deficit (0-1)
+              IrriFloodLossFrac       => noahmp%water%param%IrriFloodLossFrac(I,J)       ,& ! in,    factor of flood irrigation loss
+              VegFrac                 => noahmp%energy%state%VegFrac(I,J)                ,& ! in,    greeness vegetation fraction
+              LeafAreaIndex           => noahmp%energy%state%LeafAreaIndex(I,J)          ,& ! in,    leaf area index [m2/m2]
+              IrrigationFracGrid      => noahmp%water%state%IrrigationFracGrid(I,J)      ,& ! in,    irrigated area fraction of a grid
+              SoilLiqWater            => noahmp%water%state%SoilLiqWater                 ,& ! in,    soil water content [m3/m3]
+              IrrigationFracMicro     => noahmp%water%state%IrrigationFracMicro(I,J)     ,& ! in,    fraction of grid under micro irrigation (0 to 1)
+              IrrigationFracFlood     => noahmp%water%state%IrrigationFracFlood(I,J)     ,& ! in,    fraction of grid under flood irrigation (0 to 1)
+              IrrigationFracSprinkler => noahmp%water%state%IrrigationFracSprinkler(I,J) ,& ! in,    sprinkler irrigation fraction (0 to 1)
+              IrrigationAmtMicro      => noahmp%water%state%IrrigationAmtMicro(I,J)      ,& ! inout, irrigation water amount [m] to be applied, Micro
+              IrrigationAmtFlood      => noahmp%water%state%IrrigationAmtFlood(I,J)      ,& ! inout, irrigation water amount [m] to be applied, Flood
+              IrrigationAmtSprinkler  => noahmp%water%state%IrrigationAmtSprinkler(I,J)  ,& ! inout, irrigation water amount [m] to be applied, Sprinkler
+              IrrigationCntSprinkler  => noahmp%water%state%IrrigationCntSprinkler(I,J)  ,& ! inout, irrigation event number, Sprinkler
+              IrrigationCntMicro      => noahmp%water%state%IrrigationCntMicro(I,J)      ,& ! inout, irrigation event number, Micro
+              IrrigationCntFlood      => noahmp%water%state%IrrigationCntFlood(I,J)       & ! inout, irrigation event number, Flood
              )
 ! ----------------------------------------------------------------------
 
@@ -81,13 +84,13 @@ contains
        ! estimate available water and field capacity for the root zone
        SoilMoistAvail      = 0.0
        SoilMoistAvailMax   = 0.0
-       SoilMoistAvail      = (SoilLiqWater(1) - SoilMoistureWilt(1)) * (-1.0) * DepthSoilLayer(1)          ! current soil water (m) 
-       SoilMoistAvailMax   = (SoilMoistureFieldCap(1) - SoilMoistureWilt(1)) * (-1.0) * DepthSoilLayer(1)  ! available water (m)
+       SoilMoistAvail      = (SoilLiqWater(I,1,J) - SoilMoistureWilt(I,1,J)) * (-1.0) * DepthSoilLayer(I,1,J)          ! current soil water (m) 
+       SoilMoistAvailMax   = (SoilMoistureFieldCap(I,1,J) - SoilMoistureWilt(I,1,J)) * (-1.0) * DepthSoilLayer(I,1,J)  ! available water (m)
        do LoopInd = 2, NumSoilLayerRoot
-         SoilMoistAvail    = SoilMoistAvail + (SoilLiqWater(LoopInd) - SoilMoistureWilt(LoopInd)) * &
-                                              (DepthSoilLayer(LoopInd-1) - DepthSoilLayer(LoopInd))
-         SoilMoistAvailMax = SoilMoistAvailMax + (SoilMoistureFieldCap(LoopInd) - SoilMoistureWilt(LoopInd)) * &
-                                                 (DepthSoilLayer(LoopInd-1) - DepthSoilLayer(LoopInd))
+         SoilMoistAvail    = SoilMoistAvail + (SoilLiqWater(I,LoopInd,J) - SoilMoistureWilt(I,LoopInd,J)) * &
+                                              (DepthSoilLayer(I,LoopInd-1,J) - DepthSoilLayer(I,LoopInd,J))
+         SoilMoistAvailMax = SoilMoistAvailMax + (SoilMoistureFieldCap(I,LoopInd,J) - SoilMoistureWilt(I,LoopInd,J)) * &
+                                                 (DepthSoilLayer(I,LoopInd-1,J) - DepthSoilLayer(I,LoopInd,J))
        enddo
 
       ! check if root zone soil moisture < SoilWatDeficitAllow (calibratable)

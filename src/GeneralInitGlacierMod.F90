@@ -16,6 +16,7 @@ contains
 ! Original Noah-MP subroutine: None (embedded in NOAHMP_GLACIER)
 ! Original code: Guo-Yue Niu and Noah-MP team (Niu et al. 2011)
 ! Refactered code: C. He, P. Valayamkunnath, & refactor team (He et al. 2023)
+! GPU port (2D arrays): Full SoA transformation for OpenACC (2026)
 ! -------------------------------------------------------------------------
 
     implicit none
@@ -23,27 +24,37 @@ contains
     type(noahmp_type), intent(inout) :: noahmp
 
 ! local variable
+    integer                          :: I, J      ! grid indices
     integer                          :: LoopInd   ! loop index
+
+   !$acc parallel loop collapse(2) gang vector present(noahmp) private(LoopInd)
+    do J = noahmp%config%domain%JTS, noahmp%config%domain%JTE
+      do I = noahmp%config%domain%ITS, noahmp%config%domain%ITE
 
 ! --------------------------------------------------------------------
     associate(                                                                       &
-              NumSoilLayer           => noahmp%config%domain%NumSoilLayer           ,& ! in,  number of soil layers
-              NumSnowLayerNeg        => noahmp%config%domain%NumSnowLayerNeg        ,& ! in,  actual number of snow layers (negative)
-              DepthSnowSoilLayer     => noahmp%config%domain%DepthSnowSoilLayer     ,& ! in,  depth of snow/soil layer-bottom [m]
-              ThicknessSnowSoilLayer => noahmp%config%domain%ThicknessSnowSoilLayer  & ! out, thickness of snow/soil layers [m]
+              NumSoilLayer           => noahmp%config%domain%NumSoilLayer            ,& ! in,  number of soil layers
+              NumSnowLayerNeg        => noahmp%config%domain%NumSnowLayerNeg(I,J)    ,& ! in,  actual number of snow layers (negative)
+              DepthSnowSoilLayer     => noahmp%config%domain%DepthSnowSoilLayer      ,& ! in,  depth of snow/soil layer-bottom [m]
+              ThicknessSnowSoilLayer => noahmp%config%domain%ThicknessSnowSoilLayer   & ! out, thickness of snow/soil layers [m]
              )
 ! ----------------------------------------------------------------------
 
     ! initialize snow/soil layer thickness
+    !$acc loop seq
     do LoopInd = NumSnowLayerNeg+1, NumSoilLayer
        if ( LoopInd == (NumSnowLayerNeg+1) ) then
-          ThicknessSnowSoilLayer(LoopInd) = - DepthSnowSoilLayer(LoopInd)
+          ThicknessSnowSoilLayer(I,LoopInd,J) = - DepthSnowSoilLayer(I,LoopInd,J)
        else
-          ThicknessSnowSoilLayer(LoopInd) = DepthSnowSoilLayer(LoopInd-1) - DepthSnowSoilLayer(LoopInd)
+          ThicknessSnowSoilLayer(I,LoopInd,J) = DepthSnowSoilLayer(I,LoopInd-1,J) - DepthSnowSoilLayer(I,LoopInd,J)
        endif
     enddo
 
     end associate
+
+      end do
+    end do
+   !$acc end parallel loop
 
   end subroutine GeneralInitGlacier
 

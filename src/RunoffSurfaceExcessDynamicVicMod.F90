@@ -11,11 +11,12 @@ module RunoffSurfaceExcessDynamicVicMod
 contains
 
   subroutine RunoffSatExcessDynamicVic(noahmp, WaterDepthInit, WaterDepthMax, DepthYTmp, RunoffSatExcess)
-
+  !$acc loop seq
 ! ------------------------ Code history --------------------------------------------------
 ! Original Noah-MP subroutine: RR1 for saturation excess runoff
 ! Original code: Prasanth Valayamkunnath <prasanth@ucar.edu>
 ! Refactered code: C. He, P. Valayamkunnath, & refactor team (He et al. 2023)
+! GPU port (2D arrays): Full SoA transformation for OpenACC (2026)
 ! ----------------------------------------------------------------------------------------
 
     implicit none
@@ -29,10 +30,10 @@ contains
 
 ! local variable
     real(kind=kind_noahmp)                :: WaterTableDepth       ! water table depth [m]
- 
+    integer                               :: I, J                  ! grid indices
 ! ------------------------------------------------------------------
     associate(                                                     &
-              InfilFacDynVic => noahmp%water%param%InfilFacDynVic  & ! in, DVIC model infiltration parameter
+              InfilFacDynVic => noahmp%water%param%InfilFacDynVic(I,J)  & ! in, DVIC model infiltration parameter
              )
 ! ------------------------------------------------------------------
 
@@ -53,7 +54,7 @@ contains
 
   subroutine RunoffInfilExcessDynamicVic(DepthYTmp, DepthYInit, RunoffSatExcess, InfilRateMax, &
                                          InfilRateSfc, TimeStep, WaterInSoilSfc, InfilExpB, RunoffInfilExcess)
-
+  !$acc loop seq
 ! ------------------------ Code history --------------------------------------------------
 ! Original Noah-MP subroutine: RRunoffInfilExcess for infiltration excess runoff
 ! Original code: Prasanth Valayamkunnath <prasanth@ucar.edu>

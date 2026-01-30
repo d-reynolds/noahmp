@@ -24,20 +24,26 @@ contains
     type(NoahmpIO_type) , intent(inout) :: NoahmpIO
     type(noahmp_type),    intent(inout) :: noahmp
 
+    integer :: I, J
 ! ----------------------------------------------------------------------
     associate(                                                         &
-              I               => noahmp%config%domain%GridIndexI      ,&
-              J               => noahmp%config%domain%GridIndexJ      ,&
               NumSnowLayerMax => noahmp%config%domain%NumSnowLayerMax ,&
               NumSoilLayer    => noahmp%config%domain%NumSoilLayer     &
              )
 ! ----------------------------------------------------------------------
 
+    !$acc parallel loop collapse(2) present(noahmp, NoahmpIO) private(NumSnowLayerMax, NumSoilLayer)
+    do J = noahmp%config%domain%JTS, noahmp%config%domain%JTE
+      do I = noahmp%config%domain%ITS, noahmp%config%domain%ITE
     ! config domain variables
-    NoahmpIO%ISNOWXY(I,J)  = noahmp%config%domain%NumSnowLayerNeg
+    NoahmpIO%ISNOWXY(I,J)  = noahmp%config%domain%NumSnowLayerNeg(I,J)
     NoahmpIO%ZSNSOXY(I,-NumSnowLayerMax+1:NumSoilLayer,J) = &
-                            noahmp%config%domain%DepthSnowSoilLayer(-NumSnowLayerMax+1:NumSoilLayer)
-    NoahmpIO%FORCZLSM(I,J) = noahmp%config%domain%RefHeightAboveSfc
+                            noahmp%config%domain%DepthSnowSoilLayer(I,-NumSnowLayerMax+1:NumSoilLayer,J)
+    NoahmpIO%FORCZLSM(I,J) = noahmp%config%domain%RefHeightAboveSfc(I,J)
+
+    end do
+    end do
+    !$acc end parallel loop
 
     end associate
 

@@ -41,26 +41,32 @@ contains
     real(kind=kind_noahmp)           :: MassDust3Extra                       ! extra mass of dust species 3 in snow [kg m-2] to be divided compared to allowed layer thickness
     real(kind=kind_noahmp)           :: MassDust4Extra                       ! extra mass of dust species 4 in snow [kg m-2] to be divided compared to allowed layer thickness
     real(kind=kind_noahmp)           :: MassDust5Extra                       ! extra mass of dust species 5 in snow [kg m-2] to be divided compared to allowed layer thickness
-    real(kind=kind_noahmp), allocatable, dimension(:) :: SnowThickTmp        ! snow layer thickness [m]
-    real(kind=kind_noahmp), allocatable, dimension(:) :: SnowIceTmp          ! partial volume of ice [m3/m3]
-    real(kind=kind_noahmp), allocatable, dimension(:) :: SnowLiqTmp          ! partial volume of liquid water [m3/m3]
-    real(kind=kind_noahmp), allocatable, dimension(:) :: TemperatureSnowTmp  ! node temperature [K]
-    real(kind=kind_noahmp), allocatable, dimension(:) :: MassBChydrophoTmp   ! mass of hydrophobic Black Carbon in snow [kg m-2]
-    real(kind=kind_noahmp), allocatable, dimension(:) :: MassBChydrophiTmp   ! mass of hydrophillic Black Carbon in snow [kg m-2]
-    real(kind=kind_noahmp), allocatable, dimension(:) :: MassOChydrophoTmp   ! mass of hydrophobic Organic Carbon in snow [kg m-2]
-    real(kind=kind_noahmp), allocatable, dimension(:) :: MassOChydrophiTmp   ! mass of hydrophillic Organic Carbon in snow [kg m-2]
-    real(kind=kind_noahmp), allocatable, dimension(:) :: MassDust1Tmp        ! mass of dust species 1 in snow [kg m-2]
-    real(kind=kind_noahmp), allocatable, dimension(:) :: MassDust2Tmp        ! mass of dust species 2 in snow [kg m-2]
-    real(kind=kind_noahmp), allocatable, dimension(:) :: MassDust3Tmp        ! mass of dust species 3 in snow [kg m-2]
-    real(kind=kind_noahmp), allocatable, dimension(:) :: MassDust4Tmp        ! mass of dust species 4 in snow [kg m-2]
-    real(kind=kind_noahmp), allocatable, dimension(:) :: MassDust5Tmp        ! mass of dust species 5 in snow [kg m-2]
-    real(kind=kind_noahmp), allocatable, dimension(:) :: SnowRadiusTmp       ! effective grain radius [microns, m-6]
+    real(kind=kind_noahmp)           :: SnowThickTmp(1:noahmp%config%domain%NumSnowLayerMax)        ! snow layer thickness [m]
+    real(kind=kind_noahmp)           :: SnowIceTmp(1:noahmp%config%domain%NumSnowLayerMax)          ! partial volume of ice [m3/m3]
+    real(kind=kind_noahmp)           :: SnowLiqTmp(1:noahmp%config%domain%NumSnowLayerMax)          ! partial volume of liquid water [m3/m3]
+    real(kind=kind_noahmp)           :: TemperatureSnowTmp(1:noahmp%config%domain%NumSnowLayerMax)  ! node temperature [K]
+    real(kind=kind_noahmp)           :: MassBChydrophoTmp(1:noahmp%config%domain%NumSnowLayerMax)   ! mass of hydrophobic Black Carbon in snow [kg m-2]
+    real(kind=kind_noahmp)           :: MassBChydrophiTmp(1:noahmp%config%domain%NumSnowLayerMax)   ! mass of hydrophillic Black Carbon in snow [kg m-2]
+    real(kind=kind_noahmp)           :: MassOChydrophoTmp(1:noahmp%config%domain%NumSnowLayerMax)   ! mass of hydrophobic Organic Carbon in snow [kg m-2]
+    real(kind=kind_noahmp)           :: MassOChydrophiTmp(1:noahmp%config%domain%NumSnowLayerMax)   ! mass of hydrophillic Organic Carbon in snow [kg m-2]
+    real(kind=kind_noahmp)           :: MassDust1Tmp(1:noahmp%config%domain%NumSnowLayerMax)        ! mass of dust species 1 in snow [kg m-2]
+    real(kind=kind_noahmp)           :: MassDust2Tmp(1:noahmp%config%domain%NumSnowLayerMax)        ! mass of dust species 2 in snow [kg m-2]
+    real(kind=kind_noahmp)           :: MassDust3Tmp(1:noahmp%config%domain%NumSnowLayerMax)        ! mass of dust species 3 in snow [kg m-2]
+    real(kind=kind_noahmp)           :: MassDust4Tmp(1:noahmp%config%domain%NumSnowLayerMax)        ! mass of dust species 4 in snow [kg m-2]
+    real(kind=kind_noahmp)           :: MassDust5Tmp(1:noahmp%config%domain%NumSnowLayerMax)        ! mass of dust species 5 in snow [kg m-2]
+    real(kind=kind_noahmp)           :: SnowRadiusTmp(1:noahmp%config%domain%NumSnowLayerMax)       ! effective grain radius [microns, m-6]
+    integer                          :: I, J                                 ! grid indices
 
+    !$acc parallel loop collapse(2) gang vector present(noahmp) private(LoopInd, NumSnowLayerTmp, SnowThickCombTmp, SnowIceExtra, SnowLiqExtra, SnowFracExtra, SnowTempGrad, &
+   ! MassBChydrophoExtra, MassBChydrophiExtra, MassOChydrophoExtra, MassOChydrophiExtra, MassDust1Extra, MassDust2Extra, MassDust3Extra, MassDust4Extra, MassDust5Extra, &
+   ! SnowThickTmp, SnowIceTmp, SnowLiqTmp, TemperatureSnowTmp, MassBChydrophoTmp, MassBChydrophiTmp, MassOChydrophoTmp, MassOChydrophiTmp, MassDust1Tmp, MassDust2Tmp, MassDust3Tmp, MassDust4Tmp, MassDust5Tmp, SnowRadiusTmp, I, J)
+    do J = noahmp%config%domain%JTS, noahmp%config%domain%JTE
+      do I = noahmp%config%domain%ITS, noahmp%config%domain%ITE
 ! --------------------------------------------------------------------
     associate(                                                                       &
               OptSnowAlbedo          => noahmp%config%nmlist%OptSnowAlbedo          ,& ! in,    options for ground snow surface albedo
               NumSnowLayerMax        => noahmp%config%domain%NumSnowLayerMax        ,& ! in,    maximum number of snow layers
-              NumSnowLayerNeg        => noahmp%config%domain%NumSnowLayerNeg        ,& ! inout, actual number of snow layers (negative)
+              NumSnowLayerNeg        => noahmp%config%domain%NumSnowLayerNeg(I,J)        ,& ! inout, actual number of snow layers (negative)
               ThicknessSnowSoilLayer => noahmp%config%domain%ThicknessSnowSoilLayer ,& ! inout, thickness of snow/soil layers [m]
               TemperatureSoilSnow    => noahmp%energy%state%TemperatureSoilSnow     ,& ! inout, snow and soil layer temperature [K]
               SnowIce                => noahmp%water%state%SnowIce                  ,& ! inout, snow layer ice [mm]
@@ -77,62 +83,47 @@ contains
               SnowRadius             => noahmp%water%state%SnowRadius                & ! inout, effective grain radius [microns, m-6]
              )
 ! ----------------------------------------------------------------------
-
+      if ( NumSnowLayerNeg >= 0 ) cycle  ! no snow layers
+      
     ! initialization
-    if (.not. allocated(SnowIceTmp)        ) allocate(SnowIceTmp        (1:NumSnowLayerMax))
-    if (.not. allocated(SnowLiqTmp)        ) allocate(SnowLiqTmp        (1:NumSnowLayerMax))
-    if (.not. allocated(TemperatureSnowTmp)) allocate(TemperatureSnowTmp(1:NumSnowLayerMax))
-    if (.not. allocated(SnowThickTmp)      ) allocate(SnowThickTmp      (1:NumSnowLayerMax))
 
-    if ( OptSnowAlbedo == 3 ) then
-       if (.not. allocated(MassBChydrophoTmp)) allocate(MassBChydrophoTmp (1:NumSnowLayerMax))
-       if (.not. allocated(MassBChydrophiTmp)) allocate(MassBChydrophiTmp (1:NumSnowLayerMax))
-       if (.not. allocated(MassOChydrophoTmp)) allocate(MassOChydrophoTmp (1:NumSnowLayerMax))
-       if (.not. allocated(MassOChydrophiTmp)) allocate(MassOChydrophiTmp (1:NumSnowLayerMax))
-       if (.not. allocated(MassDust1Tmp)     ) allocate(MassDust1Tmp      (1:NumSnowLayerMax))
-       if (.not. allocated(MassDust2Tmp)     ) allocate(MassDust2Tmp      (1:NumSnowLayerMax))
-       if (.not. allocated(MassDust3Tmp)     ) allocate(MassDust3Tmp      (1:NumSnowLayerMax))
-       if (.not. allocated(MassDust4Tmp)     ) allocate(MassDust4Tmp      (1:NumSnowLayerMax))
-       if (.not. allocated(MassDust5Tmp)     ) allocate(MassDust5Tmp      (1:NumSnowLayerMax))
-       if (.not. allocated(SnowRadiusTmp)    ) allocate(SnowRadiusTmp     (1:NumSnowLayerMax))
-    endif
-
-    SnowIceTmp        (:) = 0.0
-    SnowLiqTmp        (:) = 0.0
-    TemperatureSnowTmp(:) = 0.0
-    SnowThickTmp      (:) = 0.0
-
-    if ( OptSnowAlbedo == 3 ) then
-       MassBChydrophoTmp(:) = 0.0
-       MassBChydrophiTmp(:) = 0.0
-       MassOChydrophoTmp(:) = 0.0
-       MassOChydrophiTmp(:) = 0.0
-       MassDust1Tmp     (:) = 0.0
-       MassDust2Tmp     (:) = 0.0
-       MassDust3Tmp     (:) = 0.0
-       MassDust4Tmp     (:) = 0.0
-       MassDust5Tmp     (:) = 0.0
-       SnowRadiusTmp    (:) = 0.0
-    endif
-
+    !$acc loop seq
     do LoopInd = 1, NumSnowLayerMax
+      SnowIceTmp        (LoopInd) = 0.0
+      SnowLiqTmp        (LoopInd) = 0.0
+      TemperatureSnowTmp(LoopInd) = 0.0
+      SnowThickTmp      (LoopInd) = 0.0
+
+      if ( OptSnowAlbedo == 3 ) then
+         MassBChydrophoTmp(LoopInd) = 0.0
+         MassBChydrophiTmp(LoopInd) = 0.0
+         MassOChydrophoTmp(LoopInd) = 0.0
+         MassOChydrophiTmp(LoopInd) = 0.0
+         MassDust1Tmp     (LoopInd) = 0.0
+         MassDust2Tmp     (LoopInd) = 0.0
+         MassDust3Tmp     (LoopInd) = 0.0
+         MassDust4Tmp     (LoopInd) = 0.0
+         MassDust5Tmp     (LoopInd) = 0.0
+         SnowRadiusTmp    (LoopInd) = 0.0
+      endif
+
        if ( LoopInd <= abs(NumSnowLayerNeg) ) then
-          SnowThickTmp(LoopInd)       = ThicknessSnowSoilLayer(LoopInd+NumSnowLayerNeg)
-          SnowIceTmp(LoopInd)         = SnowIce(LoopInd+NumSnowLayerNeg)
-          SnowLiqTmp(LoopInd)         = SnowLiqWater(LoopInd+NumSnowLayerNeg)
-          TemperatureSnowTmp(LoopInd) = TemperatureSoilSnow(LoopInd+NumSnowLayerNeg)
+          SnowThickTmp(LoopInd)       = ThicknessSnowSoilLayer(I,LoopInd+NumSnowLayerNeg,J)
+          SnowIceTmp(LoopInd)         = SnowIce(I,LoopInd+NumSnowLayerNeg,J)
+          SnowLiqTmp(LoopInd)         = SnowLiqWater(I,LoopInd+NumSnowLayerNeg,J)
+          TemperatureSnowTmp(LoopInd) = TemperatureSoilSnow(I,LoopInd+NumSnowLayerNeg,J)
 
           if ( OptSnowAlbedo == 3 ) then
-             MassBChydrophoTmp(LoopInd) = MassBChydropho(LoopInd+NumSnowLayerNeg)
-             MassBChydrophiTmp(LoopInd) = MassBChydrophi(LoopInd+NumSnowLayerNeg)
-             MassOChydrophoTmp(LoopInd) = MassOChydropho(LoopInd+NumSnowLayerNeg)
-             MassOChydrophiTmp(LoopInd) = MassOChydrophi(LoopInd+NumSnowLayerNeg)
-             MassDust1Tmp(LoopInd)      = MassDust1(LoopInd+NumSnowLayerNeg)
-             MassDust2Tmp(LoopInd)      = MassDust2(LoopInd+NumSnowLayerNeg)
-             MassDust3Tmp(LoopInd)      = MassDust3(LoopInd+NumSnowLayerNeg)
-             MassDust4Tmp(LoopInd)      = MassDust4(LoopInd+NumSnowLayerNeg)
-             MassDust5Tmp(LoopInd)      = MassDust5(LoopInd+NumSnowLayerNeg)
-             SnowRadiusTmp(LoopInd)     = SnowRadius(LoopInd+NumSnowLayerNeg)
+             MassBChydrophoTmp(LoopInd) = MassBChydropho(I,LoopInd+NumSnowLayerNeg,J)
+             MassBChydrophiTmp(LoopInd) = MassBChydrophi(I,LoopInd+NumSnowLayerNeg,J)
+             MassOChydrophoTmp(LoopInd) = MassOChydropho(I,LoopInd+NumSnowLayerNeg,J)
+             MassOChydrophiTmp(LoopInd) = MassOChydrophi(I,LoopInd+NumSnowLayerNeg,J)
+             MassDust1Tmp(LoopInd)      = MassDust1(I,LoopInd+NumSnowLayerNeg,J)
+             MassDust2Tmp(LoopInd)      = MassDust2(I,LoopInd+NumSnowLayerNeg,J)
+             MassDust3Tmp(LoopInd)      = MassDust3(I,LoopInd+NumSnowLayerNeg,J)
+             MassDust4Tmp(LoopInd)      = MassDust4(I,LoopInd+NumSnowLayerNeg,J)
+             MassDust5Tmp(LoopInd)      = MassDust5(I,LoopInd+NumSnowLayerNeg,J)
+             SnowRadiusTmp(LoopInd)     = SnowRadius(I,LoopInd+NumSnowLayerNeg,J)
           endif
        endif
     enddo
@@ -329,46 +320,31 @@ contains
 
     NumSnowLayerNeg = -NumSnowLayerTmp
 
+    !$acc loop seq
     do LoopInd = NumSnowLayerNeg+1, 0
-       ThicknessSnowSoilLayer(LoopInd) = SnowThickTmp(LoopInd-NumSnowLayerNeg)
-       SnowIce(LoopInd)                = SnowIceTmp(LoopInd-NumSnowLayerNeg)
-       SnowLiqWater(LoopInd)           = SnowLiqTmp(LoopInd-NumSnowLayerNeg)
-       TemperatureSoilSnow(LoopInd)    = TemperatureSnowTmp(LoopInd-NumSnowLayerNeg)
+       ThicknessSnowSoilLayer(I,LoopInd,J) = SnowThickTmp(LoopInd-NumSnowLayerNeg)
+       SnowIce(I,LoopInd,J)                = SnowIceTmp(LoopInd-NumSnowLayerNeg)
+       SnowLiqWater(I,LoopInd,J)           = SnowLiqTmp(LoopInd-NumSnowLayerNeg)
+       TemperatureSoilSnow(I,LoopInd,J)    = TemperatureSnowTmp(LoopInd-NumSnowLayerNeg)
 
        if ( OptSnowAlbedo == 3 ) then
-          MassBChydropho(LoopInd)      = MassBChydrophoTmp(LoopInd-NumSnowLayerNeg)
-          MassBChydrophi(LoopInd)      = MassBChydrophiTmp(LoopInd-NumSnowLayerNeg)
-          MassOChydropho(LoopInd)      = MassOChydrophoTmp(LoopInd-NumSnowLayerNeg)
-          MassOChydrophi(LoopInd)      = MassOChydrophiTmp(LoopInd-NumSnowLayerNeg)
-          MassDust1(LoopInd)           = MassDust1Tmp(LoopInd-NumSnowLayerNeg)
-          MassDust2(LoopInd)           = MassDust2Tmp(LoopInd-NumSnowLayerNeg)
-          MassDust3(LoopInd)           = MassDust3Tmp(LoopInd-NumSnowLayerNeg)
-          MassDust4(LoopInd)           = MassDust4Tmp(LoopInd-NumSnowLayerNeg)
-          MassDust5(LoopInd)           = MassDust5Tmp(LoopInd-NumSnowLayerNeg)
-          SnowRadius(LoopInd)          = SnowRadiusTmp(LoopInd-NumSnowLayerNeg)
+          MassBChydropho(I,LoopInd,J)      = MassBChydrophoTmp(LoopInd-NumSnowLayerNeg)
+          MassBChydrophi(I,LoopInd,J)      = MassBChydrophiTmp(LoopInd-NumSnowLayerNeg)
+          MassOChydropho(I,LoopInd,J)      = MassOChydrophoTmp(LoopInd-NumSnowLayerNeg)
+          MassOChydrophi(I,LoopInd,J)      = MassOChydrophiTmp(LoopInd-NumSnowLayerNeg)
+          MassDust1(I,LoopInd,J)           = MassDust1Tmp(LoopInd-NumSnowLayerNeg)
+          MassDust2(I,LoopInd,J)           = MassDust2Tmp(LoopInd-NumSnowLayerNeg)
+          MassDust3(I,LoopInd,J)           = MassDust3Tmp(LoopInd-NumSnowLayerNeg)
+          MassDust4(I,LoopInd,J)           = MassDust4Tmp(LoopInd-NumSnowLayerNeg)
+          MassDust5(I,LoopInd,J)           = MassDust5Tmp(LoopInd-NumSnowLayerNeg)
+          SnowRadius(I,LoopInd,J)          = SnowRadiusTmp(LoopInd-NumSnowLayerNeg)
        endif
     enddo
-
-    ! deallocate local arrays to avoid memory leaks
-    deallocate(SnowIceTmp        )
-    deallocate(SnowLiqTmp        )
-    deallocate(TemperatureSnowTmp)
-    deallocate(SnowThickTmp      )
-
-    if ( OptSnowAlbedo == 3 ) then
-       deallocate(MassBChydrophoTmp)
-       deallocate(MassBChydrophiTmp)
-       deallocate(MassOChydrophoTmp)
-       deallocate(MassOChydrophiTmp)
-       deallocate(MassDust1Tmp     )
-       deallocate(MassDust2Tmp     )
-       deallocate(MassDust3Tmp     )
-       deallocate(MassDust4Tmp     )
-       deallocate(MassDust5Tmp     )
-       deallocate(SnowRadiusTmp    )
-    endif
-
     end associate
+
+   end do
+   end do
+
 
   end subroutine SnowLayerDivide
 

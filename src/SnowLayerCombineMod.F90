@@ -1,6 +1,6 @@
 module SnowLayerCombineMod
 
-!!! Snowpack layer combination process
+!!! Snowpack layer combination process (2D GPU-optimized)
 !!! Update snow ice, snow water, snow thickness, snow temperature
 
   use Machine
@@ -12,20 +12,21 @@ module SnowLayerCombineMod
 
 contains
 
-  subroutine SnowLayerCombine(noahmp)
-
+  subroutine SnowLayerCombine(noahmp, II, JJ)
+!$acc routine seq
 ! ------------------------ Code history -----------------------------------
 ! Original Noah-MP subroutine: COMBINE
 ! Original code: Guo-Yue Niu and Noah-MP team (Niu et al. 2011)
 ! Refactered code: C. He, P. Valayamkunnath, & refactor team (He et al. 2023)
+! GPU port (2D arrays): Full SoA transformation for OpenACC (2026)
 ! -------------------------------------------------------------------------
 
     implicit none
 
     type(noahmp_type), intent(inout) :: noahmp
-
+    integer, intent(in)          :: II, JJ            ! grid indices
 ! local variable
-    integer                          :: I,J,K,L           ! node indices
+    integer                          :: I, J, K, L        ! node indices
     integer                          :: NumSnowLayerOld   ! number of snow layer
     integer                          :: IndLayer          ! node index
     integer                          :: IndNeighbor       ! adjacent node selected for combination
@@ -35,14 +36,16 @@ contains
     data SnowThickMin /0.025, 0.025, 0.1/                 ! MB: change limit
     !data SnowThickMin /0.045, 0.05, 0.2/
 
+      if ( noahmp%config%domain%NumSnowLayerNeg(II,JJ) >= 0 ) return  ! no snow layers
+
 ! --------------------------------------------------------------------
     associate(                                                                       &
               OptSnowAlbedo          => noahmp%config%nmlist%OptSnowAlbedo          ,& ! in,    options for ground snow surface albedo
-              NumSnowLayerNeg        => noahmp%config%domain%NumSnowLayerNeg        ,& ! inout, actual number of snow layers (negative)
+              NumSnowLayerNeg        => noahmp%config%domain%NumSnowLayerNeg(II,JJ)        ,& ! inout, actual number of snow layers (negative)
               ThicknessSnowSoilLayer => noahmp%config%domain%ThicknessSnowSoilLayer ,& ! inout, thickness of snow/soil layers [m]
               TemperatureSoilSnow    => noahmp%energy%state%TemperatureSoilSnow     ,& ! inout, snow and soil layer temperature [K]
-              SnowDepth              => noahmp%water%state%SnowDepth                ,& ! inout, snow depth [m]
-              SnowWaterEquiv         => noahmp%water%state%SnowWaterEquiv           ,& ! inout, snow water equivalent [mm]
+              SnowDepth              => noahmp%water%state%SnowDepth(II,JJ)                ,& ! inout, snow depth [m]
+              SnowWaterEquiv         => noahmp%water%state%SnowWaterEquiv(II,JJ)           ,& ! inout, snow water equivalent [mm]
               SnowIce                => noahmp%water%state%SnowIce                  ,& ! inout, snow layer ice [mm]
               SnowLiqWater           => noahmp%water%state%SnowLiqWater             ,& ! inout, snow layer liquid water [mm]
               SoilLiqWater           => noahmp%water%state%SoilLiqWater             ,& ! inout, soil liquid moisture [m3/m3]
@@ -57,81 +60,82 @@ contains
               MassDust4              => noahmp%water%state%MassDust4                ,& ! inout, mass of dust species 4 in snow [kg m-2]
               MassDust5              => noahmp%water%state%MassDust5                ,& ! inout, mass of dust species 5 in snow [kg m-2]
               SnowRadius             => noahmp%water%state%SnowRadius               ,& ! inout, effective grain radius [microns, m-6]
-              PondSfcThinSnwComb     => noahmp%water%state%PondSfcThinSnwComb       ,& ! out,   surface ponding [mm] from liquid in thin snow layer combination
-              PondSfcThinSnwTrans    => noahmp%water%state%PondSfcThinSnwTrans       & ! out,   surface ponding [mm] from thin snow when changing from multilayer to no layer
+              PondSfcThinSnwComb     => noahmp%water%state%PondSfcThinSnwComb(II,JJ)       ,& ! out,   surface ponding [mm] from liquid in thin snow layer combination
+              PondSfcThinSnwTrans    => noahmp%water%state%PondSfcThinSnwTrans(II,JJ)       & ! out,   surface ponding [mm] from thin snow when changing from multilayer to no layer
              )
 ! ----------------------------------------------------------------------
 
     ! check and combine small ice content layer
     NumSnowLayerOld = NumSnowLayerNeg
 
+   !$acc loop seq
     do J = NumSnowLayerOld+1,0
-       if ( SnowIce(J) <= 0.1 ) then
+       if ( SnowIce(II,J,JJ) <= 0.1 ) then
           if ( J /= 0 ) then
-             SnowLiqWater(J+1)           = SnowLiqWater(J+1) + SnowLiqWater(J)
-             SnowIce(J+1)                = SnowIce(J+1) + SnowIce(J)
-             ThicknessSnowSoilLayer(J+1) = ThicknessSnowSoilLayer(J+1) + ThicknessSnowSoilLayer(J)
+             SnowLiqWater(II,J+1,JJ)           = SnowLiqWater(II,J+1,JJ) + SnowLiqWater(II,J,JJ)
+             SnowIce(II,J+1,JJ)                = SnowIce(II,J+1,JJ) + SnowIce(II,J,JJ)
+             ThicknessSnowSoilLayer(II,J+1,JJ) = ThicknessSnowSoilLayer(II,J+1,JJ) + ThicknessSnowSoilLayer(II,J,JJ)
 
              if ( OptSnowAlbedo == 3 ) then
-                MassBChydropho(J+1)      = MassBChydropho(J+1) +  MassBChydropho(J)
-                MassBChydrophi(J+1)      = MassBChydrophi(J+1) +  MassBChydrophi(J)
-                MassOChydropho(J+1)      = MassOChydropho(J+1) +  MassOChydropho(J)
-                MassOChydrophi(J+1)      = MassOChydrophi(J+1) +  MassOChydrophi(J)
-                MassDust1(J+1)           = MassDust1(J+1) +  MassDust1(J)
-                MassDust2(J+1)           = MassDust2(J+1) +  MassDust2(J)
-                MassDust3(J+1)           = MassDust3(J+1) +  MassDust3(J)
-                MassDust4(J+1)           = MassDust4(J+1) +  MassDust4(J)
-                MassDust5(J+1)           = MassDust5(J+1) +  MassDust5(J)
+                MassBChydropho(II,J+1,JJ)      = MassBChydropho(II,J+1,JJ) +  MassBChydropho(II,J,JJ)
+                MassBChydrophi(II,J+1,JJ)      = MassBChydrophi(II,J+1,JJ) +  MassBChydrophi(II,J,JJ)
+                MassOChydropho(II,J+1,JJ)      = MassOChydropho(II,J+1,JJ) +  MassOChydropho(II,J,JJ)
+                MassOChydrophi(II,J+1,JJ)      = MassOChydrophi(II,J+1,JJ) +  MassOChydrophi(II,J,JJ)
+                MassDust1(II,J+1,JJ)           = MassDust1(II,J+1,JJ) +  MassDust1(II,J,JJ)
+                MassDust2(II,J+1,JJ)           = MassDust2(II,J+1,JJ) +  MassDust2(II,J,JJ)
+                MassDust3(II,J+1,JJ)           = MassDust3(II,J+1,JJ) +  MassDust3(II,J,JJ)
+                MassDust4(II,J+1,JJ)           = MassDust4(II,J+1,JJ) +  MassDust4(II,J,JJ)
+                MassDust5(II,J+1,JJ)           = MassDust5(II,J+1,JJ) +  MassDust5(II,J,JJ)
              endif
 
           else
              if ( NumSnowLayerNeg < -1 ) then    ! MB/KM: change to NumSnowLayerNeg
-                SnowLiqWater(J-1)           = SnowLiqWater(J-1) + SnowLiqWater(J)
-                SnowIce(J-1)                = SnowIce(J-1) + SnowIce(J)
-                ThicknessSnowSoilLayer(J-1) = ThicknessSnowSoilLayer(J-1) + ThicknessSnowSoilLayer(J)
+                SnowLiqWater(II,J-1,JJ)           = SnowLiqWater(II,J-1,JJ) + SnowLiqWater(II,J,JJ)
+                SnowIce(II,J-1,JJ)                = SnowIce(II,J-1,JJ) + SnowIce(II,J,JJ)
+                ThicknessSnowSoilLayer(II,J-1,JJ) = ThicknessSnowSoilLayer(II,J-1,JJ) + ThicknessSnowSoilLayer(II,J,JJ)
 
                 if ( OptSnowAlbedo == 3 ) then
-                   MassBChydropho(J-1)      = MassBChydropho(J-1) +  MassBChydropho(J)
-                   MassBChydrophi(J-1)      = MassBChydrophi(J-1) +  MassBChydrophi(J)
-                   MassOChydropho(J-1)      = MassOChydropho(J-1) +  MassOChydropho(J)
-                   MassOChydrophi(J-1)      = MassOChydrophi(J-1) +  MassOChydrophi(J)
-                   MassDust1(J-1)           = MassDust1(J-1) +  MassDust1(J)
-                   MassDust2(J-1)           = MassDust2(J-1) +  MassDust2(J)
-                   MassDust3(J-1)           = MassDust3(J-1) +  MassDust3(J)
-                   MassDust4(J-1)           = MassDust4(J-1) +  MassDust4(J)
-                   MassDust5(J-1)           = MassDust5(J-1) +  MassDust5(J)
+                   MassBChydropho(II,J-1,JJ)      = MassBChydropho(II,J-1,JJ) +  MassBChydropho(II,J,JJ)
+                   MassBChydrophi(II,J-1,JJ)      = MassBChydrophi(II,J-1,JJ) +  MassBChydrophi(II,J,JJ)
+                   MassOChydropho(II,J-1,JJ)      = MassOChydropho(II,J-1,JJ) +  MassOChydropho(II,J,JJ)
+                   MassOChydrophi(II,J-1,JJ)      = MassOChydrophi(II,J-1,JJ) +  MassOChydrophi(II,J,JJ)
+                   MassDust1(II,J-1,JJ)           = MassDust1(II,J-1,JJ) +  MassDust1(II,J,JJ)
+                   MassDust2(II,J-1,JJ)           = MassDust2(II,J-1,JJ) +  MassDust2(II,J,JJ)
+                   MassDust3(II,J-1,JJ)           = MassDust3(II,J-1,JJ) +  MassDust3(II,J,JJ)
+                   MassDust4(II,J-1,JJ)           = MassDust4(II,J-1,JJ) +  MassDust4(II,J,JJ)
+                   MassDust5(II,J-1,JJ)           = MassDust5(II,J-1,JJ) +  MassDust5(II,J,JJ)
                 endif
 
              else
-                if ( SnowIce(J) >= 0.0 ) then
-                   PondSfcThinSnwComb = SnowLiqWater(J)                ! NumSnowLayerNeg WILL GET SET TO ZERO BELOW; PondSfcThinSnwComb WILL GET 
-                   SnowWaterEquiv     = SnowIce(J)                     ! ADDED TO PONDING FROM PHASECHANGE PONDING SHOULD BE
-                   SnowDepth          = ThicknessSnowSoilLayer(J)      ! ZERO HERE BECAUSE IT WAS CALCULATED FOR THIN SNOW
+                if ( SnowIce(II,J,JJ) >= 0.0 ) then
+                   PondSfcThinSnwComb = SnowLiqWater(II,J,JJ)                ! NumSnowLayerNeg WILL GET SET TO ZERO BELOW; PondSfcThinSnwComb WILL GET
+                   SnowWaterEquiv     = SnowIce(II,J,JJ)                     ! ADDED TO PONDING FROM PHASECHANGE PONDING SHOULD BE
+                   SnowDepth          = ThicknessSnowSoilLayer(II,J,JJ)      ! ZERO HERE BECAUSE IT WAS CALCULATED FOR THIN SNOW
                 else  ! SnowIce OVER-SUBLIMATED EARLIER
-                   PondSfcThinSnwComb = SnowLiqWater(J) + SnowIce(J)
+                   PondSfcThinSnwComb = SnowLiqWater(II,J,JJ) + SnowIce(II,J,JJ)
                    if ( PondSfcThinSnwComb < 0.0 ) then                ! IF SnowIce AND SnowLiqWater SUBLIMATES REMOVE FROM SOIL
-                      SoilIce(1) = SoilIce(1) + PondSfcThinSnwComb/(ThicknessSnowSoilLayer(1)*1000.0) ! negative SoilIce from oversublimation is adjusted below
+                      SoilIce(II,1,JJ) = SoilIce(II,1,JJ) + PondSfcThinSnwComb/(ThicknessSnowSoilLayer(II,1,JJ)*1000.0) ! negative SoilIce from oversublimation is adjusted below
                       PondSfcThinSnwComb = 0.0
                    endif
                    SnowWaterEquiv = 0.0
                    SnowDepth      = 0.0
-                endif ! if(SnowIce(J) >= 0.0)
-                SnowLiqWater(J)   = 0.0
-                SnowIce(J)        = 0.0
-                ThicknessSnowSoilLayer(J) = 0.0
+                endif ! if(SnowIce(II,J,JJ) >= 0.0)
+                SnowLiqWater(II,J,JJ)   = 0.0
+                SnowIce(II,J,JJ)        = 0.0
+                ThicknessSnowSoilLayer(II,J,JJ) = 0.0
 
                 ! SNICAR, aerosol flux may infiltrate into top soil like PondSfcThinSnwComb, it
-                ! would be more thorough to do so later  
+                ! would be more thorough to do so later
                 if ( OptSnowAlbedo == 3 ) then
-                   MassBChydropho(J) = 0.0 
-                   MassBChydrophi(J) = 0.0       
-                   MassOChydropho(J) = 0.0    
-                   MassOChydrophi(J) = 0.0    
-                   MassDust1(J)      = 0.0        
-                   MassDust2(J)      = 0.0        
-                   MassDust3(J)      = 0.0     
-                   MassDust4(J)      = 0.0  
-                   MassDust5(J)      = 0.0
+                   MassBChydropho(II,J,JJ) = 0.0
+                   MassBChydrophi(II,J,JJ) = 0.0
+                   MassOChydropho(II,J,JJ) = 0.0
+                   MassOChydrophi(II,J,JJ) = 0.0
+                   MassDust1(II,J,JJ)      = 0.0
+                   MassDust2(II,J,JJ)      = 0.0
+                   MassDust3(II,J,JJ)      = 0.0
+                   MassDust4(II,J,JJ)      = 0.0
+                   MassDust5(II,J,JJ)      = 0.0
                 endif
 
              endif ! if(NumSnowLayerNeg < -1)
@@ -139,23 +143,24 @@ contains
 
           ! shift all elements above this down by one.
           if ( (J > NumSnowLayerNeg+1) .and. (NumSnowLayerNeg < -1) ) then
-             do I = J, NumSnowLayerNeg+2, -1
-                TemperatureSoilSnow(I)    = TemperatureSoilSnow(I-1)
-                SnowLiqWater(I)           = SnowLiqWater(I-1)
-                SnowIce(I)                = SnowIce(I-1)
-                ThicknessSnowSoilLayer(I) = ThicknessSnowSoilLayer(I-1)
+            !$acc loop seq 
+            do I = J, NumSnowLayerNeg+2, -1
+                TemperatureSoilSnow(II,I,JJ)    = TemperatureSoilSnow(I-II,1,JJ)
+                SnowLiqWater(II,I,JJ)           = SnowLiqWater(I-II,1,JJ)
+                SnowIce(II,I,JJ)                = SnowIce(I-II,1,JJ)
+                ThicknessSnowSoilLayer(II,I,JJ) = ThicknessSnowSoilLayer(I-II,1,JJ)
 
                 if ( OptSnowAlbedo == 3 ) then
-                   MassBChydropho(I)      = MassBChydropho(I-1)
-                   MassBChydrophi(I)      = MassBChydrophi(I-1)
-                   MassOChydropho(I)      = MassOChydropho(I-1)
-                   MassOChydrophi(I)      = MassOChydrophi(I-1)
-                   MassDust1(I)           = MassDust1(I-1)
-                   MassDust2(I)           = MassDust2(I-1)
-                   MassDust3(I)           = MassDust3(I-1)
-                   MassDust4(I)           = MassDust4(I-1)
-                   MassDust5(I)           = MassDust5(I-1)
-                   SnowRadius(I)          = SnowRadius(I-1)
+                   MassBChydropho(II,I,JJ)      = MassBChydropho(I-II,1,JJ)
+                   MassBChydrophi(II,I,JJ)      = MassBChydrophi(I-II,1,JJ)
+                   MassOChydropho(II,I,JJ)      = MassOChydropho(I-II,1,JJ)
+                   MassOChydrophi(II,I,JJ)      = MassOChydrophi(I-II,1,JJ)
+                   MassDust1(II,I,JJ)           = MassDust1(I-II,1,JJ)
+                   MassDust2(II,I,JJ)           = MassDust2(I-II,1,JJ)
+                   MassDust3(II,I,JJ)           = MassDust3(I-II,1,JJ)
+                   MassDust4(II,I,JJ)           = MassDust4(I-II,1,JJ)
+                   MassDust5(II,I,JJ)           = MassDust5(I-II,1,JJ)
+                   SnowRadius(II,I,JJ)          = SnowRadius(I-II,1,JJ)
                 endif
 
              enddo
@@ -166,9 +171,9 @@ contains
     enddo ! do J
 
     ! to conserve water in case of too large surface sublimation
-    if ( SoilIce(1) < 0.0) then
-       SoilLiqWater(1) = SoilLiqWater(1) + SoilIce(1)
-       SoilIce(1)      = 0.0
+    if ( SoilIce(II,1,JJ) < 0.0) then
+       SoilLiqWater(II,1,JJ) = SoilLiqWater(II,1,JJ) + SoilIce(II,1,JJ)
+       SoilIce(II,1,JJ)      = 0.0
     endif
 
     if ( NumSnowLayerNeg ==0 ) return   ! MB: get out if no longer multi-layer
@@ -178,11 +183,12 @@ contains
     SnowIceTmp     = 0.0
     SnowLiqTmp     = 0.0
 
+    !$acc loop seq
     do J = NumSnowLayerNeg+1, 0
-       SnowWaterEquiv = SnowWaterEquiv + SnowIce(J) + SnowLiqWater(J)
-       SnowDepth      = SnowDepth + ThicknessSnowSoilLayer(J)
-       SnowIceTmp     = SnowIceTmp + SnowIce(J)
-       SnowLiqTmp     = SnowLiqTmp + SnowLiqWater(J)
+       SnowWaterEquiv = SnowWaterEquiv + SnowIce(II,J,JJ) + SnowLiqWater(II,J,JJ)
+       SnowDepth      = SnowDepth + ThicknessSnowSoilLayer(II,J,JJ)
+       SnowIceTmp     = SnowIceTmp + SnowIce(II,J,JJ)
+       SnowLiqTmp     = SnowLiqTmp + SnowLiqWater(II,J,JJ)
     enddo
 
     ! check the snow depth - all snow gone, the liquid water assumes ponding on soil surface.
@@ -198,16 +204,17 @@ contains
     if ( NumSnowLayerNeg < -1 ) then
        NumSnowLayerOld = NumSnowLayerNeg
        IndLayer        = 1
+       !$acc loop seq
        do I = NumSnowLayerOld+1, 0
-          if ( ThicknessSnowSoilLayer(I) < SnowThickMin(IndLayer) ) then
+          if ( ThicknessSnowSoilLayer(II,I,JJ) < SnowThickMin(IndLayer) ) then
              if ( I == NumSnowLayerNeg+1 ) then
                 IndNeighbor = I + 1
              else if ( I == 0 ) then
                 IndNeighbor = I - 1
              else
                 IndNeighbor = I + 1
-                if ( (ThicknessSnowSoilLayer(I-1)+ThicknessSnowSoilLayer(I)) < &
-                     (ThicknessSnowSoilLayer(I+1)+ThicknessSnowSoilLayer(I)) ) IndNeighbor = I-1
+                if ( (ThicknessSnowSoilLayer(I-II,1,JJ)+ThicknessSnowSoilLayer(II,I,JJ)) < &
+                     (ThicknessSnowSoilLayer(I+II,1,JJ)+ThicknessSnowSoilLayer(II,I,JJ)) ) IndNeighbor = I-1
              endif
              ! Node l and j are combined and stored as node j.
              if ( IndNeighbor > I ) then
@@ -219,43 +226,44 @@ contains
              endif
 
              if ( OptSnowAlbedo == 3 ) then
-                MassBChydropho(J) = MassBChydropho(J) +  MassBChydropho(L)
-                MassBChydrophi(J) = MassBChydrophi(J) +  MassBChydrophi(L)
-                MassOChydropho(J) = MassOChydropho(J) +  MassOChydropho(L)
-                MassOChydrophi(J) = MassOChydrophi(J) +  MassOChydrophi(L)
-                MassDust1(J)      = MassDust1(J) +  MassDust1(L)
-                MassDust2(J)      = MassDust2(J) +  MassDust2(L)
-                MassDust3(J)      = MassDust3(J) +  MassDust3(L)
-                MassDust4(J)      = MassDust4(J) +  MassDust4(L)
-                MassDust5(J)      = MassDust5(J) +  MassDust5(L)
-                SnowRadius(J)     = (SnowRadius(J)*(SnowLiqWater(J)+SnowIce(J)) + SnowRadius(L)*(SnowLiqWater(L)+SnowIce(L))) / &
-                                    (SnowLiqWater(J) + SnowIce(J) + SnowLiqWater(L) + SnowIce(L))
+                MassBChydropho(II,J,JJ) = MassBChydropho(II,J,JJ) +  MassBChydropho(II,L,JJ)
+                MassBChydrophi(II,J,JJ) = MassBChydrophi(II,J,JJ) +  MassBChydrophi(II,L,JJ)
+                MassOChydropho(II,J,JJ) = MassOChydropho(II,J,JJ) +  MassOChydropho(II,L,JJ)
+                MassOChydrophi(II,J,JJ) = MassOChydrophi(II,J,JJ) +  MassOChydrophi(II,L,JJ)
+                MassDust1(II,J,JJ)      = MassDust1(II,J,JJ) +  MassDust1(II,L,JJ)
+                MassDust2(II,J,JJ)      = MassDust2(II,J,JJ) +  MassDust2(II,L,JJ)
+                MassDust3(II,J,JJ)      = MassDust3(II,J,JJ) +  MassDust3(II,L,JJ)
+                MassDust4(II,J,JJ)      = MassDust4(II,J,JJ) +  MassDust4(II,L,JJ)
+                MassDust5(II,J,JJ)      = MassDust5(II,J,JJ) +  MassDust5(II,L,JJ)
+                SnowRadius(II,J,JJ)     = (SnowRadius(II,J,JJ)*(SnowLiqWater(II,J,JJ)+SnowIce(II,J,JJ)) + SnowRadius(II,L,JJ)*(SnowLiqWater(II,L,JJ)+SnowIce(II,L,JJ))) / &
+                                    (SnowLiqWater(II,J,JJ) + SnowIce(II,J,JJ) + SnowLiqWater(II,L,JJ) + SnowIce(II,L,JJ))
              endif
 
              ! update combined snow water & temperature
-             call SnowLayerWaterCombo(ThicknessSnowSoilLayer(J), SnowLiqWater(J), SnowIce(J), TemperatureSoilSnow(J), &
-                                      ThicknessSnowSoilLayer(L), SnowLiqWater(L), SnowIce(L), TemperatureSoilSnow(L) )
+             call SnowLayerWaterCombo(ThicknessSnowSoilLayer(II,J,JJ), SnowLiqWater(II,J,JJ), SnowIce(II,J,JJ), TemperatureSoilSnow(II,J,JJ), &
+                                      ThicknessSnowSoilLayer(II,L,JJ), SnowLiqWater(II,L,JJ), SnowIce(II,L,JJ), TemperatureSoilSnow(II,L,JJ) )
 
 
              ! Now shift all elements above this down one.
              if ( (J-1) > (NumSnowLayerNeg+1) ) then
+                !$acc loop seq
                 do K = J-1, NumSnowLayerNeg+2, -1
-                   TemperatureSoilSnow(K)    = TemperatureSoilSnow(K-1)
-                   SnowIce(K)                = SnowIce(K-1)
-                   SnowLiqWater(K)           = SnowLiqWater(K-1)
-                   ThicknessSnowSoilLayer(K) = ThicknessSnowSoilLayer(K-1)
+                   TemperatureSoilSnow(II,K,JJ)    = TemperatureSoilSnow(II,K-1,JJ)
+                   SnowIce(II,K,JJ)                = SnowIce(II,K-1,JJ)
+                   SnowLiqWater(II,K,JJ)           = SnowLiqWater(II,K-1,JJ)
+                   ThicknessSnowSoilLayer(II,K,JJ) = ThicknessSnowSoilLayer(II,K-1,JJ)
 
                    if ( OptSnowAlbedo == 3 ) then
-                      MassBChydropho(K)      = MassBChydropho(K-1) 
-                      MassBChydrophi(K)      = MassBChydrophi(K-1) 
-                      MassOChydropho(K)      = MassOChydropho(K-1) 
-                      MassOChydrophi(K)      = MassOChydrophi(K-1) 
-                      MassDust1(K)           = MassDust1(K-1) 
-                      MassDust2(K)           = MassDust2(K-1) 
-                      MassDust3(K)           = MassDust3(K-1) 
-                      MassDust4(K)           = MassDust4(K-1) 
-                      MassDust5(K)           = MassDust5(K-1)
-                      SnowRadius(K)          = SnowRadius(K-1)
+                      MassBChydropho(II,K,JJ)      = MassBChydropho(II,K-1,JJ)
+                      MassBChydrophi(II,K,JJ)      = MassBChydrophi(II,K-1,JJ)
+                      MassOChydropho(II,K,JJ)      = MassOChydropho(II,K-1,JJ)
+                      MassOChydrophi(II,K,JJ)      = MassOChydrophi(II,K-1,JJ)
+                      MassDust1(II,K,JJ)           = MassDust1(II,K-1,JJ)
+                      MassDust2(II,K,JJ)           = MassDust2(II,K-1,JJ)
+                      MassDust3(II,K,JJ)           = MassDust3(II,K-1,JJ)
+                      MassDust4(II,K,JJ)           = MassDust4(II,K-1,JJ)
+                      MassDust5(II,K,JJ)           = MassDust5(II,K-1,JJ)
+                      SnowRadius(II,K,JJ)          = SnowRadius(II,K-1,JJ)
                    endif
 
                 enddo

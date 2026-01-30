@@ -16,6 +16,7 @@ contains
 ! Original Noah-MP subroutine: STOMATA
 ! Original code: Guo-Yue Niu and Noah-MP team (Niu et al. 2011)
 ! Refactered code: C. He, P. Valayamkunnath, & refactor team (He et al. 2023)
+! GPU port (2D arrays): Full SoA transformation for OpenACC (2026)
 ! -------------------------------------------------------------------------
 
     implicit none
@@ -24,6 +25,7 @@ contains
     type(noahmp_type), intent(inout) :: noahmp
 
 ! local variable
+    integer                          :: I, JJ                  ! grid indices
     integer                          :: IndIter               ! iteration index
     integer, parameter               :: NumIter = 3           ! number of iterations
     real(kind=kind_noahmp)           :: RadPhotoActAbsTmp     ! temporary absorbed par for leaves [W/m2]
@@ -59,36 +61,42 @@ contains
     F2(AB)     = 1.0 + exp( (-2.2e05 + 710.0 * (AB + 273.16)) / (8.314 * (AB + 273.16)) )
 
 ! --------------------------------------------------------------------
-    associate(                                                                        &
-              PressureAirRefHeight    => noahmp%forcing%PressureAirRefHeight         ,& ! in,  air pressure [Pa] at reference height
-              TemperatureAirRefHeight => noahmp%forcing%TemperatureAirRefHeight      ,& ! in,  air temperature [K] at reference height
-              SoilTranspFacAcc        => noahmp%water%state%SoilTranspFacAcc         ,& ! in,  accumulated soil water transpiration factor (0 to 1)
-              IndexGrowSeason         => noahmp%biochem%state%IndexGrowSeason        ,& ! in,  growing season index (0=off, 1=on)
-              NitrogenConcFoliage     => noahmp%biochem%state%NitrogenConcFoliage    ,& ! in,  foliage nitrogen concentration [%]
-              NitrogenConcFoliageMax  => noahmp%biochem%param%NitrogenConcFoliageMax ,& ! in,  foliage nitrogen concentration when f(n)=1 [%]
-              QuantumEfficiency25C    => noahmp%biochem%param%QuantumEfficiency25C   ,& ! in,  quantum efficiency at 25c [umol co2 / umol photon]
-              CarboxylRateMax25C      => noahmp%biochem%param%CarboxylRateMax25C     ,& ! in,  maximum rate of carboxylation at 25c [umol co2/m**2/s]
-              CarboxylRateMaxQ10      => noahmp%biochem%param%CarboxylRateMaxQ10     ,& ! in,  change in maximum rate of carboxylation for each 10C temp change
-              PhotosynPathC3          => noahmp%biochem%param%PhotosynPathC3         ,& ! in,  C3 photosynthetic pathway indicator: 0. = c4, 1. = c3
-              SlopeConductToPhotosyn  => noahmp%biochem%param%SlopeConductToPhotosyn ,& ! in,  slope of conductance-to-photosynthesis relationship
-              Co2MmConst25C           => noahmp%energy%param%Co2MmConst25C           ,& ! in,  co2 michaelis-menten constant at 25c [Pa]
-              O2MmConst25C            => noahmp%energy%param%O2MmConst25C            ,& ! in,  o2 michaelis-menten constant at 25c [Pa]
-              Co2MmConstQ10           => noahmp%energy%param%Co2MmConstQ10           ,& ! in,  q10 for Co2MmConst25C
-              O2MmConstQ10            => noahmp%energy%param%O2MmConstQ10            ,& ! in,  q10 for ko25
-              ConductanceLeafMin      => noahmp%energy%param%ConductanceLeafMin      ,& ! in,  minimum leaf conductance [umol/m**2/s]
-              TemperatureCanopy       => noahmp%energy%state%TemperatureCanopy       ,& ! in,  vegetation temperature [K]
-              VapPresSatCanopy        => noahmp%energy%state%VapPresSatCanopy        ,& ! in,  canopy saturation vapor pressure at TV [Pa]
-              PressureVaporCanAir     => noahmp%energy%state%PressureVaporCanAir     ,& ! in,  canopy air vapor pressure [Pa]
-              PressureAtmosO2         => noahmp%energy%state%PressureAtmosO2         ,& ! in,  atmospheric o2 pressure [Pa]
-              PressureAtmosCO2        => noahmp%energy%state%PressureAtmosCO2        ,& ! in,  atmospheric co2 pressure [Pa]
-              ResistanceLeafBoundary  => noahmp%energy%state%ResistanceLeafBoundary  ,& ! in,  leaf boundary layer resistance [s/m]
-              VegFrac                 => noahmp%energy%state%VegFrac                 ,& ! in,  greeness vegetation fraction
-              RadPhotoActAbsSunlit    => noahmp%energy%flux%RadPhotoActAbsSunlit     ,& ! in,  average absorbed par for sunlit leaves [W/m2]
-              RadPhotoActAbsShade     => noahmp%energy%flux%RadPhotoActAbsShade      ,& ! in,  average absorbed par for shaded leaves [W/m2]
-              ResistanceStomataSunlit => noahmp%energy%state%ResistanceStomataSunlit ,& ! out, sunlit leaf stomatal resistance [s/m]
-              ResistanceStomataShade  => noahmp%energy%state%ResistanceStomataShade  ,& ! out, shaded leaf stomatal resistance [s/m]
-              PhotosynLeafSunlit      => noahmp%biochem%flux%PhotosynLeafSunlit      ,& ! out, sunlit leaf photosynthesis [umol co2/m2/s]
-              PhotosynLeafShade       => noahmp%biochem%flux%PhotosynLeafShade        & ! out, shaded leaf photosynthesis [umol co2/m2/s]
+   !$acc parallel loop collapse(2) gang vector present(noahmp) &
+   !$acc private(IndIter,RadPhotoActAbsTmp,ResistanceStomataTmp,PhotosynLeafTmp,NitrogenFoliageFac) &
+   !$acc private(CarboxylRateMax,MPE,RLB,TC,CS,KC,KO,A,B,C,Q,R1,R2,PPF,WC,WJ,WE,CP,CI,AWC,J,CEA,CF,T)
+    do JJ = noahmp%config%domain%JTS, noahmp%config%domain%JTE
+      do I = noahmp%config%domain%ITS, noahmp%config%domain%ITE
+
+    associate(                                                                           &
+              PressureAirRefHeight    => noahmp%forcing%PressureAirRefHeight(I,JJ)        ,& ! in,  air pressure [Pa] at reference height
+              TemperatureAirRefHeight => noahmp%forcing%TemperatureAirRefHeight(I,JJ)     ,& ! in,  air temperature [K] at reference height
+              SoilTranspFacAcc        => noahmp%water%state%SoilTranspFacAcc(I,JJ)        ,& ! in,  accumulated soil water transpiration factor (0 to 1)
+              IndexGrowSeason         => noahmp%biochem%state%IndexGrowSeason(I,JJ)       ,& ! in,  growing season index (0=off, 1=on)
+              NitrogenConcFoliage     => noahmp%biochem%state%NitrogenConcFoliage(I,JJ)   ,& ! in,  foliage nitrogen concentration [%]
+              NitrogenConcFoliageMax  => noahmp%biochem%param%NitrogenConcFoliageMax(I,JJ),& ! in,  foliage nitrogen concentration when f(n)=1 [%]
+              QuantumEfficiency25C    => noahmp%biochem%param%QuantumEfficiency25C(I,JJ)  ,& ! in,  quantum efficiency at 25c [umol co2 / umol photon]
+              CarboxylRateMax25C      => noahmp%biochem%param%CarboxylRateMax25C(I,JJ)    ,& ! in,  maximum rate of carboxylation at 25c [umol co2/m**2/s]
+              CarboxylRateMaxQ10      => noahmp%biochem%param%CarboxylRateMaxQ10(I,JJ)    ,& ! in,  change in maximum rate of carboxylation for each 10C temp change
+              PhotosynPathC3          => noahmp%biochem%param%PhotosynPathC3(I,JJ)        ,& ! in,  C3 photosynthetic pathway indicator: 0. = c4, 1. = c3
+              SlopeConductToPhotosyn  => noahmp%biochem%param%SlopeConductToPhotosyn(I,JJ),& ! in,  slope of conductance-to-photosynthesis relationship
+              Co2MmConst25C           => noahmp%energy%param%Co2MmConst25C(I,JJ)          ,& ! in,  co2 michaelis-menten constant at 25c [Pa]
+              O2MmConst25C            => noahmp%energy%param%O2MmConst25C(I,JJ)           ,& ! in,  o2 michaelis-menten constant at 25c [Pa]
+              Co2MmConstQ10           => noahmp%energy%param%Co2MmConstQ10(I,JJ)          ,& ! in,  q10 for Co2MmConst25C
+              O2MmConstQ10            => noahmp%energy%param%O2MmConstQ10(I,JJ)           ,& ! in,  q10 for ko25
+              ConductanceLeafMin      => noahmp%energy%param%ConductanceLeafMin(I,JJ)     ,& ! in,  minimum leaf conductance [umol/m**2/s]
+              TemperatureCanopy       => noahmp%energy%state%TemperatureCanopy(I,JJ)      ,& ! in,  vegetation temperature [K]
+              VapPresSatCanopy        => noahmp%energy%state%VapPresSatCanopy(I,JJ)       ,& ! in,  canopy saturation vapor pressure at TV [Pa]
+              PressureVaporCanAir     => noahmp%energy%state%PressureVaporCanAir(I,JJ)    ,& ! in,  canopy air vapor pressure [Pa]
+              PressureAtmosO2         => noahmp%energy%state%PressureAtmosO2(I,JJ)        ,& ! in,  atmospheric o2 pressure [Pa]
+              PressureAtmosCO2        => noahmp%energy%state%PressureAtmosCO2(I,JJ)       ,& ! in,  atmospheric co2 pressure [Pa]
+              ResistanceLeafBoundary  => noahmp%energy%state%ResistanceLeafBoundary(I,JJ) ,& ! in,  leaf boundary layer resistance [s/m]
+              VegFrac                 => noahmp%energy%state%VegFrac(I,JJ)                ,& ! in,  greeness vegetation fraction
+              RadPhotoActAbsSunlit    => noahmp%energy%flux%RadPhotoActAbsSunlit(I,JJ)    ,& ! in,  average absorbed par for sunlit leaves [W/m2]
+              RadPhotoActAbsShade     => noahmp%energy%flux%RadPhotoActAbsShade(I,JJ)     ,& ! in,  average absorbed par for shaded leaves [W/m2]
+              ResistanceStomataSunlit => noahmp%energy%state%ResistanceStomataSunlit(I,JJ),& ! out, sunlit leaf stomatal resistance [s/m]
+              ResistanceStomataShade  => noahmp%energy%state%ResistanceStomataShade(I,JJ) ,& ! out, shaded leaf stomatal resistance [s/m]
+              PhotosynLeafSunlit      => noahmp%biochem%flux%PhotosynLeafSunlit(I,JJ)     ,& ! out, sunlit leaf photosynthesis [umol co2/m2/s]
+              PhotosynLeafShade       => noahmp%biochem%flux%PhotosynLeafShade(I,JJ)       & ! out, shaded leaf photosynthesis [umol co2/m2/s]
              )
 ! ----------------------------------------------------------------------
 
@@ -125,6 +133,7 @@ contains
                  min(PressureVaporCanAir,VapPresSatCanopy))
 
        ! ci iteration
+       !$acc loop seq
        do IndIter = 1, NumIter
           WJ = max(CI-CP, 0.0) * J / (CI + 2.0*CP) * PhotosynPathC3 + J * (1.0 - PhotosynPathC3)
           WC = max(CI-CP, 0.0) * CarboxylRateMax / (CI + AWC) * PhotosynPathC3 + &
@@ -167,6 +176,10 @@ contains
     endif
 
     end associate
+
+      end do
+    end do
+   !$acc end parallel loop
 
   end subroutine ResistanceCanopyStomataBallBerry
 

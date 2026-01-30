@@ -17,38 +17,46 @@ contains
 ! Original Noah-MP subroutine: CANWATER
 ! Original code: Guo-Yue Niu and Noah-MP team (Niu et al. 2011)
 ! Refactered code: C. He, P. Valayamkunnath, & refactor team (He et al. 2023)
+! GPU port (2D arrays): Full SoA transformation for OpenACC (2026)
 ! -------------------------------------------------------------------------
 
     implicit none
 
     type(noahmp_type), intent(inout) :: noahmp
 
+! local variables
+    integer                          :: I, J         ! grid indices
+
 ! --------------------------------------------------------------------
+   !$acc parallel loop collapse(2) gang vector present(noahmp)
+    do J = noahmp%config%domain%JTS, noahmp%config%domain%JTE
+      do I = noahmp%config%domain%ITS, noahmp%config%domain%ITE
+
     associate(                                                            &
-              MainTimeStep      => noahmp%config%domain%MainTimeStep     ,& ! in,    noahmp main time step [s]
-              HeatLatentCanopy  => noahmp%energy%flux%HeatLatentCanopy   ,& ! in,    canopy latent heat flux [W/m2] (+ to atm)
-              HeatLatentTransp  => noahmp%energy%flux%HeatLatentTransp   ,& ! in,    latent heat flux from transpiration [W/m2] (+ to atm)
-              LeafAreaIndEff    => noahmp%energy%state%LeafAreaIndEff    ,& ! in,    leaf area index, after burying by snow
-              StemAreaIndEff    => noahmp%energy%state%StemAreaIndEff    ,& ! in,    stem area index, after burying by snow
-              FlagFrozenCanopy  => noahmp%energy%state%FlagFrozenCanopy  ,& ! in,    used to define latent heat pathway
-              VegFrac           => noahmp%energy%state%VegFrac           ,& ! in,    greeness vegetation fraction
-              SnowfallDensity   => noahmp%water%state%SnowfallDensity    ,& ! in,    bulk density of snowfall [kg/m3]
-              CanopyLiqHoldCap  => noahmp%water%param%CanopyLiqHoldCap   ,& ! in,    maximum intercepted liquid water per unit veg area index [mm]
-              CanopyLiqWater    => noahmp%water%state%CanopyLiqWater     ,& ! inout, intercepted canopy liquid water [mm]
-              CanopyIce         => noahmp%water%state%CanopyIce          ,& ! inout, intercepted canopy ice [mm]
-              TemperatureCanopy => noahmp%energy%state%TemperatureCanopy ,& ! inout, vegetation temperature [K]
-              CanopyTotalWater  => noahmp%water%state%CanopyTotalWater   ,& ! out,   total canopy intercepted water [mm]
-              CanopyWetFrac     => noahmp%water%state%CanopyWetFrac      ,& ! out,   wetted or snowed fraction of the canopy
-              CanopyIceMax      => noahmp%water%state%CanopyIceMax       ,& ! out,   canopy capacity for snow interception [mm]
-              CanopyLiqWaterMax => noahmp%water%state%CanopyLiqWaterMax  ,& ! out,   canopy capacity for rain interception [mm]
-              EvapCanopyNet     => noahmp%water%flux%EvapCanopyNet       ,& ! out,   evaporation of intercepted total water [mm/s]
-              Transpiration     => noahmp%water%flux%Transpiration       ,& ! out,   transpiration rate [mm/s]
-              EvapCanopyLiq     => noahmp%water%flux%EvapCanopyLiq       ,& ! out,   canopy liquid water evaporation rate [mm/s]
-              DewCanopyLiq      => noahmp%water%flux%DewCanopyLiq        ,& ! out,   canopy liquid water dew rate [mm/s]
-              FrostCanopyIce    => noahmp%water%flux%FrostCanopyIce      ,& ! out,   canopy ice frost rate [mm/s]
-              SublimCanopyIce   => noahmp%water%flux%SublimCanopyIce     ,& ! out,   canopy ice sublimation rate [mm/s]
-              MeltCanopyIce     => noahmp%water%flux%MeltCanopyIce       ,& ! out,   canopy ice melting rate [mm/s]
-              FreezeCanopyLiq   => noahmp%water%flux%FreezeCanopyLiq      & ! out,   canopy water freezing rate [mm/s]
+              MainTimeStep      => noahmp%config%domain%MainTimeStep          ,& ! in,    noahmp main time step [s]
+              HeatLatentCanopy  => noahmp%energy%flux%HeatLatentCanopy(I,J)   ,& ! in,    canopy latent heat flux [W/m2] (+ to atm)
+              HeatLatentTransp  => noahmp%energy%flux%HeatLatentTransp(I,J)   ,& ! in,    latent heat flux from transpiration [W/m2] (+ to atm)
+              LeafAreaIndEff    => noahmp%energy%state%LeafAreaIndEff(I,J)    ,& ! in,    leaf area index, after burying by snow
+              StemAreaIndEff    => noahmp%energy%state%StemAreaIndEff(I,J)    ,& ! in,    stem area index, after burying by snow
+              FlagFrozenCanopy  => noahmp%energy%state%FlagFrozenCanopy(I,J)  ,& ! in,    used to define latent heat pathway
+              VegFrac           => noahmp%energy%state%VegFrac(I,J)           ,& ! in,    greeness vegetation fraction
+              SnowfallDensity   => noahmp%water%state%SnowfallDensity(I,J)    ,& ! in,    bulk density of snowfall [kg/m3]
+              CanopyLiqHoldCap  => noahmp%water%param%CanopyLiqHoldCap(I,J)   ,& ! in,    maximum intercepted liquid water per unit veg area index [mm]
+              CanopyLiqWater    => noahmp%water%state%CanopyLiqWater(I,J)     ,& ! inout, intercepted canopy liquid water [mm]
+              CanopyIce         => noahmp%water%state%CanopyIce(I,J)          ,& ! inout, intercepted canopy ice [mm]
+              TemperatureCanopy => noahmp%energy%state%TemperatureCanopy(I,J) ,& ! inout, vegetation temperature [K]
+              CanopyTotalWater  => noahmp%water%state%CanopyTotalWater(I,J)   ,& ! out,   total canopy intercepted water [mm]
+              CanopyWetFrac     => noahmp%water%state%CanopyWetFrac(I,J)      ,& ! out,   wetted or snowed fraction of the canopy
+              CanopyIceMax      => noahmp%water%state%CanopyIceMax(I,J)       ,& ! out,   canopy capacity for snow interception [mm]
+              CanopyLiqWaterMax => noahmp%water%state%CanopyLiqWaterMax(I,J)  ,& ! out,   canopy capacity for rain interception [mm]
+              EvapCanopyNet     => noahmp%water%flux%EvapCanopyNet(I,J)       ,& ! out,   evaporation of intercepted total water [mm/s]
+              Transpiration     => noahmp%water%flux%Transpiration(I,J)       ,& ! out,   transpiration rate [mm/s]
+              EvapCanopyLiq     => noahmp%water%flux%EvapCanopyLiq(I,J)       ,& ! out,   canopy liquid water evaporation rate [mm/s]
+              DewCanopyLiq      => noahmp%water%flux%DewCanopyLiq(I,J)        ,& ! out,   canopy liquid water dew rate [mm/s]
+              FrostCanopyIce    => noahmp%water%flux%FrostCanopyIce(I,J)      ,& ! out,   canopy ice frost rate [mm/s]
+              SublimCanopyIce   => noahmp%water%flux%SublimCanopyIce(I,J)     ,& ! out,   canopy ice sublimation rate [mm/s]
+              MeltCanopyIce     => noahmp%water%flux%MeltCanopyIce(I,J)       ,& ! out,   canopy ice melting rate [mm/s]
+              FreezeCanopyLiq   => noahmp%water%flux%FreezeCanopyLiq(I,J)      & ! out,   canopy water freezing rate [mm/s]
              )
 ! --------------------------------------------------------------------
 
@@ -135,6 +143,10 @@ contains
     EvapCanopyNet    = EvapCanopyLiq + SublimCanopyIce - DewCanopyLiq - FrostCanopyIce
 
     end associate
+
+      end do
+    end do
+   !$acc end parallel loop
 
   end subroutine CanopyHydrology
 

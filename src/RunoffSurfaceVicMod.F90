@@ -17,6 +17,7 @@ contains
 ! Original Noah-MP subroutine: COMPUTE_VIC_SURFRUNOFF
 ! Original code: Prasanth Valayamkunnath <prasanth@ucar.edu>
 ! Refactered code: C. He, P. Valayamkunnath, & refactor team (He et al. 2023)
+! GPU port (2D arrays): Full SoA transformation for OpenACC (2026)
 ! ----------------------------------------------------------------------------------------
 
     implicit none
@@ -26,6 +27,7 @@ contains
     real(kind=kind_noahmp), intent(in)    :: TimeStep          ! timestep (may not be the same as model timestep)
 
 ! local variable
+    integer                               :: I, J              ! grid indices
     integer                               :: LoopInd           ! do-loop index
     real(kind=kind_noahmp)                :: InfilExpFac       ! infitration exponential factor
     real(kind=kind_noahmp)                :: WaterDepthInit    ! initial water depth [m]
@@ -34,17 +36,22 @@ contains
     real(kind=kind_noahmp)                :: SoilMoistTop      ! top layer soil moisture [m]
     real(kind=kind_noahmp)                :: SoilMoistTopMax   ! top layer max soil moisture [m]
 
+
+    !$acc parallel loop collapse(2) gang vector present(noahmp) &
+    !$acc private(LoopInd,InfilExpFac,WaterDepthInit,WaterDepthMax,InfilVarTmp,SoilMoistTop,SoilMoistTopMax)
+    do J = noahmp%config%domain%JTS, noahmp%config%domain%JTE
+      do I = noahmp%config%domain%ITS, noahmp%config%domain%ITE
 ! --------------------------------------------------------------------
-    associate(                                                          &
-              NumSoilLayer      => noahmp%config%domain%NumSoilLayer   ,& ! in,  number of soil layers
-              DepthSoilLayer    => noahmp%config%domain%DepthSoilLayer ,& ! in,  depth [m] of layer-bottom from soil surface
-              SoilMoisture      => noahmp%water%state%SoilMoisture     ,& ! in,  total soil moisture [m3/m3]
-              SoilSfcInflowMean => noahmp%water%flux%SoilSfcInflowMean ,& ! in,  mean water input on soil surface [m/s]
-              SoilMoistureSat   => noahmp%water%param%SoilMoistureSat  ,& ! in,  saturated value of soil moisture [m3/m3]
-              InfilFacVic       => noahmp%water%param%InfilFacVic      ,& ! in,  VIC model infiltration parameter
-              RunoffSurface     => noahmp%water%flux%RunoffSurface     ,& ! out, surface runoff [m/s]
-              InfilRateSfc      => noahmp%water%flux%InfilRateSfc      ,& ! out, infiltration rate at surface [m/s]
-              SoilSaturateFrac  => noahmp%water%state%SoilSaturateFrac  & ! out, fractional saturated area for soil moisture
+    associate(                                                                &
+              NumSoilLayer      => noahmp%config%domain%NumSoilLayer         ,& ! in,  number of soil layers
+              DepthSoilLayer    => noahmp%config%domain%DepthSoilLayer       ,& ! in,  depth [m] of layer-bottom from soil surface
+              SoilMoisture      => noahmp%water%state%SoilMoisture           ,& ! in,  total soil moisture [m3/m3]
+              SoilSfcInflowMean => noahmp%water%flux%SoilSfcInflowMean(I,J)  ,& ! in,  mean water input on soil surface [m/s]
+              SoilMoistureSat   => noahmp%water%param%SoilMoistureSat        ,& ! in,  saturated value of soil moisture [m3/m3]
+              InfilFacVic       => noahmp%water%param%InfilFacVic(I,J)       ,& ! in,  VIC model infiltration parameter
+              RunoffSurface     => noahmp%water%flux%RunoffSurface(I,J)      ,& ! out, surface runoff [m/s]
+              InfilRateSfc      => noahmp%water%flux%InfilRateSfc(I,J)       ,& ! out, infiltration rate at surface [m/s]
+              SoilSaturateFrac  => noahmp%water%state%SoilSaturateFrac(I,J)   & ! out, fractional saturated area for soil moisture
              )
 ! ----------------------------------------------------------------------
 
@@ -59,9 +66,10 @@ contains
     RunoffSurface    = 0.0
     InfilRateSfc     = 0.0
 
+    !$acc loop seq
     do LoopInd = 1, NumSoilLayer-2
-       SoilMoistTop    = SoilMoistTop + SoilMoisture(LoopInd) * (-1.0) * DepthSoilLayer(LoopInd)
-       SoilMoistTopMax = SoilMoistTopMax + SoilMoistureSat(LoopInd) * (-1.0) * DepthSoilLayer(LoopInd)
+       SoilMoistTop    = SoilMoistTop + SoilMoisture(I,LoopInd,J) * (-1.0) * DepthSoilLayer(I,LoopInd,J)
+       SoilMoistTopMax = SoilMoistTopMax + SoilMoistureSat(I,LoopInd,J) * (-1.0) * DepthSoilLayer(I,LoopInd,J)
     enddo
 
     ! fractional saturated area from soil moisture
@@ -94,6 +102,11 @@ contains
     InfilRateSfc = SoilSfcInflowMean - RunoffSurface
 
     end associate
+
+      end do
+    end do
+    !$acc end parallel loop
+
 
   end subroutine RunoffSurfaceVIC
 

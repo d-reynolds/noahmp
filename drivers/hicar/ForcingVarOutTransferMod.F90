@@ -24,22 +24,23 @@ contains
     type(noahmp_type),   intent(inout) :: noahmp
     type(NoahmpIO_type), intent(inout) :: NoahmpIO
 
-! -------------------------------------------------------------------------
-    associate(                                      &
-              I => noahmp%config%domain%GridIndexI ,&
-              J => noahmp%config%domain%GridIndexJ  &
-             )
-! -------------------------------------------------------------------------
+    integer :: I, J
 
-    NoahmpIO%FORCTLSM  (I,J) = noahmp%forcing%TemperatureAirRefHeight
-    NoahmpIO%FORCQLSM  (I,J) = noahmp%forcing%SpecHumidityRefHeight
-    NoahmpIO%FORCPLSM  (I,J) = noahmp%forcing%PressureAirRefHeight
-    NoahmpIO%FORCWLSM  (I,J) = sqrt(noahmp%forcing%WindEastwardRefHeight**2 + &
-                                    noahmp%forcing%WindNorthwardRefHeight**2)
-    NoahmpIO%RadSwDirFrac(I,J) = noahmp%forcing%RadSwDirFrac
-    NoahmpIO%RadSwVisFrac(I,J) = noahmp%forcing%RadSwVisFrac
+    !$acc parallel loop collapse(2) present(noahmp, NoahmpIO)
+    do J = noahmp%config%domain%JTS, noahmp%config%domain%JTE
+      do I = noahmp%config%domain%ITS, noahmp%config%domain%ITE
 
-    end associate
+    NoahmpIO%FORCTLSM  (I,J) = noahmp%forcing%TemperatureAirRefHeight(I,J)
+    NoahmpIO%FORCQLSM  (I,J) = noahmp%forcing%SpecHumidityRefHeight(I,J)
+    NoahmpIO%FORCPLSM  (I,J) = noahmp%forcing%PressureAirRefHeight(I,J)
+    NoahmpIO%FORCWLSM  (I,J) = sqrt(noahmp%forcing%WindEastwardRefHeight(I,J)**2 + &
+                                    noahmp%forcing%WindNorthwardRefHeight(I,J)**2)
+    NoahmpIO%RadSwDirFrac(I,J) = noahmp%forcing%RadSwDirFrac(I,J)
+    NoahmpIO%RadSwVisFrac(I,J) = noahmp%forcing%RadSwVisFrac(I,J)
+
+      end do
+      end do
+
 
   end subroutine ForcingVarOutTransfer
 

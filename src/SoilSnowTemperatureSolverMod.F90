@@ -18,6 +18,7 @@ contains
 ! Original Noah-MP subroutine: HSTEP
 ! Original code: Guo-Yue Niu and Noah-MP team (Niu et al. 2011)
 ! Refactered code: C. He, P. Valayamkunnath, & refactor team (He et al. 2023)
+! GPU port (2D arrays): Full SoA transformation for OpenACC (2026)
 ! ----------------------------------------------------------------------------------------
 
     implicit none
@@ -25,59 +26,63 @@ contains
 ! in & out variables
     type(noahmp_type)     , intent(inout) :: noahmp
     real(kind=kind_noahmp), intent(in)    :: TimeStep                             ! timestep (may not be the same as model timestep)
-    real(kind=kind_noahmp), allocatable, dimension(:), intent(inout) :: MatRight  ! right-hand side term of the matrix
-    real(kind=kind_noahmp), allocatable, dimension(:), intent(inout) :: MatLeft1  ! left-hand side term of the matrix
-    real(kind=kind_noahmp), allocatable, dimension(:), intent(inout) :: MatLeft2  ! left-hand side term of the matrix
-    real(kind=kind_noahmp), allocatable, dimension(:), intent(inout) :: MatLeft3  ! left-hand side term of the matrix
+    real(kind=kind_noahmp), allocatable, dimension(:,:,:), intent(inout) :: MatRight  ! right-hand side term of the matrix
+    real(kind=kind_noahmp), allocatable, dimension(:,:,:), intent(inout) :: MatLeft1  ! left-hand side term of the matrix
+    real(kind=kind_noahmp), allocatable, dimension(:,:,:), intent(inout) :: MatLeft2  ! left-hand side term of the matrix
+    real(kind=kind_noahmp), allocatable, dimension(:,:,:), intent(inout) :: MatLeft3  ! left-hand side term of the matrix
 
 ! local variable
-    integer                                           :: LoopInd                  ! layer loop index 
-    real(kind=kind_noahmp), allocatable, dimension(:) :: MatRightTmp              ! temporary MatRight matrix coefficient
-    real(kind=kind_noahmp), allocatable, dimension(:) :: MatLeft3Tmp              ! temporary MatLeft3 matrix coefficient
+    integer                               :: I, J              ! grid indices
+    integer                               :: LoopInd           ! layer loop index
+    real(kind=kind_noahmp) :: MatRightTmp(-noahmp%config%domain%NumSnowLayerMax+1:noahmp%config%domain%NumSoilLayer)              ! temporary MatRight matrix coefficient
+    real(kind=kind_noahmp) :: MatLeft3Tmp(-noahmp%config%domain%NumSnowLayerMax+1:noahmp%config%domain%NumSoilLayer)              ! temporary MatLeft3 matrix coefficient
 
+
+    !$acc parallel loop collapse(2) gang vector present(noahmp, MatLeft1, MatLeft2, MatLeft3, MatRight) private(MatRightTmp, MatLeft3Tmp, LoopInd)
+    do J = noahmp%config%domain%JTS, noahmp%config%domain%JTE
+      do I = noahmp%config%domain%ITS, noahmp%config%domain%ITE
 ! --------------------------------------------------------------------
     associate(                                                                &
               NumSoilLayer        => noahmp%config%domain%NumSoilLayer       ,& ! in,    number of soil layers
               NumSnowLayerMax     => noahmp%config%domain%NumSnowLayerMax    ,& ! in,    maximum number of snow layers
-              NumSnowLayerNeg     => noahmp%config%domain%NumSnowLayerNeg    ,& ! in,    actual number of snow layers (negative)
+              NumSnowLayerNeg     => noahmp%config%domain%NumSnowLayerNeg(I,J)    ,& ! in,    actual number of snow layers (negative)
               TemperatureSoilSnow => noahmp%energy%state%TemperatureSoilSnow  & ! inout, snow and soil layer temperature [K]
              )
 ! ----------------------------------------------------------------------
 
-    ! initialization
-    if (.not. allocated(MatRightTmp)) allocate(MatRightTmp(-NumSnowLayerMax+1:NumSoilLayer))
-    if (.not. allocated(MatLeft3Tmp)) allocate(MatLeft3Tmp(-NumSnowLayerMax+1:NumSoilLayer))
-    MatRightTmp = 0.0
-    MatLeft3Tmp = 0.0
+    !$acc loop seq
+    do LoopInd = -NumSnowLayerMax+1, NumSoilLayer
+       MatRightTmp(LoopInd) = 0.0
+       MatLeft3Tmp(LoopInd) = 0.0
+    enddo
 
     ! update tri-diagonal matrix elements
+    !$acc loop seq
     do LoopInd = NumSnowLayerNeg+1, NumSoilLayer
-       MatRight(LoopInd) =       MatRight(LoopInd) * TimeStep
-       MatLeft1(LoopInd) =       MatLeft1(LoopInd) * TimeStep
-       MatLeft2(LoopInd) = 1.0 + MatLeft2(LoopInd) * TimeStep
-       MatLeft3(LoopInd) =       MatLeft3(LoopInd) * TimeStep
+       MatRight(I,LoopInd,J) =       MatRight(I,LoopInd,J) * TimeStep
+       MatLeft1(I,LoopInd,J) =       MatLeft1(I,LoopInd,J) * TimeStep
+       MatLeft2(I,LoopInd,J) = 1.0 + MatLeft2(I,LoopInd,J) * TimeStep
+       MatLeft3(I,LoopInd,J) =       MatLeft3(I,LoopInd,J) * TimeStep
+       MatRightTmp(LoopInd) = MatRight(I,LoopInd,J)
+       MatLeft3Tmp(LoopInd) = MatLeft3(I,LoopInd,J)
     enddo
 
-    ! copy values for input variables before call to rosr12
-    do LoopInd = NumSnowLayerNeg+1, NumSoilLayer
-       MatRightTmp(LoopInd) = MatRight(LoopInd)
-       MatLeft3Tmp(LoopInd) = MatLeft3(LoopInd)
-    enddo
 
     ! solve the tri-diagonal matrix equation
-    call MatrixSolverTriDiagonal(MatLeft3,MatLeft1,MatLeft2,MatLeft3Tmp,MatRightTmp,&
-                                 MatRight,NumSnowLayerNeg+1,NumSoilLayer,NumSnowLayerMax)
+    call MatrixSolverTriDiagonal(MatLeft3(I,:,J),MatLeft1(I,:,J),MatLeft2(I,:,J),MatLeft3Tmp,MatRightTmp,&
+                                 MatRight(I,:,J),NumSnowLayerNeg+1,NumSoilLayer,NumSnowLayerMax)
 
     ! update snow & soil temperature
+    !$acc loop seq
     do LoopInd = NumSnowLayerNeg+1, NumSoilLayer
-       TemperatureSoilSnow(LoopInd) = TemperatureSoilSnow(LoopInd) + MatLeft3(LoopInd)
+       TemperatureSoilSnow(I,LoopInd,J) = TemperatureSoilSnow(I,LoopInd,J) + MatLeft3(I,LoopInd,J)
     enddo
 
-    ! deallocate local arrays to avoid memory leaks
-    deallocate(MatRightTmp)
-    deallocate(MatLeft3Tmp)
-
     end associate
+      end do
+    end do
+    !$acc end parallel loop
+
 
   end subroutine SoilSnowTemperatureSolver
 

@@ -1,7 +1,7 @@
 module ResistanceGroundEvaporationGlacierMod
 
 !!! Compute glacier surface resistance to ground evaporation/sublimation
-!!! It represents the resistance imposed by the molecular diffusion in 
+!!! It represents the resistance imposed by the molecular diffusion in
 !!! surface (as opposed to aerodynamic resistance computed elsewhere in the model)
 
   use Machine
@@ -18,6 +18,7 @@ contains
 ! Original Noah-MP subroutine: None (embedded in ENERGY_GLACIER subroutine)
 ! Original code: Guo-Yue Niu and Noah-MP team (Niu et al. 2011)
 ! Refactered code: C. He, P. Valayamkunnath, & refactor team (He et al. 2023)
+! GPU port (2D arrays): Full SoA transformation for OpenACC (2026)
 ! -------------------------------------------------------------------------
 
     implicit none
@@ -25,12 +26,17 @@ contains
 ! in & out variables
     type(noahmp_type), intent(inout) :: noahmp
 
-! local variables
+! local variable
+    integer                          :: I, J      ! grid indices
 
 ! --------------------------------------------------------------------
-    associate(                                                            &
-              ResistanceGrdEvap => noahmp%energy%state%ResistanceGrdEvap ,& ! out, ground surface resistance [s/m] to evaporation
-              RelHumidityGrd    => noahmp%energy%state%RelHumidityGrd     & ! out, raltive humidity in surface glacier/snow air space
+   !$acc parallel loop collapse(2) gang vector present(noahmp)
+    do J = noahmp%config%domain%JTS, noahmp%config%domain%JTE
+      do I = noahmp%config%domain%ITS, noahmp%config%domain%ITE
+
+    associate(                                                               &
+              ResistanceGrdEvap => noahmp%energy%state%ResistanceGrdEvap(I,J),& ! out, ground surface resistance [s/m] to evaporation
+              RelHumidityGrd    => noahmp%energy%state%RelHumidityGrd(I,J)    & ! out, raltive humidity in surface glacier/snow air space
              )
 ! ----------------------------------------------------------------------
 
@@ -38,6 +44,10 @@ contains
     RelHumidityGrd    = 1.0
 
     end associate
+
+      end do
+    end do
+   !$acc end parallel loop
 
   end subroutine ResistanceGroundEvaporationGlacier
 

@@ -19,16 +19,18 @@ contains
 ! Original Noah-MP subroutine: IRR_PHILIP_INFIL
 ! Original code: P. Valayamkunnath (NCAR) <prasanth@ucar.edu> (08/06/2020)
 ! Refactered code: C. He, P. Valayamkunnath, & refactor team (He et al. 2023)
+! GPU port (2D arrays): Full SoA transformation for OpenACC (2026)
 ! ----------------------------------------------------------------------------------------
 
     implicit none
 
 ! IN & OUT variables
     type(noahmp_type)     , intent(inout)  :: noahmp
-    real(kind=kind_noahmp), intent(in)     :: TimeStep             ! time step [s]
-    real(kind=kind_noahmp), intent(out)    :: InfilRateSfc         ! surface infiltration rate [m/s]
+    real(kind=kind_noahmp), intent(in)     :: TimeStep           ! time step [s]
+    real(kind=kind_noahmp), intent(inout)  :: InfilRateSfc(:,:)       ! surface infiltration rate [m/s]
 
 ! local variables
+    integer                                :: I, J                 ! grid indices
     integer                                :: LoopInd              ! loop indices
     integer                                :: IndSoilLayer         ! soil layer index
     real(kind=kind_noahmp)                 :: SoilSorptivity       ! sorptivity [m s^-1/2]
@@ -37,6 +39,10 @@ contains
     real(kind=kind_noahmp)                 :: SoilWatDiffusivity   ! soil water diffusivity [m2/s]
     real(kind=kind_noahmp)                 :: SoilIceMaxTmp        ! maximum soil ice content [m3/m3]
 
+    !$acc parallel loop collapse(2) gang vector present(noahmp, InfilRateSfc) &
+    !$acc private(SoilWatConductivity, SoilWatDiffusivity, SoilIceMaxTmp, SoilSorptivity, SoilWatConductInit, IndSoilLayer, LoopInd, I, J)
+    do J = noahmp%config%domain%JTS, noahmp%config%domain%JTE
+      do I = noahmp%config%domain%ITS, noahmp%config%domain%ITE
 ! --------------------------------------------------------------------
     associate(                                                                     &
               NumSoilLayer           => noahmp%config%domain%NumSoilLayer         ,& ! in, number of soil layers
@@ -58,28 +64,30 @@ contains
 
     ! maximum ice fraction
     do LoopInd = 1, NumSoilLayer
-       if ( SoilIce(LoopInd) > SoilIceMaxTmp ) SoilIceMaxTmp = SoilIce(LoopInd)
+       if ( SoilIce(I,LoopInd,J) > SoilIceMaxTmp ) SoilIceMaxTmp = SoilIce(I,LoopInd,J)
     enddo
 
     ! estimate initial soil hydraulic conductivty and diffusivity (Ki, D(theta) in the equation)
     IndSoilLayer = 1
     call SoilDiffusivityConductivityOpt2(noahmp, SoilWatDiffusivity, SoilWatConductivity, &
-                                         SoilLiqWater(IndSoilLayer), SoilIceMaxTmp, IndSoilLayer)
+                                         SoilLiqWater(I,IndSoilLayer,J), SoilIceMaxTmp, IndSoilLayer, I, J)
 
     ! sorptivity based on Eq. 10b from Kutilek, Miroslav, and Jana Valentova (1986) 
     ! sorptivity approximations. Transport in Porous Media 1.1, 57-62.
-    SoilSorptivity = sqrt(2.0 * max(0.0, (SoilMoistureSat(IndSoilLayer) - SoilMoisture(IndSoilLayer))) * &
-                          (SoilWatDiffusivitySat(IndSoilLayer) - SoilWatDiffusivity))
+    SoilSorptivity = sqrt(2.0 * max(0.0, (SoilMoistureSat(I,IndSoilLayer,J) - SoilMoisture(I,IndSoilLayer,J))) * &
+                          (SoilWatDiffusivitySat(I,IndSoilLayer,J) - SoilWatDiffusivity))
 
     ! parameter A in Eq. 9 of Valiantzas (2010) is given by
-    SoilWatConductInit = min(SoilWatConductivity, (2.0/3.0) * SoilWatConductivitySat(IndSoilLayer))
-    SoilWatConductInit = max(SoilWatConductInit , (1.0/3.0) * SoilWatConductivitySat(IndSoilLayer))
+    SoilWatConductInit = min(SoilWatConductivity, (2.0/3.0) * SoilWatConductivitySat(I,IndSoilLayer,J))
+    SoilWatConductInit = max(SoilWatConductInit , (1.0/3.0) * SoilWatConductivitySat(I,IndSoilLayer,J))
 
     ! maximun infiltration rate, m/s
-    InfilRateSfc = 0.5 * SoilSorptivity * (TimeStep**(-0.5)) + SoilWatConductInit ! m/s
-    InfilRateSfc = max(0.0, InfilRateSfc)
+    InfilRateSfc(I,J) = 0.5 * SoilSorptivity * (TimeStep**(-0.5)) + SoilWatConductInit
+    InfilRateSfc(I,J) = max(0.0, InfilRateSfc(I,J))
 
     end associate
+      end do
+    end do
 
   end subroutine IrrigationInfilPhilip
 

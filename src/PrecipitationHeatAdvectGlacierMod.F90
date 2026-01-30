@@ -16,6 +16,7 @@ contains
 ! Original Noah-MP subroutine: none (adapted from PRECIP_HEAT)
 ! Original code: Guo-Yue Niu and Noah-MP team (Niu et al. 2011)
 ! Refactered code: C. He, P. Valayamkunnath, & refactor team (He et al. 2023)
+! GPU port (2D arrays): Full SoA transformation for OpenACC (2026)
 ! -------------------------------------------------------------------------
 
     implicit none
@@ -23,17 +24,22 @@ contains
     type(noahmp_type), intent(inout) :: noahmp
 
 ! local variable
+    integer                          :: I, J                ! grid indices
     real(kind=kind_noahmp)           :: HeatPrcpAirToGrd    ! precipitation advected heat - air to ground [W/m2]
 
 ! --------------------------------------------------------------------
-    associate(                                                                    &
-              TemperatureAirRefHeight => noahmp%forcing%TemperatureAirRefHeight  ,& ! in,  air temperature [K] at reference height
-              TemperatureGrd          => noahmp%energy%state%TemperatureGrd      ,& ! in,  ground temperature [K]
-              RainfallRefHeight       => noahmp%water%flux%RainfallRefHeight     ,& ! in,  total liquid rainfall [mm/s] before interception
-              SnowfallRefHeight       => noahmp%water%flux%SnowfallRefHeight     ,& ! in,  total snowfall [mm/s] before interception
-              SnowfallGround          => noahmp%water%flux%SnowfallGround        ,& ! out, snowfall at ground surface [mm/s]
-              RainfallGround          => noahmp%water%flux%RainfallGround        ,& ! out, rainfall at ground surface [mm/s]
-              HeatPrecipAdvBareGrd    => noahmp%energy%flux%HeatPrecipAdvBareGrd  & ! out, precipitation advected heat - bare ground net [W/m2]
+   !$acc parallel loop collapse(2) gang vector present(noahmp) private(HeatPrcpAirToGrd)
+    do J = noahmp%config%domain%JTS, noahmp%config%domain%JTE
+      do I = noahmp%config%domain%ITS, noahmp%config%domain%ITE
+
+    associate(                                                                       &
+              TemperatureAirRefHeight => noahmp%forcing%TemperatureAirRefHeight(I,J) ,& ! in,  air temperature [K] at reference height
+              TemperatureGrd          => noahmp%energy%state%TemperatureGrd(I,J)     ,& ! in,  ground temperature [K]
+              RainfallRefHeight       => noahmp%water%flux%RainfallRefHeight(I,J)    ,& ! in,  total liquid rainfall [mm/s] before interception
+              SnowfallRefHeight       => noahmp%water%flux%SnowfallRefHeight(I,J)    ,& ! in,  total snowfall [mm/s] before interception
+              SnowfallGround          => noahmp%water%flux%SnowfallGround(I,J)       ,& ! out, snowfall at ground surface [mm/s]
+              RainfallGround          => noahmp%water%flux%RainfallGround(I,J)       ,& ! out, rainfall at ground surface [mm/s]
+              HeatPrecipAdvBareGrd    => noahmp%energy%flux%HeatPrecipAdvBareGrd(I,J) & ! out, precipitation advected heat - bare ground net [W/m2]
              )
 ! ----------------------------------------------------------------------
 
@@ -58,6 +64,10 @@ contains
     HeatPrecipAdvBareGrd = min(HeatPrecipAdvBareGrd,  20.0)
 
     end associate
+
+      end do
+    end do
+   !$acc end parallel loop
 
   end subroutine PrecipitationHeatAdvectGlacier
 

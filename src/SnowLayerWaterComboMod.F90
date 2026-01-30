@@ -11,11 +11,13 @@ contains
 
   subroutine SnowLayerWaterCombo(ThickLayer1, LiqLayer1, IceLayer1, TempLayer1, &
                                  ThickLayer2, LiqLayer2, IceLayer2, TempLayer2)
+  !$acc routine seq
 
 ! ------------------------ Code history -----------------------------------
 ! Original Noah-MP subroutine: COMBO
 ! Original code: Guo-Yue Niu and Noah-MP team (Niu et al. 2011)
 ! Refactered code: C. He, P. Valayamkunnath, & refactor team (He et al. 2023)
+! GPU port: Added OpenACC routine directive for device execution (2026)
 ! -------------------------------------------------------------------------
 
     implicit none

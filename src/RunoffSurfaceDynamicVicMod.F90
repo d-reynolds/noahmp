@@ -35,6 +35,7 @@ contains
      integer                               :: IndIter            ! iteration index
      integer                               :: NumIter            ! number of interation
      integer                               :: IndInfilMax        ! index to check maximum infiltration at SoilMoistureWilt
+     logical                               :: flag_1003          ! flag to exit iteration, replacement for old goto 1003 statement
      real(kind=kind_noahmp)                :: InfilExpB          ! B parameter for infiltration scaling curve
      real(kind=kind_noahmp)                :: WaterDepthTop      ! actual water depth in top layers [m]
      real(kind=kind_noahmp)                :: WaterDepthSatTop   ! saturated water depth in top layers [m]
@@ -54,19 +55,25 @@ contains
      real(kind=kind_noahmp)                :: DepthYInit         ! initial depth Y [m]
      real(kind=kind_noahmp)                :: TmpVar1            ! temporary variable
      real(kind=kind_noahmp)                :: Error              ! allowed error
-
+     integer                               :: I, J               ! grid indices
+     !$acc parallel loop collapse(2) gang vector present(noahmp) copyin(InfilRateAcc) private(IndInfilMax, InfilSfcTmp, InfilSfcMax, InfilExpB) &
+     !$acc                                             private(WaterDepthTop, WaterDepthSatTop, WaterInSoilSfc, WaterDepthInit, WaterDepthMax) &
+     !$acc                                             private(RunoffSatExcess, RunoffInfilExcess, InfilTmp, IndIter, NumIter, flag_1003) &
+     !$acc                                             private(RunoffSatExcTmp, RunoffInfExcTmp, RunoffSatExcTmp1, DepthYTmp, DepthYPrev, DepthYInit, TmpVar1, Error)
+       do J = noahmp%config%domain%JTS, noahmp%config%domain%JTE
+         do I = noahmp%config%domain%ITS, noahmp%config%domain%ITE
 ! --------------------------------------------------------------------
-     associate(                                                                     &
-               NumSoilLayer          => noahmp%config%domain%NumSoilLayer          ,& ! in,  number of soil layers
-               DepthSoilLayer        => noahmp%config%domain%DepthSoilLayer        ,& ! in,  depth [m] of layer-bottom from soil surface
-               OptDynVicInfiltration => noahmp%config%nmlist%OptDynVicInfiltration ,& ! in,  options for infiltration in dynamic VIC runoff scheme
-               SoilMoisture          => noahmp%water%state%SoilMoisture            ,& ! in,  total soil moisture [m3/m3]
-               SoilSfcInflowMean     => noahmp%water%flux%SoilSfcInflowMean        ,& ! in,  mean water input on soil surface [m/s]
-               SoilMoistureSat       => noahmp%water%param%SoilMoistureSat         ,& ! in,  saturated value of soil moisture [m3/m3]
-               InfilHeteroDynVic     => noahmp%water%param%InfilHeteroDynVic       ,& ! in,  Dynamic VIC heterogeniety parameter for infiltration
-               InfilFacDynVic        => noahmp%water%param%InfilFacDynVic          ,& ! in,  Dynamic VIC model infiltration parameter
-               RunoffSurface         => noahmp%water%flux%RunoffSurface            ,& ! out, surface runoff [m/s]
-               InfilRateSfc          => noahmp%water%flux%InfilRateSfc              & ! out, infiltration rate at surface [m/s]
+     associate(                                                                          &
+               NumSoilLayer          => noahmp%config%domain%NumSoilLayer               ,& ! in,  number of soil layers
+               DepthSoilLayer        => noahmp%config%domain%DepthSoilLayer             ,& ! in,  depth [m] of layer-bottom from soil surface
+               OptDynVicInfiltration => noahmp%config%nmlist%OptDynVicInfiltration      ,& ! in,  options for infiltration in dynamic VIC runoff scheme
+               SoilMoisture          => noahmp%water%state%SoilMoisture                 ,& ! in,  total soil moisture [m3/m3]
+               SoilSfcInflowMean     => noahmp%water%flux%SoilSfcInflowMean(I,J)        ,& ! in,  mean water input on soil surface [m/s]
+               SoilMoistureSat       => noahmp%water%param%SoilMoistureSat              ,& ! in,  saturated value of soil moisture [m3/m3]
+               InfilHeteroDynVic     => noahmp%water%param%InfilHeteroDynVic(I,J)       ,& ! in,  Dynamic VIC heterogeniety parameter for infiltration
+               InfilFacDynVic        => noahmp%water%param%InfilFacDynVic(I,J)          ,& ! in,  Dynamic VIC model infiltration parameter
+               RunoffSurface         => noahmp%water%flux%RunoffSurface(I,J)            ,& ! out, surface runoff [m/s]
+               InfilRateSfc          => noahmp%water%flux%InfilRateSfc(I,J)              & ! out, infiltration rate at surface [m/s]
               )
 ! ----------------------------------------------------------------------
 
@@ -85,10 +92,10 @@ contains
      NumIter           = 20
      Error             = 1.388889E-07 * TimeStep ! 0.5 mm per hour time step
      InfilExpB         = InfilHeteroDynVic
-
+     flag_1003         = .False.
      do IndIter = 1, NumSoilLayer-2
-        WaterDepthTop    = WaterDepthTop + (SoilMoisture(IndIter) * (-1.0) * DepthSoilLayer(IndIter))              ! actual moisture in top layers, [m]
-        WaterDepthSatTop = WaterDepthSatTop + (SoilMoistureSat(IndIter) * (-1.0) * DepthSoilLayer(IndIter))        ! maximum moisture in top layers, [m]  
+        WaterDepthTop    = WaterDepthTop + (SoilMoisture(I,IndIter,J) * (-1.0) * DepthSoilLayer(I,IndIter,J))              ! actual moisture in top layers, [m]
+        WaterDepthSatTop = WaterDepthSatTop + (SoilMoistureSat(I,IndIter,J) * (-1.0) * DepthSoilLayer(I,IndIter,J))        ! maximum moisture in top layers, [m]  
      enddo
      if ( WaterDepthTop > WaterDepthSatTop ) WaterDepthTop = WaterDepthSatTop
 
@@ -100,11 +107,11 @@ contains
 
      ! compute surface infiltration
      if ( OptDynVicInfiltration == 1 ) then
-        call SoilWaterInfilPhilip(noahmp, TimeStep, IndInfilMax, InfilRateAcc, InfilSfcTmp)
+        call SoilWaterInfilPhilip(noahmp, TimeStep, IndInfilMax, InfilRateAcc, InfilSfcTmp, I, J)
      else if ( OptDynVicInfiltration == 2 ) then
-        call SoilWaterInfilGreenAmpt(noahmp, IndInfilMax, InfilRateAcc, InfilSfcTmp)
+        call SoilWaterInfilGreenAmpt(noahmp, IndInfilMax, InfilRateAcc, InfilSfcTmp, I, J)
      else if ( OptDynVicInfiltration == 3 ) then
-        call SoilWaterInfilSmithParlange(noahmp, IndInfilMax, InfilRateAcc, InfilSfcTmp)
+        call SoilWaterInfilSmithParlange(noahmp, IndInfilMax, InfilRateAcc, InfilSfcTmp, I, J)
      endif
 
      ! I_MM = InfilSfcTmp; I_M = InfilSfcMax  
@@ -113,7 +120,6 @@ contains
         RunoffSatExcess   = 0.0
         RunoffInfilExcess = 0.0
         InfilTmp          = 0.0
-        goto 2001
      else
         if ( (WaterDepthTop >= WaterDepthSatTop) .and. (WaterDepthInit >= WaterDepthMax) ) then
            WaterDepthTop     = WaterDepthSatTop
@@ -121,7 +127,6 @@ contains
            RunoffSatExcess   = WaterInSoilSfc
            RunoffInfilExcess = 0.0
            InfilTmp          = 0.0
-           goto 2001
         else
            WaterDepthInit = WaterDepthMax * (1.0-(1.0-(WaterDepthTop/WaterDepthSatTop)**(1.0/(1.0+InfilFacDynVic))))
            if ( (WaterInSoilSfc+WaterDepthInit) > WaterDepthMax ) then
@@ -138,7 +143,6 @@ contains
                     RunoffInfilExcess = 0.0
                     WaterDepthTop     = WaterDepthSatTop
                     WaterDepthInit    = WaterDepthMax
-                    goto 2001
                  else
                     DepthYTmp = 0.0
                     do IndIter = 1, NumIter ! loop : iteration 1
@@ -148,7 +152,8 @@ contains
                        DepthYTmp       = RunoffSatExcTmp + ((InfilSfcTmp*TimeStep) * &
                                          (1.0-(1.0-((WaterInSoilSfc-RunoffSatExcTmp)/(InfilSfcMax*TimeStep))**(InfilExpB+1.0))))
                        if ( (abs(DepthYTmp-DepthYPrev) <= Error) .or. (IndIter == NumIter) ) then
-                          goto 1003
+                          flag_1003 = .True.
+                          exit
                        endif
                     enddo
                  endif
@@ -163,7 +168,6 @@ contains
                        RunoffInfilExcess = 0.0
                        WaterDepthTop     = WaterDepthSatTop
                        WaterDepthInit    = WaterDepthMax
-                       goto 2001
                     else
                        DepthYTmp = 0.0
                        do IndIter = 1, NumIter ! loop : iteration 2
@@ -172,7 +176,8 @@ contains
                           call RunoffSatExcessDynamicVic(noahmp,WaterDepthInit,WaterDepthMax,DepthYTmp,RunoffSatExcTmp)
                           DepthYTmp       = RunoffSatExcTmp + (InfilSfcTmp*TimeStep)
                           if ( (abs(DepthYTmp-DepthYPrev) <= Error) .or. (IndIter == NumIter) ) then
-                             goto 1003
+                           flag_1003 = .True.
+                           exit
                           endif
                        enddo
                     endif
@@ -187,6 +192,7 @@ contains
                        if ( DepthYTmp >= WaterInSoilSfc  ) DepthYTmp = WaterInSoilSfc
                        if ( (abs(DepthYTmp-DepthYPrev) <= Error) .or. (IndIter == NumIter) ) then
                           DepthYInit   = DepthYTmp
+                          flag_1003 = .True.
                           exit
                        endif
                     enddo
@@ -199,21 +205,10 @@ contains
                                                         InfilSfcTmp,TimeStep,WaterInSoilSfc,InfilExpB,RunoffInfExcTmp)
                        DepthYTmp       = WaterInSoilSfc - RunoffInfExcTmp
                        if ( (abs(DepthYTmp-DepthYPrev) <= Error) .or. (IndIter == NumIter) ) then
-                          goto 1003
+                          flag_1003 = .True.
+                          exit
                        endif
                     enddo
-1003                if ( DepthYTmp <= 0.0 ) DepthYTmp = 0.0
-                    if ( DepthYTmp >= WaterInSoilSfc  ) DepthYTmp = WaterInSoilSfc
-                    call RunoffSatExcessDynamicVic(noahmp,WaterDepthInit,WaterDepthMax,DepthYTmp,RunoffSatExcTmp1)
-                    RunoffSatExcess   = RunoffSatExcTmp1
-                    RunoffInfilExcess = WaterInSoilSfc - DepthYTmp
-                    InfilTmp          = DepthYTmp - RunoffSatExcess
-                    WaterDepthTop     = WaterDepthTop + InfilTmp
-                    DepthYTmp         = WaterDepthInit + DepthYTmp
-                    if ( WaterDepthTop <= 0.0 ) WaterDepthTop = 0.0
-                    if ( WaterDepthTop >= WaterDepthSatTop ) WaterDepthTop = WaterDepthSatTop
-                    WaterDepthInit = WaterDepthMax * (1.0-(1.0-(WaterDepthTop/WaterDepthSatTop)**(1.0/(1.0+InfilFacDynVic))))
-                    goto 2001
                  endif
               endif
            else
@@ -226,7 +221,7 @@ contains
                     DepthYTmp       = RunoffSatExcTmp + ((InfilSfcTmp*TimeStep) * &
                                       (1.0-(1.0-((WaterInSoilSfc-RunoffSatExcTmp)/(InfilSfcMax*TimeStep))**(InfilExpB+1.0))))
                     if ( (abs(DepthYTmp-DepthYPrev) <= Error) .or. (IndIter == NumIter) ) then
-                       goto 1004
+                       exit
                     endif
                  enddo
               else
@@ -240,7 +235,7 @@ contains
                        call RunoffSatExcessDynamicVic(noahmp,WaterDepthInit,WaterDepthMax,DepthYTmp,RunoffSatExcTmp)
                        DepthYTmp       = RunoffSatExcTmp+(InfilSfcTmp*TimeStep)
                        if ( (abs(DepthYTmp-DepthYPrev) <= Error) .or. (IndIter == NumIter) ) then
-                          goto 1004
+                          exit
                        endif
                     enddo
                  else
@@ -268,12 +263,12 @@ contains
                                                         InfilSfcTmp,TimeStep,WaterInSoilSfc,InfilExpB,RunoffInfExcTmp)
                        DepthYTmp       = WaterInSoilSfc - RunoffInfExcTmp
                        if ( (abs(DepthYTmp-DepthYPrev) <= Error) .or. (IndIter == NumIter) ) then
-                          goto 1004
+                          exit
                        endif
                     enddo
                  endif
               endif
-1004          if ( DepthYTmp <= 0.0 )             DepthYTmp = 0.0
+              if ( DepthYTmp <= 0.0 )             DepthYTmp = 0.0
               if ( DepthYTmp >= WaterInSoilSfc  ) DepthYTmp = WaterInSoilSfc
               RunoffSatExcTmp1  = 0.0
               call RunoffSatExcessDynamicVic(noahmp,WaterDepthInit,WaterDepthMax,DepthYTmp,RunoffSatExcTmp1)
@@ -287,13 +282,29 @@ contains
            endif
         endif
      endif
-
-2001 RunoffSurface = (RunoffSatExcess + RunoffInfilExcess) / TimeStep
+     if (flag_1003) then
+         if ( DepthYTmp <= 0.0 ) DepthYTmp = 0.0
+         if ( DepthYTmp >= WaterInSoilSfc  ) DepthYTmp = WaterInSoilSfc
+         call RunoffSatExcessDynamicVic(noahmp,WaterDepthInit,WaterDepthMax,DepthYTmp,RunoffSatExcTmp1)
+         RunoffSatExcess   = RunoffSatExcTmp1
+         RunoffInfilExcess = WaterInSoilSfc - DepthYTmp
+         InfilTmp          = DepthYTmp - RunoffSatExcess
+         WaterDepthTop     = WaterDepthTop + InfilTmp
+         DepthYTmp         = WaterDepthInit + DepthYTmp
+         if ( WaterDepthTop <= 0.0 ) WaterDepthTop = 0.0
+         if ( WaterDepthTop >= WaterDepthSatTop ) WaterDepthTop = WaterDepthSatTop
+         WaterDepthInit = WaterDepthMax * (1.0-(1.0-(WaterDepthTop/WaterDepthSatTop)**(1.0/(1.0+InfilFacDynVic))))
+     endif
+     RunoffSurface = (RunoffSatExcess + RunoffInfilExcess) / TimeStep
      RunoffSurface = min(RunoffSurface, SoilSfcInflowMean)
      RunoffSurface = max(RunoffSurface, 0.0)
      InfilRateSfc  = SoilSfcInflowMean - RunoffSurface
 
     end associate
+
+         enddo
+       enddo
+     !$acc end parallel loop
 
   end subroutine RunoffSurfaceDynamicVic
 

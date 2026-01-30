@@ -1,6 +1,6 @@
 module CanopyWaterInterceptMod
 
-!!! Canopy water processes for snow and rain interception
+!!! Canopy water processes for snow and rain interception (2D GPU-optimized)
 !!! Subsequent hydrological process for intercepted water is done in CanopyHydrologyMod.F90
 
   use Machine
@@ -17,6 +17,7 @@ contains
 ! Original Noah-MP subroutine: PRECIP_HEAT
 ! Original code: Guo-Yue Niu and Noah-MP team (Niu et al. 2011)
 ! Refactered code: C. He, P. Valayamkunnath, & refactor team (He et al. 2023)
+! GPU port (2D arrays): Full SoA transformation for OpenACC (2026)
 ! The water and heat portions of PRECIP_HEAT are separated in refactored code
 ! -------------------------------------------------------------------------
 
@@ -24,43 +25,49 @@ contains
 
     type(noahmp_type), intent(inout) :: noahmp
 
-! local variable
+! local variables
+    integer                          :: I, J                   ! grid indices
     real(kind=kind_noahmp)           :: IceDripFacTemp         ! temperature factor for unloading rate
     real(kind=kind_noahmp)           :: IceDripFacWind         ! wind factor for unloading rate
     real(kind=kind_noahmp)           :: CanopySnowDrip         ! canopy snow/ice unloading 
 
 ! --------------------------------------------------------------------
-    associate(                                                                 &
-              SurfaceType            => noahmp%config%domain%SurfaceType      ,& ! in,    surface type 1-soil; 2-lake
-              MainTimeStep           => noahmp%config%domain%MainTimeStep     ,& ! in,    noahmp main time step [s]
-              WindEastwardRefHeight  => noahmp%forcing%WindEastwardRefHeight  ,& ! in,    wind speed [m/s] in eastward direction at reference height
-              WindNorthwardRefHeight => noahmp%forcing%WindNorthwardRefHeight ,& ! in,    wind speed [m/s] in northward direction at reference height
-              LeafAreaIndEff         => noahmp%energy%state%LeafAreaIndEff    ,& ! in,    leaf area index, after burying by snow
-              StemAreaIndEff         => noahmp%energy%state%StemAreaIndEff    ,& ! in,    stem area index, after burying by snow
-              VegFrac                => noahmp%energy%state%VegFrac           ,& ! in,    greeness vegetation fraction
-              TemperatureCanopy      => noahmp%energy%state%TemperatureCanopy ,& ! in,    vegetation temperature [K]
-              TemperatureGrd         => noahmp%energy%state%TemperatureGrd    ,& ! in,    ground temperature [K]
-              CanopyLiqHoldCap       => noahmp%water%param%CanopyLiqHoldCap   ,& ! in,    maximum intercepted liquid water per unit veg area index [mm]
-              RainfallRefHeight      => noahmp%water%flux%RainfallRefHeight   ,& ! in,    total liquid rainfall [mm/s] before interception
-              SnowfallRefHeight      => noahmp%water%flux%SnowfallRefHeight   ,& ! in,    total snowfall [mm/s] before interception
-              SnowfallDensity        => noahmp%water%state%SnowfallDensity    ,& ! in,    bulk density of snowfall [kg/m3]
-              PrecipAreaFrac         => noahmp%water%state%PrecipAreaFrac     ,& ! in,    fraction of the gridcell that receives precipitation
-              CanopyLiqWater         => noahmp%water%state%CanopyLiqWater     ,& ! inout, intercepted canopy liquid water [mm]
-              CanopyIce              => noahmp%water%state%CanopyIce          ,& ! inout, intercepted canopy ice [mm]
-              CanopyWetFrac          => noahmp%water%state%CanopyWetFrac      ,& ! out,   wetted or snowed fraction of the canopy
-              CanopyTotalWater       => noahmp%water%state%CanopyTotalWater   ,& ! out,   total canopy intercepted water [mm]
-              CanopyIceMax           => noahmp%water%state%CanopyIceMax       ,& ! out,   canopy capacity for snow interception [mm]
-              CanopyLiqWaterMax      => noahmp%water%state%CanopyLiqWaterMax  ,& ! out,   canopy capacity for rain interception [mm]
-              InterceptCanopyRain    => noahmp%water%flux%InterceptCanopyRain ,& ! out,   interception rate for rain [mm/s]
-              DripCanopyRain         => noahmp%water%flux%DripCanopyRain      ,& ! out,   drip rate for intercepted rain [mm/s]
-              ThroughfallRain        => noahmp%water%flux%ThroughfallRain     ,& ! out,   throughfall for rain [mm/s]
-              InterceptCanopySnow    => noahmp%water%flux%InterceptCanopySnow ,& ! out,   interception (loading) rate for snowfall [mm/s]
-              DripCanopySnow         => noahmp%water%flux%DripCanopySnow      ,& ! out,   drip (unloading) rate for intercepted snow [mm/s]
-              ThroughfallSnow        => noahmp%water%flux%ThroughfallSnow     ,& ! out,   throughfall of snowfall [mm/s]
-              RainfallGround         => noahmp%water%flux%RainfallGround      ,& ! out,   rainfall at ground surface [mm/s]
-              SnowfallGround         => noahmp%water%flux%SnowfallGround      ,& ! out,   snowfall at ground surface [mm/s]
-              SnowDepthIncr          => noahmp%water%flux%SnowDepthIncr        & ! out,   snow depth increasing rate [m/s] due to snowfall
-             )
+    !$acc parallel loop collapse(2) gang vector present(noahmp) &
+    !$acc private(IceDripFacTemp, IceDripFacWind, CanopySnowDrip)
+    do J = noahmp%config%domain%JTS, noahmp%config%domain%JTE
+      do I = noahmp%config%domain%ITS, noahmp%config%domain%ITE
+
+        associate(                                                                       &
+                  SurfaceType            => noahmp%config%domain%SurfaceType(I,J)      ,& ! in,    surface type 1-soil; 2-lake
+                  MainTimeStep           => noahmp%config%domain%MainTimeStep          ,& ! in,    noahmp main time step [s]
+                  WindEastwardRefHeight  => noahmp%forcing%WindEastwardRefHeight(I,J)  ,& ! in,    wind speed [m/s] in eastward direction at reference height
+                  WindNorthwardRefHeight => noahmp%forcing%WindNorthwardRefHeight(I,J) ,& ! in,    wind speed [m/s] in northward direction at reference height
+                  LeafAreaIndEff         => noahmp%energy%state%LeafAreaIndEff(I,J)    ,& ! in,    leaf area index, after burying by snow
+                  StemAreaIndEff         => noahmp%energy%state%StemAreaIndEff(I,J)    ,& ! in,    stem area index, after burying by snow
+                  VegFrac                => noahmp%energy%state%VegFrac(I,J)           ,& ! in,    greeness vegetation fraction
+                  TemperatureCanopy      => noahmp%energy%state%TemperatureCanopy(I,J) ,& ! in,    vegetation temperature [K]
+                  TemperatureGrd         => noahmp%energy%state%TemperatureGrd(I,J)    ,& ! in,    ground temperature [K]
+                  CanopyLiqHoldCap       => noahmp%water%param%CanopyLiqHoldCap(I,J)   ,& ! in,    maximum intercepted liquid water per unit veg area index [mm]
+                  RainfallRefHeight      => noahmp%water%flux%RainfallRefHeight(I,J)   ,& ! in,    total liquid rainfall [mm/s] before interception
+                  SnowfallRefHeight      => noahmp%water%flux%SnowfallRefHeight(I,J)   ,& ! in,    total snowfall [mm/s] before interception
+                  SnowfallDensity        => noahmp%water%state%SnowfallDensity(I,J)    ,& ! in,    bulk density of snowfall [kg/m3]
+                  PrecipAreaFrac         => noahmp%water%state%PrecipAreaFrac(I,J)     ,& ! in,    fraction of the gridcell that receives precipitation
+                  CanopyLiqWater         => noahmp%water%state%CanopyLiqWater(I,J)     ,& ! inout, intercepted canopy liquid water [mm]
+                  CanopyIce              => noahmp%water%state%CanopyIce(I,J)          ,& ! inout, intercepted canopy ice [mm]
+                  CanopyWetFrac          => noahmp%water%state%CanopyWetFrac(I,J)      ,& ! out,   wetted or snowed fraction of the canopy
+                  CanopyTotalWater       => noahmp%water%state%CanopyTotalWater(I,J)   ,& ! out,   total canopy intercepted water [mm]
+                  CanopyIceMax           => noahmp%water%state%CanopyIceMax(I,J)       ,& ! out,   canopy capacity for snow interception [mm]
+                  CanopyLiqWaterMax      => noahmp%water%state%CanopyLiqWaterMax(I,J)  ,& ! out,   canopy capacity for rain interception [mm]
+                  InterceptCanopyRain    => noahmp%water%flux%InterceptCanopyRain(I,J) ,& ! out,   interception rate for rain [mm/s]
+                  DripCanopyRain         => noahmp%water%flux%DripCanopyRain(I,J)      ,& ! out,   drip rate for intercepted rain [mm/s]
+                  ThroughfallRain        => noahmp%water%flux%ThroughfallRain(I,J)     ,& ! out,   throughfall for rain [mm/s]
+                  InterceptCanopySnow    => noahmp%water%flux%InterceptCanopySnow(I,J) ,& ! out,   interception (loading) rate for snowfall [mm/s]
+                  DripCanopySnow         => noahmp%water%flux%DripCanopySnow(I,J)      ,& ! out,   drip (unloading) rate for intercepted snow [mm/s]
+                  ThroughfallSnow        => noahmp%water%flux%ThroughfallSnow(I,J)     ,& ! out,   throughfall of snowfall [mm/s]
+                  RainfallGround         => noahmp%water%flux%RainfallGround(I,J)      ,& ! out,   rainfall at ground surface [mm/s]
+                  SnowfallGround         => noahmp%water%flux%SnowfallGround(I,J)      ,& ! out,   snowfall at ground surface [mm/s]
+                  SnowDepthIncr          => noahmp%water%flux%SnowDepthIncr(I,J)        & ! out,   snow depth increasing rate [m/s] due to snowfall
+                 )
 ! ----------------------------------------------------------------------
 
     ! initialization
@@ -148,7 +155,11 @@ contains
        SnowDepthIncr  = 0.0
     endif
 
-    end associate
+        end associate
+
+      end do
+    end do
+    !$acc end parallel loop
 
   end subroutine CanopyWaterIntercept
 

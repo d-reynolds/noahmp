@@ -16,6 +16,7 @@ contains
 ! Original Noah-MP subroutine: ZWTEQ
 ! Original code: Guo-Yue Niu and Noah-MP team (Niu et al. 2011)
 ! Refactered code: C. He, P. Valayamkunnath, & refactor team (He et al. 2023)
+! GPU port (2D arrays): Full SoA transformation for OpenACC (2026)
 ! ----------------------------------------------------------------------------------------
 
     implicit none
@@ -30,7 +31,10 @@ contains
     real(kind=kind_noahmp)           :: ThickSoilFineLy                   ! layer thickness of the 100-L soil layers to 6.0 m
     real(kind=kind_noahmp)           :: TmpVar                            ! temporary variable
     real(kind=kind_noahmp), dimension(1:NumSoilFineLy) :: DepthSoilFineLy ! layer-bottom depth of the 100-L soil layers to 6.0 m
-
+    integer                          :: I, J                              ! grid indices
+    !$acc parallel loop collapse(2) gang vector present(noahmp) private(DepthSoilFineLy)
+    do J = noahmp%config%domain%JTS, noahmp%config%domain%JTE
+      do I = noahmp%config%domain%ITS, noahmp%config%domain%ITE
 ! --------------------------------------------------------------------
     associate(                                                                       &
               NumSoilLayer           => noahmp%config%domain%NumSoilLayer           ,& ! in,  number of soil layers
@@ -40,29 +44,34 @@ contains
               SoilMoistureSat        => noahmp%water%param%SoilMoistureSat          ,& ! in,  saturated value of soil moisture [m3/m3]
               SoilMatPotentialSat    => noahmp%water%param%SoilMatPotentialSat      ,& ! in,  saturated soil matric potential [m]
               SoilExpCoeffB          => noahmp%water%param%SoilExpCoeffB            ,& ! in,  soil B parameter
-              WaterTableDepth        => noahmp%water%state%WaterTableDepth           & ! out, water table depth [m]
+              WaterTableDepth        => noahmp%water%state%WaterTableDepth(I,J)      & ! out, water table depth [m]
              )
 ! ----------------------------------------------------------------------
-
-    DepthSoilFineLy(1:NumSoilFineLy) = 0.0
+    !$acc loop seq
+    do IndSoil = 1, NumSoilFineLy
+      DepthSoilFineLy(IndSoil) = 0.0
+    enddo
     WatDeficitCoarse                 = 0.0
+    !$acc loop seq
     do IndSoil = 1, NumSoilLayer
-       WatDeficitCoarse = WatDeficitCoarse + (SoilMoistureSat(1) - SoilLiqWater(IndSoil)) * &
-                                             ThicknessSnowSoilLayer(IndSoil)   ! [m]
+       WatDeficitCoarse = WatDeficitCoarse + (SoilMoistureSat(I,1,J) - SoilLiqWater(I,IndSoil,J)) * &
+                                             ThicknessSnowSoilLayer(I,IndSoil,J)   ! [m]
     enddo
 
-    ThickSoilFineLy = 3.0 * (-DepthSoilLayer(NumSoilLayer)) / NumSoilFineLy
+    ThickSoilFineLy = 3.0 * (-DepthSoilLayer(I,NumSoilLayer,J)) / NumSoilFineLy
+    !$acc loop seq
     do IndSoil = 1, NumSoilFineLy
        DepthSoilFineLy(IndSoil) = float(IndSoil) * ThickSoilFineLy
     enddo
 
-    WaterTableDepth = -3.0 * DepthSoilLayer(NumSoilLayer) - 0.001              ! initial value [m]
+    WaterTableDepth = -3.0 * DepthSoilLayer(I,NumSoilLayer,J) - 0.001              ! initial value [m]
 
     WatDeficitFine = 0.0
+    !$acc loop seq
     do IndSoil = 1, NumSoilFineLy
-       TmpVar         = 1.0 + (WaterTableDepth - DepthSoilFineLy(IndSoil)) / SoilMatPotentialSat(1)
-       WatDeficitFine = WatDeficitFine + SoilMoistureSat(1) * &
-                                         (1.0 - TmpVar**(-1.0/SoilExpCoeffB(1))) * ThickSoilFineLy
+       TmpVar         = 1.0 + (WaterTableDepth - DepthSoilFineLy(IndSoil)) / SoilMatPotentialSat(I,1,J)
+       WatDeficitFine = WatDeficitFine + SoilMoistureSat(I,1,J) * &
+                                         (1.0 - TmpVar**(-1.0/SoilExpCoeffB(I,1,J))) * ThickSoilFineLy
        if ( abs(WatDeficitFine-WatDeficitCoarse) <= 0.01 ) then
           WaterTableDepth = DepthSoilFineLy(IndSoil)
           exit
@@ -70,6 +79,9 @@ contains
     enddo
 
     end associate
+
+   enddo
+enddo
 
   end subroutine WaterTableEquilibrium
 

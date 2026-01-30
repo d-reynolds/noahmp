@@ -30,48 +30,45 @@ contains
 
 ! local variable
     integer                                           :: IndLoop      ! snow and soil layer loop
-    real(kind=kind_noahmp), allocatable, dimension(:) :: MatRight     ! right-hand side term of the matrix
-    real(kind=kind_noahmp), allocatable, dimension(:) :: MatLeft1     ! left-hand side term
-    real(kind=kind_noahmp), allocatable, dimension(:) :: MatLeft2     ! left-hand side term
-    real(kind=kind_noahmp), allocatable, dimension(:) :: MatLeft3     ! left-hand side term
+    real(kind=kind_noahmp), allocatable, dimension(:,:,:) :: MatRight     ! right-hand side term of the matrix
+    real(kind=kind_noahmp), allocatable, dimension(:,:,:) :: MatLeft1     ! left-hand side term
+    real(kind=kind_noahmp), allocatable, dimension(:,:,:) :: MatLeft2     ! left-hand side term
+    real(kind=kind_noahmp), allocatable, dimension(:,:,:) :: MatLeft3     ! left-hand side term
+    integer                                          :: I, J         ! grid indices
 
+    !$acc parallel loop collapse(2) gang vector present(noahmp)
+    do J = noahmp%config%domain%JTS, noahmp%config%domain%JTE
+      do I = noahmp%config%domain%ITS, noahmp%config%domain%ITE
 ! --------------------------------------------------------------------
     associate(                                                                    &
               NumSoilLayer          => noahmp%config%domain%NumSoilLayer         ,& ! in,  number of soil layers
               NumSnowLayerMax       => noahmp%config%domain%NumSnowLayerMax      ,& ! in,  maximum number of snow layers
-              NumSnowLayerNeg       => noahmp%config%domain%NumSnowLayerNeg      ,& ! in,  actual number of snow layers (negative)
-              SoilTimeStep          => noahmp%config%domain%SoilTimeStep         ,& ! in,  noahmp soil process timestep [s]
-              DepthSoilTempBottom   => noahmp%config%domain%DepthSoilTempBottom  ,& ! in,  depth [m] from soil surface for soil temp. lower boundary
+              NumSnowLayerNeg       => noahmp%config%domain%NumSnowLayerNeg(I,J)      ,& ! in,  actual number of snow layers (negative)
+              DepthSoilTempBottom   => noahmp%config%domain%DepthSoilTempBottom(I,J)  ,& ! in,  depth [m] from soil surface for soil temp. lower boundary
               OptSnowAlbedo         => noahmp%config%nmlist%OptSnowAlbedo        ,& ! in,  options for ground snow surface albedo
-              SnowDepth             => noahmp%water%state%SnowDepth              ,& ! in,  snow depth [m]
+              SnowDepth             => noahmp%water%state%SnowDepth(I,J)              ,& ! in,  snow depth [m]
               RadSwAbsSnowSoilLayer => noahmp%energy%flux%RadSwAbsSnowSoilLayer  ,& ! in,  total absorbed solar radiation by snow for each layer [W/m2]
-              RadSwAbsGrd           => noahmp%energy%flux%RadSwAbsGrd            ,& ! in,  solar radiation absorbed by ground [W/m2]
-              DepthSoilTempBotToSno => noahmp%energy%state%DepthSoilTempBotToSno ,& ! out, depth [m] of soil temp. lower boundary from snow surface
-              HeatFromSoilBot       => noahmp%energy%flux%HeatFromSoilBot        ,& ! out, energy influx from soil bottom during soil timestep [J/m2]
+              RadSwAbsGrd           => noahmp%energy%flux%RadSwAbsGrd(I,J)            ,& ! in,  solar radiation absorbed by ground [W/m2]
+              DepthSoilTempBotToSno => noahmp%energy%state%DepthSoilTempBotToSno(I,J) ,& ! out, depth [m] of soil temp. lower boundary from snow surface
+              HeatFromSoilBot       => noahmp%energy%flux%HeatFromSoilBot(I,J)        ,& ! out, energy influx from soil bottom during soil timestep [J/m2]
               RadSwPenetrateGrd     => noahmp%energy%flux%RadSwPenetrateGrd       & ! out, light penetrating through soil/snow water [W/m2]
              )
 ! ----------------------------------------------------------------------
 
-    ! initialization
-    if (.not. allocated(MatRight)) allocate(MatRight(-NumSnowLayerMax+1:NumSoilLayer))
-    if (.not. allocated(MatLeft1)) allocate(MatLeft1(-NumSnowLayerMax+1:NumSoilLayer))
-    if (.not. allocated(MatLeft2)) allocate(MatLeft2(-NumSnowLayerMax+1:NumSoilLayer))
-    if (.not. allocated(MatLeft3)) allocate(MatLeft3(-NumSnowLayerMax+1:NumSoilLayer))
-    MatRight(:) = 0.0
-    MatLeft1(:) = 0.0
-    MatLeft2(:) = 0.0
-    MatLeft3(:) = 0.0
-
     ! compute solar penetration through snowpack and soil
-    RadSwPenetrateGrd(-NumSnowLayerMax+1:NumSoilLayer) = 0.0
-   
+    !$acc loop seq
+    do IndLoop = -NumSnowLayerNeg+1, NumSoilLayer
+      RadSwPenetrateGrd(I,IndLoop,J) = 0.0
+    enddo
+
     if (OptSnowAlbedo == 3 .and. NumSnowLayerNeg < 0) then
        if (sum(RadSwAbsSnowSoilLayer) > 0.0) then
+          !$acc loop seq
           do IndLoop = NumSnowLayerNeg+1, 1, 1
              if (IndLoop == NumSnowLayerNeg+1) then
-                RadSwPenetrateGrd(IndLoop) = RadSwAbsSnowSoilLayer(IndLoop) - RadSwAbsGrd 
+                RadSwPenetrateGrd(I,IndLoop,J) = RadSwAbsSnowSoilLayer(I,IndLoop,J) - RadSwAbsGrd 
              else
-                RadSwPenetrateGrd(IndLoop) = RadSwAbsSnowSoilLayer(IndLoop)
+                RadSwPenetrateGrd(I,IndLoop,J) = RadSwAbsSnowSoilLayer(I,IndLoop,J)
              endif
           enddo
        endif
@@ -80,12 +77,39 @@ contains
     ! adjust DepthSoilTempBottom from soil surface to DepthSoilTempBotToSno from snow surface
     DepthSoilTempBotToSno = DepthSoilTempBottom - SnowDepth
 
-    ! compute soil temperatures
-    call SoilSnowThermalDiffusion(noahmp, MatLeft1, MatLeft2, MatLeft3, MatRight)
-    call SoilSnowTemperatureSolver(noahmp, SoilTimeStep, MatLeft1, MatLeft2, MatLeft3, MatRight)
+    end associate
 
-    ! accumulate soil bottom flux for soil timestep
-    HeatFromSoilBot = HeatFromSoilBot * SoilTimeStep
+      enddo
+   enddo
+
+    ! initialization
+    if (.not. allocated(MatRight)) allocate(MatRight(noahmp%config%domain%ITS:noahmp%config%domain%ITE, &
+                                                     -noahmp%config%domain%NumSnowLayerMax+1:noahmp%config%domain%NumSoilLayer,                   &
+                                                     noahmp%config%domain%JTS:noahmp%config%domain%JTE))
+
+    if (.not. allocated(MatLeft1)) allocate(MatLeft1(noahmp%config%domain%ITS:noahmp%config%domain%ITE, &
+                                                     -noahmp%config%domain%NumSnowLayerMax+1:noahmp%config%domain%NumSoilLayer,                   &
+                                                     noahmp%config%domain%JTS:noahmp%config%domain%JTE))
+
+    if (.not. allocated(MatLeft2)) allocate(MatLeft2(noahmp%config%domain%ITS:noahmp%config%domain%ITE, &
+                                                     -noahmp%config%domain%NumSnowLayerMax+1:noahmp%config%domain%NumSoilLayer,                   &
+                                                     noahmp%config%domain%JTS:noahmp%config%domain%JTE))
+
+    if (.not. allocated(MatLeft3)) allocate(MatLeft3(noahmp%config%domain%ITS:noahmp%config%domain%ITE, &
+                                                     -noahmp%config%domain%NumSnowLayerMax+1:noahmp%config%domain%NumSoilLayer,                   &
+                                                     noahmp%config%domain%JTS:noahmp%config%domain%JTE))
+    MatRight(:,:,:) = 0.0
+    MatLeft1(:,:,:) = 0.0
+    MatLeft2(:,:,:) = 0.0
+    MatLeft3(:,:,:) = 0.0
+
+    !$acc data copyin(MatRight, MatLeft1, MatLeft2, MatLeft3)
+
+    ! compute soil temperatures
+    call SoilSnowThermalDiffusion(noahmp, noahmp%config%domain%SoilTimeStep, MatLeft1, MatLeft2, MatLeft3, MatRight)
+    call SoilSnowTemperatureSolver(noahmp, noahmp%config%domain%SoilTimeStep, MatLeft1, MatLeft2, MatLeft3, MatRight)
+
+    !$acc end data
 
     ! deallocate local arrays to avoid memory leaks
     deallocate(MatRight)
@@ -93,7 +117,6 @@ contains
     deallocate(MatLeft2)
     deallocate(MatLeft3)
 
-    end associate
 
   end subroutine SoilSnowTemperatureMain
 

@@ -16,6 +16,7 @@ contains
 ! Original Noah-MP subroutine: PSN_CROP  
 ! Original code: Guo-Yue Niu and Noah-MP team (Niu et al. 2011)
 ! Refactered code: C. He, P. Valayamkunnath & refactor team (He et al. 2023)
+! GPU port (2D arrays): Full SoA transformation for OpenACC (2026)
 ! -------------------------------------------------------------------------
         
     implicit none
@@ -23,6 +24,7 @@ contains
     type(noahmp_type), intent(inout) :: noahmp
 
 ! local variable
+    integer                          :: I, J             ! grid indices
     real(kind=kind_noahmp)           :: PhotosynRad      ! photosynthetically active radiation (w/m2) 1 W m-2 = 0.0864 MJ m-2 day-1
     real(kind=kind_noahmp)           :: Co2AssimMax      ! Maximum CO2 assimulation rate g CO2/m2/s  
     real(kind=kind_noahmp)           :: Co2AssimTot      ! CO2 Assimilation g CO2/m2/s
@@ -37,20 +39,25 @@ contains
     real(kind=kind_noahmp)           :: A2               ! Three Gaussian method
     real(kind=kind_noahmp)           :: A3               ! Three Gaussian method
 
+   !$acc parallel loop collapse(2) gang vector present(noahmp) &
+   !$acc private(PhotosynRad, Co2AssimMax, Co2AssimTot, TemperatureAirC, L1, L2, L3, I1, I2, I3, A1, A2, A3)
+    do J = noahmp%config%domain%JTS, noahmp%config%domain%JTE
+      do I = noahmp%config%domain%ITS, noahmp%config%domain%ITE
+
 !------------------------------------------------------------------------
     associate(                                                                     &
-              RadSwDownRefHeight    => noahmp%forcing%RadSwDownRefHeight          ,& ! in,  downward shortwave radiation [W/m2] at reference height
-              TemperatureAir2m      => noahmp%energy%state%TemperatureAir2m       ,& ! in,  2-m air temperature [K]
-              LeafAreaIndex         => noahmp%energy%state%LeafAreaIndex          ,& ! in,  leaf area index, unadjusted for burying by snow
-              PhotosynRadFrac       => noahmp%biochem%param%PhotosynRadFrac       ,& ! in,  Fraction of incoming radiation to photosynthetically active radiation
-              TempMinCarbonAssim    => noahmp%biochem%param%TempMinCarbonAssim    ,& ! in,  Minimum temperature for CO2 assimilation [C]
-              TempMaxCarbonAssim    => noahmp%biochem%param%TempMaxCarbonAssim    ,& ! in,  CO2 assim. linearly increasing until reaching this temperature [C]
-              TempMaxCarbonAssimMax => noahmp%biochem%param%TempMaxCarbonAssimMax ,& ! in,  CO2 assim. remain at CarbonAssimRefMax until reaching this temperature [C]
-              CarbonAssimRefMax     => noahmp%biochem%param%CarbonAssimRefMax     ,& ! in,  reference maximum CO2 assimilation rate
-              LightExtCoeff         => noahmp%biochem%param%LightExtCoeff         ,& ! in,  light extinction coefficient
-              LightUseEfficiency    => noahmp%biochem%param%LightUseEfficiency    ,& ! in,  initial light use efficiency
-              CarbonAssimReducFac   => noahmp%biochem%param%CarbonAssimReducFac   ,& ! in,  CO2 assimulation reduction factor(0-1) (caused by e.g.pest,weeds)
-              PhotosynCrop          => noahmp%biochem%flux%PhotosynCrop            & ! out, crop photosynthesis [umol co2/m2/s]
+              RadSwDownRefHeight    => noahmp%forcing%RadSwDownRefHeight(I,J)     ,& ! in,  downward shortwave radiation [W/m2] at reference height
+              TemperatureAir2m      => noahmp%energy%state%TemperatureAir2m(I,J)  ,& ! in,  2-m air temperature [K]
+              LeafAreaIndex         => noahmp%energy%state%LeafAreaIndex(I,J)     ,& ! in,  leaf area index, unadjusted for burying by snow
+              PhotosynRadFrac       => noahmp%biochem%param%PhotosynRadFrac(I,J)  ,& ! in,  Fraction of incoming radiation to photosynthetically active radiation
+              TempMinCarbonAssim    => noahmp%biochem%param%TempMinCarbonAssim(I,J),& ! in,  Minimum temperature for CO2 assimilation [C]
+              TempMaxCarbonAssim    => noahmp%biochem%param%TempMaxCarbonAssim(I,J),& ! in,  CO2 assim. linearly increasing until reaching this temperature [C]
+              TempMaxCarbonAssimMax => noahmp%biochem%param%TempMaxCarbonAssimMax(I,J),& ! in,  CO2 assim. remain at CarbonAssimRefMax until reaching this temperature [C]
+              CarbonAssimRefMax     => noahmp%biochem%param%CarbonAssimRefMax(I,J),& ! in,  reference maximum CO2 assimilation rate
+              LightExtCoeff         => noahmp%biochem%param%LightExtCoeff(I,J)    ,& ! in,  light extinction coefficient
+              LightUseEfficiency    => noahmp%biochem%param%LightUseEfficiency(I,J),& ! in,  initial light use efficiency
+              CarbonAssimReducFac   => noahmp%biochem%param%CarbonAssimReducFac(I,J),& ! in,  CO2 assimulation reduction factor(0-1) (caused by e.g.pest,weeds)
+              PhotosynCrop          => noahmp%biochem%flux%PhotosynCrop(I,J)       & ! out, crop photosynthesis [umol co2/m2/s]
              )
 !------------------------------------------------------------------------
 
@@ -103,6 +110,10 @@ contains
     PhotosynCrop   = 6.313 * Co2AssimTot               ! (1/44) * 1000000)/3600 = 6.313
 
     end associate
+
+      end do
+    end do
+   !$acc end parallel loop
 
   end subroutine CropPhotosynthesis
 

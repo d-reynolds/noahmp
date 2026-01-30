@@ -12,8 +12,8 @@ module SoilWaterInfilSmithParlangeMod
 
 contains
 
-  subroutine SoilWaterInfilSmithParlange(noahmp, IndInfilMax, InfilSfcAcc, InfilSfcTmp)
-
+  subroutine SoilWaterInfilSmithParlange(noahmp, IndInfilMax, InfilSfcAcc, InfilSfcTmp, I, J)
+  !$acc routine seq
 ! ------------------------ Code history --------------------------------------------------
 ! Original Noah-MP subroutine: SMITH_PARLANGE_INFIL
 ! Original code: Prasanth Valayamkunnath <prasanth@ucar.edu>
@@ -27,7 +27,7 @@ contains
     integer               , intent(in)    :: IndInfilMax           ! check for maximum infiltration at SoilMoistureWilt 
     real(kind=kind_noahmp), intent(inout) :: InfilSfcAcc           ! accumulated infiltration rate [m/s]
     real(kind=kind_noahmp), intent(out)   :: InfilSfcTmp           ! surface infiltration rate [m/s]
-
+    integer               , intent(in)    :: I, J                  ! grid indices
 ! local variables
     integer                               :: IndSoil               ! soil layer index
     real(kind=kind_noahmp)                :: SoilWatDiffusivity    ! soil water diffusivity [m2/s]
@@ -41,11 +41,11 @@ contains
               DepthSoilLayer         => noahmp%config%domain%DepthSoilLayer       ,& ! in, depth [m] of layer-bottom from soil surface
               SoilMoisture           => noahmp%water%state%SoilMoisture           ,& ! in, total soil moisture [m3/m3]
               SoilIce                => noahmp%water%state%SoilIce                ,& ! in, soil ice content [m3/m3] 
-              SoilSfcInflowMean      => noahmp%water%flux%SoilSfcInflowMean       ,& ! in, mean water input on soil surface [m/s]
+              SoilSfcInflowMean      => noahmp%water%flux%SoilSfcInflowMean(I,J)       ,& ! in, mean water input on soil surface [m/s]
               SoilMoistureSat        => noahmp%water%param%SoilMoistureSat        ,& ! in, saturated value of soil moisture [m3/m3]
               SoilMoistureWilt       => noahmp%water%param%SoilMoistureWilt       ,& ! in, wilting point soil moisture [m3/m3]
               SoilWatConductivitySat => noahmp%water%param%SoilWatConductivitySat ,& ! in, saturated soil hydraulic conductivity [m/s]
-              InfilCapillaryDynVic   => noahmp%water%param%InfilCapillaryDynVic    & ! in, DVIC Mean Capillary Drive [m] for infiltration models
+              InfilCapillaryDynVic   => noahmp%water%param%InfilCapillaryDynVic(I,J)    & ! in, DVIC Mean Capillary Drive [m] for infiltration models
               )
 ! ----------------------------------------------------------------------
 
@@ -59,16 +59,16 @@ contains
 
        ! estimate initial soil hydraulic conductivty (Ki in the equation) (m/s)
        call SoilDiffusivityConductivityOpt2(noahmp, SoilWatDiffusivity, SoilWatConductivity, &
-                                            SoilMoistureWilt(IndSoil), IniSoilIce, IndSoil)
+                                            SoilMoistureWilt(I,IndSoil,J), IniSoilIce, IndSoil, I, J)
 
        ! Maximum infiltrability based on the Eq. 6.25. (m/s)
-       InfilFacTmp = InfilCapillaryDynVic * (SoilMoistureSat(IndSoil) - SoilMoistureWilt(IndSoil)) * &
-                     (-1.0) * DepthSoilLayer(IndSoil)
-       InfilSfcTmp = SoilWatConductivitySat(IndSoil) + (WeighFac*(SoilWatConductivitySat(IndSoil)-SoilWatConductivity) / &
+       InfilFacTmp = InfilCapillaryDynVic * (SoilMoistureSat(I,IndSoil,J) - SoilMoistureWilt(I,IndSoil,J)) * &
+                     (-1.0) * DepthSoilLayer(I,IndSoil,J)
+       InfilSfcTmp = SoilWatConductivitySat(I,IndSoil,J) + (WeighFac*(SoilWatConductivitySat(I,IndSoil,J)-SoilWatConductivity) / &
                                                        (exp(WeighFac*1.0e-05/InfilFacTmp) - 1.0))
 
        ! infiltration rate at surface
-       if ( SoilWatConductivitySat(IndSoil) < SoilSfcInflowMean ) then
+       if ( SoilWatConductivitySat(I,IndSoil,J) < SoilSfcInflowMean ) then
           InfilSfcTmp = min(SoilSfcInflowMean, InfilSfcTmp)
        else
           InfilSfcTmp = SoilSfcInflowMean
@@ -79,20 +79,20 @@ contains
 
        ! estimate initial soil hydraulic conductivty (Ki in the equation) (m/s)
        call SoilDiffusivityConductivityOpt2(noahmp, SoilWatDiffusivity, SoilWatConductivity, &
-                                            SoilMoisture(IndSoil), SoilIce(IndSoil), IndSoil)
+                                            SoilMoisture(I,IndSoil,J), SoilIce(I,IndSoil,J), IndSoil, I, J)
 
        ! Maximum infiltrability based on the Eq. 6.25. (m/s)
-       InfilFacTmp = InfilCapillaryDynVic * max(0.0, (SoilMoistureSat(IndSoil) - SoilMoisture(IndSoil))) * &
-                     (-1.0) * DepthSoilLayer(IndSoil)
+       InfilFacTmp = InfilCapillaryDynVic * max(0.0, (SoilMoistureSat(I,IndSoil,J) - SoilMoisture(I,IndSoil,J))) * &
+                     (-1.0) * DepthSoilLayer(I,IndSoil,J)
        if ( InfilFacTmp == 0.0 ) then ! infiltration at surface == saturated hydraulic conductivity
           InfilSfcTmp = SoilWatConductivity
        else
-          InfilSfcTmp = SoilWatConductivitySat(IndSoil) + (WeighFac*(SoilWatConductivitySat(IndSoil)-SoilWatConductivity) / &
+          InfilSfcTmp = SoilWatConductivitySat(I,IndSoil,J) + (WeighFac*(SoilWatConductivitySat(I,IndSoil,J)-SoilWatConductivity) / &
                                                           (exp(WeighFac*InfilSfcAcc/InfilFacTmp) - 1.0))
        endif
 
        ! infiltration rate at surface  
-       if ( SoilWatConductivitySat(IndSoil) < SoilSfcInflowMean ) then
+       if ( SoilWatConductivitySat(I,IndSoil,J) < SoilSfcInflowMean ) then
           InfilSfcTmp = min(SoilSfcInflowMean, InfilSfcTmp)
        else
           InfilSfcTmp = SoilSfcInflowMean

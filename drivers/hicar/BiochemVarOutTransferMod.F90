@@ -24,31 +24,32 @@ contains
     type(noahmp_type),   intent(inout) :: noahmp
     type(NoahmpIO_type), intent(inout) :: NoahmpIO
 
+    integer :: I, J
 ! ---------------------------------------------------------------------
-    associate(                                         &
-              I    => noahmp%config%domain%GridIndexI ,&
-              J    => noahmp%config%domain%GridIndexJ  &
-             )
+    !$acc parallel loop collapse(2) present(noahmp, NoahmpIO)
+    do J = noahmp%config%domain%JTS, noahmp%config%domain%JTE
+      do I = noahmp%config%domain%ITS, noahmp%config%domain%ITE
 ! ---------------------------------------------------------------------
 
     ! biochem state variables
-    NoahmpIO%LFMASSXY(I,J) = noahmp%biochem%state%LeafMass
-    NoahmpIO%RTMASSXY(I,J) = noahmp%biochem%state%RootMass
-    NoahmpIO%STMASSXY(I,J) = noahmp%biochem%state%StemMass
-    NoahmpIO%WOODXY  (I,J) = noahmp%biochem%state%WoodMass
-    NoahmpIO%STBLCPXY(I,J) = noahmp%biochem%state%CarbonMassDeepSoil
-    NoahmpIO%FASTCPXY(I,J) = noahmp%biochem%state%CarbonMassShallowSoil
-    NoahmpIO%GDDXY   (I,J) = noahmp%biochem%state%GrowDegreeDay
-    NoahmpIO%PGSXY   (I,J) = noahmp%biochem%state%PlantGrowStage
-    NoahmpIO%GRAINXY (I,J) = noahmp%biochem%state%GrainMass
+    NoahmpIO%LFMASSXY(I,J) = noahmp%biochem%state%LeafMass(I,J)
+    NoahmpIO%RTMASSXY(I,J) = noahmp%biochem%state%RootMass(I,J)
+    NoahmpIO%STMASSXY(I,J) = noahmp%biochem%state%StemMass(I,J)
+    NoahmpIO%WOODXY  (I,J) = noahmp%biochem%state%WoodMass(I,J)
+    NoahmpIO%STBLCPXY(I,J) = noahmp%biochem%state%CarbonMassDeepSoil(I,J)
+    NoahmpIO%FASTCPXY(I,J) = noahmp%biochem%state%CarbonMassShallowSoil(I,J)
+    NoahmpIO%GDDXY   (I,J) = noahmp%biochem%state%GrowDegreeDay(I,J)
+    NoahmpIO%PGSXY   (I,J) = noahmp%biochem%state%PlantGrowStage(I,J)
+    NoahmpIO%GRAINXY (I,J) = noahmp%biochem%state%GrainMass(I,J)
 
     ! biochem flux variables
-    NoahmpIO%NEEXY   (I,J) = noahmp%biochem%flux%NetEcoExchange
-    NoahmpIO%GPPXY   (I,J) = noahmp%biochem%flux%GrossPriProduction
-    NoahmpIO%NPPXY   (I,J) = noahmp%biochem%flux%NetPriProductionTot
-    NoahmpIO%PSNXY   (I,J) = noahmp%biochem%flux%PhotosynTotal
+    NoahmpIO%NEEXY   (I,J) = noahmp%biochem%flux%NetEcoExchange(I,J)
+    NoahmpIO%GPPXY   (I,J) = noahmp%biochem%flux%GrossPriProduction(I,J)
+    NoahmpIO%NPPXY   (I,J) = noahmp%biochem%flux%NetPriProductionTot(I,J)
+    NoahmpIO%PSNXY   (I,J) = noahmp%biochem%flux%PhotosynTotal(I,J)
 
-    end associate
+    end do
+  end do
 
   end subroutine BiochemVarOutTransfer
 

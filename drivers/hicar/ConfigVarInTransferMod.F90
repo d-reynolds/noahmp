@@ -26,12 +26,19 @@ contains
     type(NoahmpIO_type) , intent(inout) :: NoahmpIO
     type(noahmp_type),    intent(inout) :: noahmp
 
+    integer :: I, J, LoopInd
+
+    !$acc parallel loop collapse(2) gang vector present(noahmp, NoahmpIO) private(I, J)
+      do J = noahmp%config%domain%JTS, noahmp%config%domain%JTE
+         do I = noahmp%config%domain%ITS, noahmp%config%domain%ITE
 ! --------------------------------------------------------------------- 
     associate(                                      &
-              I               => NoahmpIO%I        ,&
-              J               => NoahmpIO%J        ,&
               NumSnowLayerMax => NoahmpIO%NSNOW    ,&
-              NumSoilLayer    => NoahmpIO%NSOIL     &
+              NumSoilLayer    => NoahmpIO%NSOIL    ,&
+              ITS             => noahmp%config%domain%ITS              ,&
+              ITE             => noahmp%config%domain%ITE              ,&
+              JTS             => noahmp%config%domain%JTS              ,&
+              JTE             => noahmp%config%domain%JTE              &
              )
 ! ---------------------------------------------------------------------
 
@@ -85,23 +92,21 @@ contains
     noahmp%config%domain%FlagSoilProcess             = NoahmpIO%calculate_soil
     noahmp%config%domain%NumSoilTimeStep             = NoahmpIO%soil_update_steps
     noahmp%config%domain%NumSnowLayerMax             = NoahmpIO%NSNOW
-    noahmp%config%domain%NumSnowLayerNeg             = NoahmpIO%ISNOWXY(I,J)
+    noahmp%config%domain%NumSnowLayerNeg(I,J)             = NoahmpIO%ISNOWXY(I,J)
     noahmp%config%domain%NumSoilLayer                = NoahmpIO%NSOIL
-    noahmp%config%domain%GridIndexI                  = NoahmpIO%I
-    noahmp%config%domain%GridIndexJ                  = NoahmpIO%J
     noahmp%config%domain%MainTimeStep                = NoahmpIO%DTBL
     noahmp%config%domain%SoilTimeStep                = NoahmpIO%DTBL * NoahmpIO%soil_update_steps
     noahmp%config%domain%GridSize                    = sqrt(max(10.0,NoahmpIO%DX) * max(10.0,NoahmpIO%DY))
     noahmp%config%domain%LandUseDataName             = NoahmpIO%LLANDUSE
-    noahmp%config%domain%VegType                     = NoahmpIO%IVGTYP(I,J)
-    noahmp%config%domain%CropType                    = NoahmpIO%CROPCAT(I,J)
+    noahmp%config%domain%VegType(I,J)                     = NoahmpIO%IVGTYP(I,J)
+    noahmp%config%domain%CropType(I,J)                    = NoahmpIO%CROPCAT(I,J)
     noahmp%config%domain%IndicatorIceSfc             = NoahmpIO%ICE
     noahmp%config%domain%DayJulianInYear             = NoahmpIO%JULIAN
     noahmp%config%domain%NumDayInYear                = NoahmpIO%YEARLEN
-    noahmp%config%domain%Latitude                    = NoahmpIO%XLAT(I,J)
-    noahmp%config%domain%RefHeightAboveSfc           = NoahmpIO%DZ8W(I,1,J)*0.5
-    noahmp%config%domain%ThicknessAtmosBotLayer      = NoahmpIO%DZ8W(I,1,J)
-    noahmp%config%domain%CosSolarZenithAngle         = NoahmpIO%COSZEN(I,J) 
+    noahmp%config%domain%Latitude(I,J)                    = NoahmpIO%XLAT(I,J)
+    noahmp%config%domain%RefHeightAboveSfc(I,J)           = NoahmpIO%DZ8W(I,1,J)*0.5
+    noahmp%config%domain%ThicknessAtmosBotLayer(I,J)      = NoahmpIO%DZ8W(I,1,J)
+    noahmp%config%domain%CosSolarZenithAngle(I,J)         = NoahmpIO%COSZEN(I,J) 
     noahmp%config%domain%IndexWaterPoint             = NoahmpIO%ISWATER_TABLE
     noahmp%config%domain%IndexBarrenPoint            = NoahmpIO%ISBARREN_TABLE
     noahmp%config%domain%IndexIcePoint               = NoahmpIO%ISICE_TABLE
@@ -121,76 +126,96 @@ contains
     ! the following initialization cannot be done in ConfigVarInitMod
     ! because the NumSoilLayer and NumSnowLayerMax are initialized with input values in this module
     if ( .not. allocated(noahmp%config%domain%DepthSoilLayer) )          &
-       allocate( noahmp%config%domain%DepthSoilLayer(1:NumSoilLayer) )
+       allocate( noahmp%config%domain%DepthSoilLayer(ITS:ITE,1:NumSoilLayer,JTS:JTE) )
     if ( .not. allocated(noahmp%config%domain%ThicknessSoilLayer) )      &
-       allocate( noahmp%config%domain%ThicknessSoilLayer(1:NumSoilLayer) )
+       allocate( noahmp%config%domain%ThicknessSoilLayer(ITS:ITE,1:NumSoilLayer,JTS:JTE) )
     if ( .not. allocated(noahmp%config%domain%SoilType) )                &
-       allocate( noahmp%config%domain%SoilType(1:NumSoilLayer) )
+       allocate( noahmp%config%domain%SoilType(ITS:ITE,1:NumSoilLayer,JTS:JTE) )
     if ( .not. allocated(noahmp%config%domain%ThicknessSnowSoilLayer) )  &
-       allocate( noahmp%config%domain%ThicknessSnowSoilLayer(-NumSnowLayerMax+1:NumSoilLayer) )
+       allocate( noahmp%config%domain%ThicknessSnowSoilLayer(ITS:ITE,-NumSnowLayerMax+1:NumSoilLayer,JTS:JTE) )
     if ( .not. allocated(noahmp%config%domain%DepthSnowSoilLayer) )      &
-       allocate( noahmp%config%domain%DepthSnowSoilLayer(-NumSnowLayerMax+1:NumSoilLayer) )
+       allocate( noahmp%config%domain%DepthSnowSoilLayer(ITS:ITE,-NumSnowLayerMax+1:NumSoilLayer,JTS:JTE) )
     
-    noahmp%config%domain%SoilType              (:)   = undefined_int
-    noahmp%config%domain%DepthSoilLayer        (:)   = undefined_real
-    noahmp%config%domain%ThicknessSoilLayer    (:)   = undefined_real
-    noahmp%config%domain%ThicknessSnowSoilLayer(:)   = undefined_real
-    noahmp%config%domain%DepthSnowSoilLayer    (:)   = undefined_real
-
-    if ( noahmp%config%nmlist%OptSoilProperty == 1 ) then
-       noahmp%config%domain%SoilType(1:NumSoilLayer) = NoahmpIO%ISLTYP(I,J)  ! soil type same in all layers
+    !$acc loop seq
+    do LoopInd = 1, NumSoilLayer
+      noahmp%config%domain%SoilType              (I,LoopInd,J)   = undefined_int
+      noahmp%config%domain%DepthSoilLayer        (I,LoopInd,J)   = undefined_real
+      noahmp%config%domain%ThicknessSoilLayer    (I,LoopInd,J)   = undefined_real
+    enddo
+    !$acc loop seq
+    do LoopInd = -NumSnowLayerMax+1, NumSoilLayer
+      noahmp%config%domain%ThicknessSnowSoilLayer(I,LoopInd,J)   = undefined_real
+      noahmp%config%domain%DepthSnowSoilLayer    (I,LoopInd,J)   = undefined_real
+    enddo
+    if ( noahmp%config%nmlist%OptSoilProperty == 1 .or. noahmp%config%nmlist%OptSoilProperty == 3) then
+      !$acc loop seq
+      do LoopInd = 1, NumSoilLayer
+         noahmp%config%domain%SoilType              (I,LoopInd,J)   = NoahmpIO%ISLTYP(I,J)  ! soil type same in all layers
+      enddo
     elseif ( noahmp%config%nmlist%OptSoilProperty == 2 ) then
-       noahmp%config%domain%SoilType(1) = nint(NoahmpIO%SOILCL1(I,J))        ! soil type in layer1
-       noahmp%config%domain%SoilType(2) = nint(NoahmpIO%SOILCL2(I,J))        ! soil type in layer2
-       noahmp%config%domain%SoilType(3) = nint(NoahmpIO%SOILCL3(I,J))        ! soil type in layer3
-       noahmp%config%domain%SoilType(4) = nint(NoahmpIO%SOILCL4(I,J))        ! soil type in layer4
-    elseif ( noahmp%config%nmlist%OptSoilProperty == 3 ) then
-       noahmp%config%domain%SoilType(1:NumSoilLayer) = NoahmpIO%ISLTYP(I,J)  ! to initialize with default
+       noahmp%config%domain%SoilType(I,1,J) = nint(NoahmpIO%SOILCL1(I,J))        ! soil type in layer1
+       noahmp%config%domain%SoilType(I,2,J) = nint(NoahmpIO%SOILCL2(I,J))        ! soil type in layer2
+       noahmp%config%domain%SoilType(I,3,J) = nint(NoahmpIO%SOILCL3(I,J))        ! soil type in layer3
+       noahmp%config%domain%SoilType(I,4,J) = nint(NoahmpIO%SOILCL4(I,J))        ! soil type in layer4
     endif 
-       
-    noahmp%config%domain%DepthSoilLayer(1:NumSoilLayer) = NoahmpIO%ZSOIL(1:NumSoilLayer)
-    noahmp%config%domain%DepthSnowSoilLayer(-NumSnowLayerMax+1:NumSoilLayer) = &
-                         NoahmpIO%ZSNSOXY(I,-NumSnowLayerMax+1:NumSoilLayer,J)
+    !$acc loop seq
+    do LoopInd = 1, NumSoilLayer
+      noahmp%config%domain%DepthSoilLayer              (I,LoopInd,J)   = NoahmpIO%ZSOIL(LoopInd)  ! soil type same in all layers
+    enddo
+    !$acc loop seq
+    do LoopInd = -NumSnowLayerMax+1, NumSoilLayer
+      noahmp%config%domain%DepthSnowSoilLayer(I,LoopInd,J)   = NoahmpIO%ZSNSOXY(I,LoopInd,J)
+    enddo
 
     ! treatment for urban point
     if ( (NoahmpIO%IVGTYP(I,J) == NoahmpIO%ISURBAN_TABLE) .or. (NoahmpIO%IVGTYP(I,J) > NoahmpIO%URBTYPE_beg) ) then
        if ( NoahmpIO%SF_URBAN_PHYSICS == 0 ) then
-           noahmp%config%domain%VegType = NoahmpIO%ISURBAN_TABLE  ! treat as bulk urban point
-           noahmp%config%domain%FlagUrban = .true.
+           noahmp%config%domain%VegType(I,J) = NoahmpIO%ISURBAN_TABLE  ! treat as bulk urban point
+           noahmp%config%domain%FlagUrban(I,J) = .true.
        else
-           noahmp%config%domain%VegType = NoahmpIO%NATURAL_TABLE  ! set rural vegetation type based on table natural
+           noahmp%config%domain%VegType(I,J) = NoahmpIO%NATURAL_TABLE  ! set rural vegetation type based on table natural
                                                                   ! urban is handled by explicit urban scheme outside Noah-MP
            NoahmpIO%GVFMAX(I,J)         = 0.96 * 100.0            ! unit: %
        endif
     endif
 
     ! treatment for crop point
-    noahmp%config%domain%CropType = 0
+    noahmp%config%domain%CropType(I,J) = 0
     if ( (NoahmpIO%IOPT_CROP > 0) .and. (NoahmpIO%IVGTYP(I,J) == NoahmpIO%ISCROP_TABLE) ) &
-       noahmp%config%domain%CropType = NoahmpIO%DEFAULT_CROP_TABLE   
+       noahmp%config%domain%CropType(I,J) = NoahmpIO%DEFAULT_CROP_TABLE   
        
     if ( (NoahmpIO%IOPT_CROP > 0) .and. (NoahmpIO%CROPCAT(I,J) > 0) ) then
-       noahmp%config%domain%CropType = NoahmpIO%CROPCAT(I,J)
-       noahmp%config%domain%VegType  = NoahmpIO%ISCROP_TABLE
+       noahmp%config%domain%CropType(I,J) = NoahmpIO%CROPCAT(I,J)
+       noahmp%config%domain%VegType(I,J)  = NoahmpIO%ISCROP_TABLE
        NoahmpIO%VEGFRA(I,J)          = 0.95 * 100.0              ! unit: %
        NoahmpIO%GVFMAX(I,J)          = 0.95 * 100.0              ! unit: %
     endif
 
     ! correct inconsistent soil type
-    if ( any(noahmp%config%domain%SoilType == 14) .and. (NoahmpIO%XICE(I,J) == 0.0) ) then
+    !$acc loop seq
+    do LoopInd = 1, NumSoilLayer
+      if ( (noahmp%config%domain%SoilType(I,LoopInd,J) == 14) .and. (NoahmpIO%XICE(I,J) == 0.0) ) then
+#ifndef _OPENACC
        write(*,*) "SOIL TYPE FOUND TO BE WATER AT A LAND-POINT"
        write(*,*) "RESET SOIL type to SANDY CLAY LOAM at grid = ", I, J
-       noahmp%config%domain%SoilType = 7
-    endif
+#endif
+         noahmp%config%domain%SoilType(I,LoopInd,J) = 7
+      endif
+     enddo
 
     ! set warning message for inconsistent surface and subsurface runoff option
     ! for now, only the same options for surface and subsurface runoff have been tested
     if ( noahmp%config%nmlist%OptRunoffSurface /= noahmp%config%nmlist%OptRunoffSubsurface ) then
+#ifndef _OPENACC
        write(*,*) "Warning: Surface and subsurface runoff options are inconsistent! They may be incompatible!"
        write(*,*) "Warning: Currently only the same options for surface and subsurface runoff are tested."
+#endif
     endif
 
     end associate
+
+         enddo
+      enddo 
 
   end subroutine ConfigVarInTransfer
 

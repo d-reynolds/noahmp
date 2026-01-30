@@ -18,6 +18,7 @@ contains
 ! Original Noah-MP subroutine: SFCDIF2 for bare ground portion
 ! Original code: Guo-Yue Niu and Noah-MP team (Niu et al. 2011)
 ! Refactered code: C. He, P. Valayamkunnath, & refactor team (He et al. 2023)
+! GPU port (2D arrays): Full SoA transformation for OpenACC (2026)
 ! -------------------------------------------------------------------------
 
     implicit none
@@ -27,6 +28,7 @@ contains
     type(noahmp_type)     , intent(inout) :: noahmp
 
 ! local variables
+    integer                               :: I, J      ! grid indices
     integer                               :: ILECH, ITR
     real(kind=kind_noahmp)                :: ZZ, PSLMU, PSLMS, PSLHU, PSLHS
     real(kind=kind_noahmp)                :: XX, PSPMU, YY, PSPMS, PSPHU, PSPHS
@@ -74,22 +76,29 @@ contains
     PSPHS(YY) = 5.0 * YY
 
 ! --------------------------------------------------------------------
-    associate(                                                                        &
-              SnowDepth               => noahmp%water%state%SnowDepth                ,& ! in,    snow depth [m]
-              ZilitinkevichCoeff      => noahmp%energy%param%ZilitinkevichCoeff      ,& ! in,    Calculate roughness length of heat
-              RefHeightAboveGrd       => noahmp%energy%state%RefHeightAboveGrd       ,& ! in,    reference height [m] above ground
-              TemperaturePotRefHeight => noahmp%energy%state%TemperaturePotRefHeight ,& ! in,    potential temp at reference height [K]
-              WindSpdRefHeight        => noahmp%energy%state%WindSpdRefHeight        ,& ! in,    wind speed [m/s] at reference height
-              RoughLenMomGrd          => noahmp%energy%state%RoughLenMomGrd          ,& ! in,    roughness length [m], momentum, ground
-              TemperatureGrdBare      => noahmp%energy%state%TemperatureGrdBare      ,& ! in,    bare ground temperature [K]
-              ExchCoeffMomBare        => noahmp%energy%state%ExchCoeffMomBare        ,& ! inout, exchange coeff [m/s] momentum, above ZeroPlaneDisp, bare ground
-              ExchCoeffShBare         => noahmp%energy%state%ExchCoeffShBare         ,& ! inout, exchange coeff [m/s] for heat, above ZeroPlaneDisp, bare ground
-              MoStabParaBare          => noahmp%energy%state%MoStabParaBare          ,& ! inout, Monin-Obukhov stability (z/L), above ZeroPlaneDisp, bare ground
-              FrictionVelVertBare     => noahmp%energy%state%FrictionVelVertBare     ,& ! inout, friction velocity [m/s] in vertical direction, bare ground
-              FrictionVelBare         => noahmp%energy%state%FrictionVelBare         ,& ! inout, friction velocity [m/s], bare ground
-              ResistanceMomBareGrd    => noahmp%energy%state%ResistanceMomBareGrd    ,& ! out,   aerodynamic resistance for momentum [s/m], bare ground
-              ResistanceShBareGrd     => noahmp%energy%state%ResistanceShBareGrd     ,& ! out,   aerodynamic resistance for sensible heat [s/m], bare ground
-              ResistanceLhBareGrd     => noahmp%energy%state%ResistanceLhBareGrd      & ! out,   aerodynamic resistance for water vapor [s/m], bare ground
+   !$acc parallel loop collapse(2) gang vector present(noahmp) &
+   !$acc private(ILECH,ZILFC,ZU,ZT,RDZ,CXCH,DTHV,DU2,BTGH,ZSLU,ZSLT,RLOGU,RLOGT,RLMA) &
+   !$acc private(ZETALT,ZETALU,ZETAU,ZETAT,XLU4,XLT4,XU4,XT4,XLU,XLT,XU,XT) &
+   !$acc private(PSMZ,SIMM,PSHZ,SIMH,USTARK,RLMN)
+    do J = noahmp%config%domain%JTS, noahmp%config%domain%JTE
+      do I = noahmp%config%domain%ITS, noahmp%config%domain%ITE
+
+    associate(                                                                           &
+              SnowDepth               => noahmp%water%state%SnowDepth(I,J)               ,& ! in,    snow depth [m]
+              ZilitinkevichCoeff      => noahmp%energy%param%ZilitinkevichCoeff(I,J)     ,& ! in,    Calculate roughness length of heat
+              RefHeightAboveGrd       => noahmp%energy%state%RefHeightAboveGrd(I,J)      ,& ! in,    reference height [m] above ground
+              TemperaturePotRefHeight => noahmp%energy%state%TemperaturePotRefHeight(I,J),& ! in,    potential temp at reference height [K]
+              WindSpdRefHeight        => noahmp%energy%state%WindSpdRefHeight(I,J)       ,& ! in,    wind speed [m/s] at reference height
+              RoughLenMomGrd          => noahmp%energy%state%RoughLenMomGrd(I,J)         ,& ! in,    roughness length [m], momentum, ground
+              TemperatureGrdBare      => noahmp%energy%state%TemperatureGrdBare(I,J)     ,& ! in,    bare ground temperature [K]
+              ExchCoeffMomBare        => noahmp%energy%state%ExchCoeffMomBare(I,J)       ,& ! inout, exchange coeff [m/s] momentum, above ZeroPlaneDisp, bare ground
+              ExchCoeffShBare         => noahmp%energy%state%ExchCoeffShBare(I,J)        ,& ! inout, exchange coeff [m/s] for heat, above ZeroPlaneDisp, bare ground
+              MoStabParaBare          => noahmp%energy%state%MoStabParaBare(I,J)         ,& ! inout, Monin-Obukhov stability (z/L), above ZeroPlaneDisp, bare ground
+              FrictionVelVertBare     => noahmp%energy%state%FrictionVelVertBare(I,J)    ,& ! inout, friction velocity [m/s] in vertical direction, bare ground
+              FrictionVelBare         => noahmp%energy%state%FrictionVelBare(I,J)        ,& ! inout, friction velocity [m/s], bare ground
+              ResistanceMomBareGrd    => noahmp%energy%state%ResistanceMomBareGrd(I,J)   ,& ! out,   aerodynamic resistance for momentum [s/m], bare ground
+              ResistanceShBareGrd     => noahmp%energy%state%ResistanceShBareGrd(I,J)    ,& ! out,   aerodynamic resistance for sensible heat [s/m], bare ground
+              ResistanceLhBareGrd     => noahmp%energy%state%ResistanceLhBareGrd(I,J)     & ! out,   aerodynamic resistance for water vapor [s/m], bare ground
              )
 ! ----------------------------------------------------------------------
 
@@ -210,6 +219,10 @@ contains
     ResistanceLhBareGrd  = ResistanceShBareGrd
 
     end associate
+
+      end do
+    end do
+   !$acc end parallel loop
 
   end subroutine ResistanceBareGroundChen97
 

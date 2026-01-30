@@ -17,26 +17,39 @@ contains
 ! Originally embeded in WATER subroutine instead of as a separate subroutine
 ! Original code: Guo-Yue Niu and Noah-MP team (Niu et al. 2011)
 ! Refactered code: C. He, P. Valayamkunnath, & refactor team (He et al. 2023)
+! GPU port (2D arrays): Full SoA transformation for OpenACC (2026)
 ! ----------------------------------------------------------------------------------------
 
     implicit none
 
     type(noahmp_type), intent(inout) :: noahmp
 
-! --------------------------------------------------------------------
-    associate(                                                        &
-              DischargeGw      => noahmp%water%flux%DischargeGw      ,& ! out, groundwater discharge [mm/s]
-              RunoffSubsurface => noahmp%water%flux%RunoffSubsurface  & ! out, subsurface runoff [mm/s] 
-             )
-! ----------------------------------------------------------------------
+! local variable
+    integer                          :: I, J      ! grid indices
 
     ! compute ground water
     call GroundWaterTopModel(noahmp)
+
+    !$acc parallel loop collapse(2) gang vector present(noahmp)
+    do J = noahmp%config%domain%JTS, noahmp%config%domain%JTE
+      do I = noahmp%config%domain%ITS, noahmp%config%domain%ITE
+
+! --------------------------------------------------------------------
+    associate(                                                              &
+              DischargeGw      => noahmp%water%flux%DischargeGw(I,J)            ,& ! out, groundwater discharge [mm/s]
+              RunoffSubsurface => noahmp%water%flux%RunoffSubsurface(I,J)        & ! out, subsurface runoff [mm/s]
+             )
+! ----------------------------------------------------------------------
 
     ! compute subsurface runoff as groundwater discharge
     RunoffSubsurface = DischargeGw
 
     end associate
+
+      end do
+    end do
+    !$acc end parallel loop
+
 
   end subroutine RunoffSubSurfaceGroundWater
 

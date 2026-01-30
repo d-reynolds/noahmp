@@ -21,6 +21,7 @@ contains
 ! Original Noah-MP subroutine: SPRINKLER_IRRIGATION
 ! Original code: P. Valayamkunnath (NCAR) <prasanth@ucar.edu> (08/06/2020)
 ! Refactered code: C. He, P. Valayamkunnath, & refactor team (He et al. 2023)
+! GPU port (2D arrays): Full SoA transformation for OpenACC (2026)
 ! ----------------------------------------------------------------------------------------
 
     implicit none
@@ -28,44 +29,58 @@ contains
     type(noahmp_type), intent(inout) :: noahmp
 
 ! local variable
+    integer                          :: I, J              ! grid indices
+    integer                          :: LoopInd           ! loop index
     logical                          :: FlagNan           ! NaN value flag: if NaN, return true
-    real(kind=kind_noahmp)           :: InfilRateSfc      ! surface infiltration rate [m/s]
+    real(kind=kind_noahmp) :: InfilRateSfc(noahmp%config%domain%ITS:noahmp%config%domain%ITE,noahmp%config%domain%JTS:noahmp%config%domain%JTE)   ! surface infiltration rate [m/s]
     real(kind=kind_noahmp)           :: IrriRateTmp       ! temporary irrigation rate [m/timestep]
     real(kind=kind_noahmp)           :: WindSpdTot        ! total wind speed [m/s]
     real(kind=kind_noahmp)           :: IrriLossTmp       ! temporary irrigation water loss [%]
     real(kind=kind_noahmp)           :: PressureVaporSat  ! satuarated vapor pressure [Pa]
 
+    !$acc data create(InfilRateSfc)
+    ! estimate infiltration rate based on Philips Eq.
+    call IrrigationInfilPhilip(noahmp, noahmp%config%domain%MainTimeStep, InfilRateSfc)
+
+   !$acc parallel loop collapse(2) gang vector present(noahmp, InfilRateSfc) &
+   !$acc private(LoopInd, FlagNan, IrriRateTmp, WindSpdTot, IrriLossTmp, PressureVaporSat)
+    do J = noahmp%config%domain%JTS, noahmp%config%domain%JTE
+      do I = noahmp%config%domain%ITS, noahmp%config%domain%ITE
+
+         ! skip if not cropland or no irrigation water left
+         if ( .not.(noahmp%config%domain%FlagCropland(I,J) .and. (noahmp%water%state%IrrigationAmtSprinkler(I,J) > 0.0)) ) cycle 
 ! --------------------------------------------------------------------
     associate(                                                                       &
+              NumSoilLayer            => noahmp%config%domain%NumSoilLayer          ,& ! in,    number of soil layers
               MainTimeStep            => noahmp%config%domain%MainTimeStep          ,& ! in,    noahmp main time step [s]
-              TemperatureAirRefHeight => noahmp%forcing%TemperatureAirRefHeight     ,& ! in,    air temperature [K] at reference height
-              WindEastwardRefHeight   => noahmp%forcing%WindEastwardRefHeight       ,& ! in,    wind speed [m/s] in eastward direction at reference height
-              WindNorthwardRefHeight  => noahmp%forcing%WindNorthwardRefHeight      ,& ! in,    wind speed [m/s] in northward direction at reference height
-              PressureVaporRefHeight  => noahmp%energy%state%PressureVaporRefHeight ,& ! in,    vapor pressure air [Pa]
-              IrriSprinklerRate       => noahmp%water%param%IrriSprinklerRate       ,& ! in,    sprinkler irrigation rate [mm/h]
-              IrrigationFracSprinkler => noahmp%water%state%IrrigationFracSprinkler ,& ! in,    sprinkler irrigation fraction (0 to 1)
+              TemperatureAirRefHeight => noahmp%forcing%TemperatureAirRefHeight(I,J),& ! in,    air temperature [K] at reference height
+              WindEastwardRefHeight   => noahmp%forcing%WindEastwardRefHeight(I,J)  ,& ! in,    wind speed [m/s] in eastward direction at reference height
+              WindNorthwardRefHeight  => noahmp%forcing%WindNorthwardRefHeight(I,J) ,& ! in,    wind speed [m/s] in northward direction at reference height
+              PressureVaporRefHeight  => noahmp%energy%state%PressureVaporRefHeight(I,J),& ! in,    vapor pressure air [Pa]
+              IrriSprinklerRate       => noahmp%water%param%IrriSprinklerRate(I,J)  ,& ! in,    sprinkler irrigation rate [mm/h]
+              IrrigationFracSprinkler => noahmp%water%state%IrrigationFracSprinkler(I,J),& ! in,    sprinkler irrigation fraction (0 to 1)
               SoilMoisture            => noahmp%water%state%SoilMoisture            ,& ! in,    total soil moisture [m3/m3]
               SoilLiqWater            => noahmp%water%state%SoilLiqWater            ,& ! in,    soil water content [m3/m3]
-              HeatLatentIrriEvap      => noahmp%energy%flux%HeatLatentIrriEvap      ,& ! inout, latent heating due to sprinkler evaporation [W/m2]
-              EvapIrriSprinkler       => noahmp%water%flux%EvapIrriSprinkler        ,& ! inout, evaporation of irrigation water, sprinkler [mm/s]
-              RainfallRefHeight       => noahmp%water%flux%RainfallRefHeight        ,& ! inout, rainfall [mm/s] at reference height
-              IrrigationRateSprinkler => noahmp%water%flux%IrrigationRateSprinkler  ,& ! inout, rate of irrigation by sprinkler [m/timestep]
-              IrriEvapLossSprinkler   => noahmp%water%flux%IrriEvapLossSprinkler    ,& ! inout, loss of irrigation water to evaporation,sprinkler [m/timestep]
-              IrrigationAmtSprinkler  => noahmp%water%state%IrrigationAmtSprinkler  ,& ! inout, irrigation water amount [m] to be applied, Sprinkler
-              PrecipAreaFrac          => noahmp%water%state%PrecipAreaFrac          ,& ! inout, fraction of area receiving precipitation
+              HeatLatentIrriEvap      => noahmp%energy%flux%HeatLatentIrriEvap(I,J) ,& ! inout, latent heating due to sprinkler evaporation [W/m2]
+              EvapIrriSprinkler       => noahmp%water%flux%EvapIrriSprinkler(I,J)   ,& ! inout, evaporation of irrigation water, sprinkler [mm/s]
+              RainfallRefHeight       => noahmp%water%flux%RainfallRefHeight(I,J)   ,& ! inout, rainfall [mm/s] at reference height
+              IrrigationRateSprinkler => noahmp%water%flux%IrrigationRateSprinkler(I,J),& ! inout, rate of irrigation by sprinkler [m/timestep]
+              IrriEvapLossSprinkler   => noahmp%water%flux%IrriEvapLossSprinkler(I,J),& ! inout, loss of irrigation water to evaporation,sprinkler [m/timestep]
+              IrrigationAmtSprinkler  => noahmp%water%state%IrrigationAmtSprinkler(I,J),& ! inout, irrigation water amount [m] to be applied, Sprinkler
+              PrecipAreaFrac          => noahmp%water%state%PrecipAreaFrac(I,J)     ,& ! inout, fraction of area receiving precipitation
               SoilIce                 => noahmp%water%state%SoilIce                  & ! out,   soil ice content [m3/m3]
              )
 ! ----------------------------------------------------------------------
 
     ! initialize
-    SoilIce(:) = max(0.0, SoilMoisture(:)-SoilLiqWater(:))
-
-    ! estimate infiltration rate based on Philips Eq.
-    call IrrigationInfilPhilip(noahmp, MainTimeStep, InfilRateSfc)
+    !$acc loop seq
+    do LoopInd = 1, NumSoilLayer
+       SoilIce(I,LoopInd,J) = max(0.0, SoilMoisture(I,LoopInd,J)-SoilLiqWater(I,LoopInd,J))
+    enddo
 
     ! irrigation rate of sprinkler
     IrriRateTmp             = IrriSprinklerRate * (1.0/1000.0) * MainTimeStep / 3600.0              ! NRCS rate/time step - calibratable
-    IrrigationRateSprinkler = min(InfilRateSfc*MainTimeStep, IrrigationAmtSprinkler, IrriRateTmp)   ! Limit irrigation rate to minimum of infiltration rate
+    IrrigationRateSprinkler = min(InfilRateSfc(I,J)*MainTimeStep, IrrigationAmtSprinkler, IrriRateTmp)   ! Limit irrigation rate to minimum of infiltration rate
                                                                                                     ! and to the NRCS recommended rate
     ! evaporative loss from droplets: Based on Bavi et al., (2009). Evaporation 
     ! losses from sprinkler irrigation systems under various operating 
@@ -107,6 +122,10 @@ contains
 
     end associate
 
+      end do
+    end do
+   !$acc end parallel loop
+   !$acc end data
   end subroutine IrrigationSprinkler
 
 end module IrrigationSprinklerMod

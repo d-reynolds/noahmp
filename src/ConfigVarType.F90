@@ -1,11 +1,12 @@
 module ConfigVarType
 
-!!! Define column (1-D) Noah-MP configuration variables
+!!! Define 2D Noah-MP configuration variables
 !!! Configuration variable initialization is done in ConfigVarInitMod.F90
 
 ! ------------------------ Code history -----------------------------------
 ! Original code: Guo-Yue Niu and Noah-MP team (Niu et al. 2011)
 ! Refactered code: C. He, P. Valayamkunnath, & refactor team (He et al. 2023)
+! GPU port (2D arrays): Full SoA transformation for OpenACC (2026)
 ! -------------------------------------------------------------------------
 
   use Machine
@@ -178,24 +179,13 @@ module ConfigVarType
 !=== define "domain" sub-type of config (config%domain%variable)
   type :: domain_type
 
+    ! ===== Domain-wide constants (scalars - same across all grid points) =====
     character(len=256)     :: LandUseDataName             ! landuse dataset name (USGS or MODIFIED_IGBP_MODIS_NOAH)
-    logical                :: FlagUrban                   ! flag for urban grid
-    logical                :: FlagCropland                ! flag to identify croplands
-    logical                :: FlagWetland                 ! flag to identify wetlands
-    logical                :: FlagDynamicCrop             ! flag to activate dynamic crop model
-    logical                :: FlagDynamicVeg              ! flag to activate dynamic vegetation scheme
-    logical                :: FlagSoilProcess             ! flag to determine if calculating soil processes
-    integer                :: GridIndexI                  ! model grid index in x-direction
-    integer                :: GridIndexJ                  ! model grid index in y-direction
-    integer                :: VegType                     ! vegetation type
-    integer                :: CropType                    ! crop type
+    integer                :: ITS, ITE                    ! Tile bounds in I direction
+    integer                :: JTS, JTE                    ! Tile bounds in J direction
     integer                :: NumSoilLayer                ! number of soil layers
     integer                :: NumSnowLayerMax             ! maximum number of snow layers
-    integer                :: NumSnowLayerNeg             ! actual number of snow layers (negative)
-    integer                :: SurfaceType                 ! surface type (1=soil; 2=lake)
     integer                :: NumSwRadBand                ! number of shortwave radiation bands
-    integer                :: SoilColor                   ! soil color type for albedo
-    integer                :: IndicatorIceSfc             ! indicator for ice surface/point (1=sea ice, 0=non-ice, -1=land ice)
     integer                :: IndexWaterPoint             ! land type index for water point
     integer                :: IndexBarrenPoint            ! land type index for barren land point
     integer                :: IndexIcePoint               ! land type index for  ice point
@@ -210,21 +200,37 @@ module ConfigVarType
     integer                :: NumDensitySnwAgeSnicar      ! maxiumum snow density index used in aging lookup table [idx]
     integer                :: NumSnicarRadBand            ! wavelength bands used in SNICAR snow albedo calculation
     integer                :: NumRadiusSnwMieSnicar       ! number of effective radius indices used in Mie lookup table [idx] 
+    logical                :: FlagSoilProcess             ! flag to determine if calculating soil processes
     real(kind=kind_noahmp) :: MainTimeStep                ! noahmp main timestep [sec]
     real(kind=kind_noahmp) :: SoilTimeStep                ! soil timestep [sec]
     real(kind=kind_noahmp) :: GridSize                    ! noahmp model grid spacing [m]
     real(kind=kind_noahmp) :: DayJulianInYear             ! julian day of the year
-    real(kind=kind_noahmp) :: CosSolarZenithAngle         ! cosine solar zenith angle
-    real(kind=kind_noahmp) :: RefHeightAboveSfc           ! reference height [m] above surface zero plane (including vegetation)
-    real(kind=kind_noahmp) :: ThicknessAtmosBotLayer      ! thickness of atmospheric bottom layers [m]
-    real(kind=kind_noahmp) :: Latitude                    ! latitude [degree]
-    real(kind=kind_noahmp) :: DepthSoilTempBottom         ! depth [m, negative] from soil surface for lower boundary soil temperature forcing
 
-    integer               , allocatable, dimension(:) :: SoilType                  ! soil type for each soil layer
-    real(kind=kind_noahmp), allocatable, dimension(:) :: DepthSoilLayer            ! depth [m] of layer-bottom from soil surface
-    real(kind=kind_noahmp), allocatable, dimension(:) :: ThicknessSnowSoilLayer    ! snow and soil layer thickness [m]
-    real(kind=kind_noahmp), allocatable, dimension(:) :: DepthSnowSoilLayer        ! snow and soil layer-bottom depth [m]
-    real(kind=kind_noahmp), allocatable, dimension(:) :: ThicknessSoilLayer        ! soil layer thickness [m]
+    ! ===== Spatially-varying fields (2D arrays - vary by grid point) =====
+    logical, allocatable, dimension(:,:) :: FlagUrban              ! flag for urban grid
+    logical, allocatable, dimension(:,:) :: FlagCropland           ! flag to identify croplands
+    logical, allocatable, dimension(:,:) :: FlagWetland            ! flag to identify wetlands
+    logical, allocatable, dimension(:,:) :: FlagDynamicCrop        ! flag to activate dynamic crop model
+    logical, allocatable, dimension(:,:) :: FlagDynamicVeg         ! flag to activate dynamic vegetation scheme
+    integer, allocatable, dimension(:,:) :: VegType                ! vegetation type
+    integer, allocatable, dimension(:,:) :: CropType               ! crop type
+    integer, allocatable, dimension(:,:) :: NumSnowLayerNeg        ! actual number of snow layers (negative, 0 to -3)
+    integer, allocatable, dimension(:,:) :: SurfaceType            ! surface type (1=soil; 2=lake)
+    integer, allocatable, dimension(:,:) :: SoilColor              ! soil color type for albedo
+    integer, allocatable, dimension(:,:) :: IndicatorIceSfc        ! indicator for ice surface/point (1=sea ice, 0=non-ice, -1=land ice)
+    real(kind=kind_noahmp), allocatable, dimension(:,:) :: CosSolarZenithAngle    ! cosine solar zenith angle
+    real(kind=kind_noahmp), allocatable, dimension(:,:) :: RefHeightAboveSfc           ! reference height [m] above surface zero plane (including vegetation)
+    real(kind=kind_noahmp), allocatable, dimension(:,:) :: ThicknessAtmosBotLayer      ! thickness of atmospheric bottom layers [m]
+    real(kind=kind_noahmp), allocatable, dimension(:,:) :: Latitude               ! latitude [degree]
+    real(kind=kind_noahmp), allocatable, dimension(:,:) :: DepthSoilTempBottom         ! depth [m, negative] from soil surface for lower boundary soil temperature forcing
+
+    ! ===== Spatially-varying column fields (3D arrays - vary by grid point) =====
+    ! Note: These define the vertical grid structure and are typically constant across horizontal domain
+    integer, allocatable, dimension(:,:,:) :: SoilType               ! soil type for each soil layer
+    real(kind=kind_noahmp), allocatable, dimension(:,:,:) :: DepthSoilLayer            ! depth [m] of layer-bottom from soil surface
+    real(kind=kind_noahmp), allocatable, dimension(:,:,:) :: ThicknessSnowSoilLayer    ! snow and soil layer thickness [m]
+    real(kind=kind_noahmp), allocatable, dimension(:,:,:) :: DepthSnowSoilLayer        ! snow and soil layer-bottom depth [m]
+    real(kind=kind_noahmp), allocatable, dimension(:,:,:) :: ThicknessSoilLayer        ! soil layer thickness [m]
 
   end type domain_type
 

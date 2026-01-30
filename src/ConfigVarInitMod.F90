@@ -6,6 +6,7 @@ module ConfigVarInitMod
 ! ------------------------ Code history ------------------------------------
 ! Original code: Guo-Yue Niu and Noah-MP team (Niu et al. 2011)
 ! Refactered code: C. He, P. Valayamkunnath, & refactor team (He et al. 2023)
+! GPU port (2D arrays): Full SoA transformation for OpenACC (2026)
 ! --------------------------------------------------------------------------
 
   use Machine
@@ -22,7 +23,10 @@ contains
 
     type(noahmp_type), intent(inout) :: noahmp
 
-    ! config namelist variable
+! local variables
+    integer :: I, J      ! grid indices
+
+    ! config namelist variables (scalars - set outside parallel region)
     noahmp%config%nmlist%OptDynamicVeg               = undefined_int
     noahmp%config%nmlist%OptRainSnowPartition        = undefined_int
     noahmp%config%nmlist%OptSoilWaterTranspiration   = undefined_int
@@ -61,26 +65,12 @@ contains
     noahmp%config%nmlist%FlagSnicarUseOC             = .false.
     noahmp%config%nmlist%FlagSnicarAerosolReadTable  = .false.
 
-    ! config domain variable
+    ! config domain scalars (set outside parallel region)
     noahmp%config%domain%LandUseDataName             = "MODIFIED_IGBP_MODIS_NOAH"
-    noahmp%config%domain%FlagUrban                   = .false.
-    noahmp%config%domain%FlagCropland                = .false.
-    noahmp%config%domain%FlagWetland                 = .false.
-    noahmp%config%domain%FlagDynamicCrop             = .false.
-    noahmp%config%domain%FlagDynamicVeg              = .false.
-    noahmp%config%domain%FlagSoilProcess             = .false.
     noahmp%config%domain%NumSoilTimeStep             = undefined_int
     noahmp%config%domain%NumSnowLayerMax             = undefined_int
-    noahmp%config%domain%NumSnowLayerNeg             = undefined_int
     noahmp%config%domain%NumSoilLayer                = undefined_int
-    noahmp%config%domain%GridIndexI                  = undefined_int
-    noahmp%config%domain%GridIndexJ                  = undefined_int
-    noahmp%config%domain%VegType                     = undefined_int
-    noahmp%config%domain%CropType                    = undefined_int
-    noahmp%config%domain%SurfaceType                 = undefined_int
     noahmp%config%domain%NumSwRadBand                = undefined_int
-    noahmp%config%domain%SoilColor                   = undefined_int
-    noahmp%config%domain%IndicatorIceSfc             = undefined_int
     noahmp%config%domain%NumCropGrowStage            = undefined_int
     noahmp%config%domain%IndexWaterPoint             = undefined_int
     noahmp%config%domain%IndexBarrenPoint            = undefined_int
@@ -93,16 +83,60 @@ contains
     noahmp%config%domain%SoilTimeStep                = undefined_real
     noahmp%config%domain%GridSize                    = undefined_real
     noahmp%config%domain%DayJulianInYear             = undefined_real
-    noahmp%config%domain%CosSolarZenithAngle         = undefined_real
-    noahmp%config%domain%RefHeightAboveSfc           = undefined_real
-    noahmp%config%domain%ThicknessAtmosBotLayer      = undefined_real
-    noahmp%config%domain%Latitude                    = undefined_real
-    noahmp%config%domain%DepthSoilTempBottom         = undefined_real
     noahmp%config%domain%NumTempSnwAgeSnicar         = undefined_int
     noahmp%config%domain%NumTempGradSnwAgeSnicar     = undefined_int
     noahmp%config%domain%NumDensitySnwAgeSnicar      = undefined_int
     noahmp%config%domain%NumSnicarRadBand            = undefined_int
     noahmp%config%domain%NumRadiusSnwMieSnicar       = undefined_int
+
+    ! config domain 2D arrays (set in parallel region)
+    !$acc parallel loop collapse(2) gang vector present(noahmp)
+    do J = noahmp%config%domain%JTS, noahmp%config%domain%JTE
+      do I = noahmp%config%domain%ITS, noahmp%config%domain%ITE
+
+        associate(                                                                            &
+                  FlagUrban              => noahmp%config%domain%FlagUrban(I,J)              ,&
+                  FlagCropland           => noahmp%config%domain%FlagCropland(I,J)           ,&
+                  FlagWetland            => noahmp%config%domain%FlagWetland(I,J)            ,&
+                  FlagDynamicCrop        => noahmp%config%domain%FlagDynamicCrop(I,J)        ,&
+                  FlagDynamicVeg         => noahmp%config%domain%FlagDynamicVeg(I,J)         ,&
+                  FlagSoilProcess        => noahmp%config%domain%FlagSoilProcess             ,&
+                  NumSnowLayerNeg        => noahmp%config%domain%NumSnowLayerNeg(I,J)        ,&
+                  VegType                => noahmp%config%domain%VegType(I,J)                ,&
+                  CropType               => noahmp%config%domain%CropType(I,J)               ,&
+                  SurfaceType            => noahmp%config%domain%SurfaceType(I,J)            ,&
+                  SoilColor              => noahmp%config%domain%SoilColor(I,J)              ,&
+                  IndicatorIceSfc        => noahmp%config%domain%IndicatorIceSfc(I,J)        ,&
+                  CosSolarZenithAngle    => noahmp%config%domain%CosSolarZenithAngle(I,J)    ,&
+                  RefHeightAboveSfc      => noahmp%config%domain%RefHeightAboveSfc(I,J)      ,&
+                  ThicknessAtmosBotLayer => noahmp%config%domain%ThicknessAtmosBotLayer(I,J) ,&
+                  Latitude               => noahmp%config%domain%Latitude(I,J)               ,&
+                  DepthSoilTempBottom    => noahmp%config%domain%DepthSoilTempBottom(I,J)     &
+                 )
+
+        FlagUrban              = .false.
+        FlagCropland           = .false.
+        FlagWetland            = .false.
+        FlagDynamicCrop        = .false.
+        FlagDynamicVeg         = .false.
+        FlagSoilProcess        = .false.
+        NumSnowLayerNeg        = undefined_int
+        VegType                = undefined_int
+        CropType               = undefined_int
+        SurfaceType            = undefined_int
+        SoilColor              = undefined_int
+        IndicatorIceSfc        = undefined_int
+        CosSolarZenithAngle    = undefined_real
+        RefHeightAboveSfc      = undefined_real
+        ThicknessAtmosBotLayer = undefined_real
+        Latitude               = undefined_real
+        DepthSoilTempBottom    = undefined_real
+
+        end associate
+
+      end do
+    end do
+    !$acc end parallel loop
 
   end subroutine ConfigVarInitDefault
 

@@ -42,6 +42,7 @@ contains
     itf = min0(NoahmpIO%ite, NoahmpIO%ide-1)
     jtf = min0(NoahmpIO%jte, NoahmpIO%jde-1)
 
+    !$acc parallel loop collapse(2) gang vector present(NoahmpIO) private(I,J,IZ,DZSNO,DZSNSO)
     do J = NoahmpIO%jts, jtf
        do I = NoahmpIO%its, itf
 
@@ -84,9 +85,13 @@ contains
           endif
 
           ! initialize snow temperatuer and ice/liquid content
-          NoahmpIO%TSNOXY (I,-NoahmpIO%NSNOW+1:0,J) = 0.0
-          NoahmpIO%SNICEXY(I,-NoahmpIO%NSNOW+1:0,J) = 0.0
-          NoahmpIO%SNLIQXY(I,-NoahmpIO%NSNOW+1:0,J) = 0.0
+          !$acc loop seq
+          do IZ = -NoahmpIO%NSNOW+1, 0
+            NoahmpIO%TSNOXY (I,IZ,J) = 0.0
+            NoahmpIO%SNICEXY(I,IZ,J) = 0.0
+            NoahmpIO%SNLIQXY(I,IZ,J) = 0.0
+          enddo
+          !$acc loop seq
           do IZ = NoahmpIO%ISNOWXY(I,J)+1, 0
              NoahmpIO%TSNOXY(I,IZ,J)  = NoahmpIO%TGXY(I,J)
              NoahmpIO%SNLIQXY(I,IZ,J) = 0.0
@@ -94,35 +99,41 @@ contains
           enddo
 
           ! Assign local variable DZSNSO, the soil/snow layer thicknesses, for snow layers
+          !$acc loop seq
           do IZ = NoahmpIO%ISNOWXY(I,J)+1, 0
              DZSNSO(IZ) = -DZSNO(IZ)
           enddo
 
           ! Assign local variable DZSNSO, the soil/snow layer thicknesses, for soil layers
           DZSNSO(1) = NoahmpIO%ZSOIL(1)
+          !$acc loop seq
           do IZ = 2, NoahmpIO%NSOIL
              DZSNSO(IZ) = NoahmpIO%ZSOIL(IZ) - NoahmpIO%ZSOIL(IZ-1)
           enddo
 
           ! Assign ZSNSOXY, the layer depths, for soil and snow layers
           NoahmpIO%ZSNSOXY(I,NoahmpIO%ISNOWXY(I,J)+1,J) = DZSNSO(NoahmpIO%ISNOWXY(I,J)+1)
+          !$acc loop seq
           do IZ = NoahmpIO%ISNOWXY(I,J)+2, NoahmpIO%NSOIL
              NoahmpIO%ZSNSOXY(I,IZ,J) = NoahmpIO%ZSNSOXY(I,IZ-1,J) + DZSNSO(IZ)
           enddo
 
           ! SNICAR
           if ( NoahmpIO%IOPT_ALB == 3 )then
-             NoahmpIO%SNRDSXY(I,-NoahmpIO%NSNOW+1:0,J)  = 0.0
-             NoahmpIO%SNFRXY (I,-NoahmpIO%NSNOW+1:0,J)  = 0.0
-             NoahmpIO%BCPHIXY(I,-NoahmpIO%NSNOW+1:0,J)  = 0.0
-             NoahmpIO%BCPHOXY(I,-NoahmpIO%NSNOW+1:0,J)  = 0.0
-             NoahmpIO%OCPHIXY(I,-NoahmpIO%NSNOW+1:0,J)  = 0.0
-             NoahmpIO%OCPHOXY(I,-NoahmpIO%NSNOW+1:0,J)  = 0.0
-             NoahmpIO%DUST1XY(I,-NoahmpIO%NSNOW+1:0,J)  = 0.0
-             NoahmpIO%DUST2XY(I,-NoahmpIO%NSNOW+1:0,J)  = 0.0
-             NoahmpIO%DUST3XY(I,-NoahmpIO%NSNOW+1:0,J)  = 0.0
-             NoahmpIO%DUST4XY(I,-NoahmpIO%NSNOW+1:0,J)  = 0.0
-             NoahmpIO%DUST5XY(I,-NoahmpIO%NSNOW+1:0,J)  = 0.0
+            !$acc loop seq
+            do IZ = -NoahmpIO%NSNOW+1, 0
+               NoahmpIO%SNRDSXY(I,IZ,J)  = 0.0
+               NoahmpIO%SNFRXY (I,IZ,J)  = 0.0
+               NoahmpIO%BCPHIXY(I,IZ,J)  = 0.0
+               NoahmpIO%BCPHOXY(I,IZ,J)  = 0.0
+               NoahmpIO%OCPHIXY(I,IZ,J)  = 0.0
+               NoahmpIO%OCPHOXY(I,IZ,J)  = 0.0
+               NoahmpIO%DUST1XY(I,IZ,J)  = 0.0
+               NoahmpIO%DUST2XY(I,IZ,J)  = 0.0
+               NoahmpIO%DUST3XY(I,IZ,J)  = 0.0
+               NoahmpIO%DUST4XY(I,IZ,J)  = 0.0
+               NoahmpIO%DUST5XY(I,IZ,J)  = 0.0
+            enddo
           endif
 
        enddo ! I

@@ -18,6 +18,7 @@ contains
 ! Original Noah-MP subroutine: WATER_GLACIER
 ! Original code: Guo-Yue Niu and Noah-MP team (Niu et al. 2011)
 ! Refactered code: C. He, P. Valayamkunnath, & refactor team (He et al. 2023)
+! GPU port (2D arrays): Full SoA transformation for OpenACC (2026)
 ! -------------------------------------------------------------------------
 
     implicit none
@@ -25,51 +26,40 @@ contains
     type(noahmp_type), intent(inout) :: noahmp
 
 ! local variable
-    integer                          :: LoopInd                           ! loop index
-    real(kind=kind_noahmp)           :: WatReplaceSublim                  ! replacement water due to sublimation of glacier
-    real(kind=kind_noahmp), allocatable, dimension(:) :: SoilIceTmp       ! temporary glacier ice content [m3/m3]
-    real(kind=kind_noahmp), allocatable, dimension(:) :: SoilLiqWaterTmp  ! temporary glacier liquid water content [m3/m3]
+    integer                          :: I, J        ! grid indices
+    integer                          :: LoopInd     ! loop index
+    real(kind=kind_noahmp)           :: WatReplaceSublim  ! replacement water due to sublimation of glacier
+    real(kind=kind_noahmp)  :: SoilIceTmp(1:noahmp%config%domain%NumSoilLayer)       ! temporary glacier ice content [m3/m3]
+    real(kind=kind_noahmp)  :: SoilLiqWaterTmp(1:noahmp%config%domain%NumSoilLayer)  ! temporary glacier liquid water content [m3/m3]
 
+    ! glacier ice water processing with OpenACC
+    !$acc data create(SoilIceTmp, SoilLiqWaterTmp)
+    !$acc parallel loop collapse(2) gang vector present(noahmp, SoilIceTmp, SoilLiqWaterTmp)
+    do J = noahmp%config%domain%JTS, noahmp%config%domain%JTE
+      do I = noahmp%config%domain%ITS,noahmp%config%domain%ITE
 ! --------------------------------------------------------------------
     associate(                                                                       &
-              OptGlacierTreatment    => noahmp%config%nmlist%OptGlacierTreatment    ,& ! in,    option for glacier treatment
               NumSoilLayer           => noahmp%config%domain%NumSoilLayer           ,& ! in,    number of soil layers
-              MainTimeStep           => noahmp%config%domain%MainTimeStep           ,& ! in,    noahmp main time step [s]
-              GridIndexI             => noahmp%config%domain%GridIndexI             ,& ! in,    grid index in x-direction
-              GridIndexJ             => noahmp%config%domain%GridIndexJ             ,& ! in,    grid index in y-direction
-              VaporizeGrd            => noahmp%water%flux%VaporizeGrd               ,& ! in,    ground vaporize rate total (evap+sublim) [mm/s]
-              CondenseVapGrd         => noahmp%water%flux%CondenseVapGrd            ,& ! in,    ground vapor condense rate total (dew+frost) [mm/s]
-              RainfallGround         => noahmp%water%flux%RainfallGround            ,& ! in,    ground surface rain rate [mm/s]
-              SnowfallGround         => noahmp%water%flux%SnowfallGround            ,& ! in,    snowfall on the ground [mm/s]
-              SnowfallDensity        => noahmp%water%state%SnowfallDensity          ,& ! in,    bulk density of snowfall [kg/m3]
-              LatHeatVapGrd          => noahmp%energy%state%LatHeatVapGrd           ,& ! in,    latent heat of vaporization/subli [J/kg], ground
-              HeatLatentGrd          => noahmp%energy%flux%HeatLatentGrd            ,& ! inout, total ground latent heat [W/m2] (+ to atm)
-              NumSnowLayerNeg        => noahmp%config%domain%NumSnowLayerNeg        ,& ! inout, actual number of snow layers (negative)
-              ThicknessSnowSoilLayer => noahmp%config%domain%ThicknessSnowSoilLayer ,& ! inout, thickness of snow/glacier layers [m]
-              SnowWaterEquiv         => noahmp%water%state%SnowWaterEquiv           ,& ! inout, snow water equivalent [mm]
-              SnowWaterEquivPrev     => noahmp%water%state%SnowWaterEquivPrev       ,& ! inout, snow water equivalent at last time step [mm]
+              VaporizeGrd            => noahmp%water%flux%VaporizeGrd(I,J)               ,& ! inout, ground vaporize rate total (evap+sublim) [mm/s]
+              CondenseVapGrd         => noahmp%water%flux%CondenseVapGrd(I,J)            ,& ! inout, ground vapor condense rate total (dew+frost) [mm/s]
+              SnowfallGround         => noahmp%water%flux%SnowfallGround(I,J)            ,& ! in,    snowfall on the ground [mm/s]
+              SnowfallDensity        => noahmp%water%state%SnowfallDensity(I,J)          ,& ! in,    bulk density of snowfall [kg/m3]
+              LatHeatVapGrd          => noahmp%energy%state%LatHeatVapGrd(I,J)           ,& ! in,    latent heat of vaporization/subli [J/kg], ground
+              HeatLatentGrd          => noahmp%energy%flux%HeatLatentGrd(I,J)            ,& ! inout, total ground latent heat [W/m2] (+ to atm)
+              SnowWaterEquiv         => noahmp%water%state%SnowWaterEquiv(I,J)           ,& ! inout, snow water equivalent [mm]
+              SnowWaterEquivPrev     => noahmp%water%state%SnowWaterEquivPrev(I,J)       ,& ! inout, snow water equivalent at last time step [mm]
               SoilLiqWater           => noahmp%water%state%SoilLiqWater             ,& ! inout, glacier water content [m3/m3]
               SoilIce                => noahmp%water%state%SoilIce                  ,& ! inout, glacier ice moisture [m3/m3]
               SoilMoisture           => noahmp%water%state%SoilMoisture             ,& ! inout, total glacier water [m3/m3]
-              PondSfcThinSnwMelt     => noahmp%water%state%PondSfcThinSnwMelt       ,& ! inout, surface ponding [mm] from snowmelt when thin snow has no layer
-              WaterHeadSfc           => noahmp%water%state%WaterHeadSfc             ,& ! inout, surface water head [mm)]
-              SoilSfcInflow          => noahmp%water%flux%SoilSfcInflow             ,& ! inout, water input on glacier/soil surface [m/s]
-              FrostSnowSfcIce        => noahmp%water%flux%FrostSnowSfcIce           ,& ! inout, snow surface frost rate [mm/s]
-              SublimSnowSfcIce       => noahmp%water%flux%SublimSnowSfcIce          ,& ! inout, snow surface sublimation rate [mm/s]
-              GlacierExcessFlow      => noahmp%water%flux%GlacierExcessFlow         ,& ! inout, glacier snow excess flow [mm/s]
-              SnowDepthIncr          => noahmp%water%flux%SnowDepthIncr             ,& ! out,   snow depth increasing rate [m/s] due to snowfall
-              EvapGroundNet          => noahmp%water%flux%EvapGroundNet             ,& ! out,   net direct ground evaporation [mm/s]
-              RunoffSurface          => noahmp%water%flux%RunoffSurface             ,& ! out,   surface runoff [mm/s]
-              RunoffSubsurface       => noahmp%water%flux%RunoffSubsurface          ,& ! out,   subsurface runoff [mm/s]
-              SnowBotOutflow         => noahmp%water%flux%SnowBotOutflow            ,& ! out,   total water (snowmelt + rain through pack) out of snowpack bottom [mm/s]
-              PondSfcThinSnwComb     => noahmp%water%state%PondSfcThinSnwComb       ,& ! out,   surface ponding [mm] from liquid in thin snow layer combination
-              PondSfcThinSnwTrans    => noahmp%water%state%PondSfcThinSnwTrans       & ! out,   surface ponding [mm] from thin snow liquid during transition from multilayer to no layer
+              FrostSnowSfcIce        => noahmp%water%flux%FrostSnowSfcIce(I,J)           ,& ! inout, snow surface frost rate [mm/s]
+              SublimSnowSfcIce       => noahmp%water%flux%SublimSnowSfcIce(I,J)          ,& ! inout, snow surface sublimation rate [mm/s]
+              GlacierExcessFlow      => noahmp%water%flux%GlacierExcessFlow(I,J)         ,& ! inout, glacier snow excess flow [mm/s]
+              SnowDepthIncr          => noahmp%water%flux%SnowDepthIncr(I,J)             ,& ! out,   snow depth increasing rate [m/s] due to snowfall
+              EvapGroundNet          => noahmp%water%flux%EvapGroundNet(I,J)             ,& ! out,   net direct ground evaporation [mm/s]
+              RunoffSurface          => noahmp%water%flux%RunoffSurface(I,J)             ,& ! out,   surface runoff [mm/s]
+              RunoffSubsurface       => noahmp%water%flux%RunoffSubsurface(I,J)           & ! out,   subsurface runoff [mm/s]
              )
 ! ----------------------------------------------------------------------
-
-    ! initialize
-    if (.not. allocated(SoilIceTmp)     ) allocate(SoilIceTmp     (1:NumSoilLayer))
-    if (.not. allocated(SoilLiqWaterTmp)) allocate(SoilLiqWaterTmp(1:NumSoilLayer))
     SoilIceTmp         = 0.0
     SoilLiqWaterTmp    = 0.0
     GlacierExcessFlow  = 0.0
@@ -78,9 +68,12 @@ contains
     SnowDepthIncr      = 0.0
 
     ! prepare for water process
-    SoilIce(:)         = max(0.0, SoilMoisture(:)-SoilLiqWater(:))
-    SoilIceTmp         = SoilIce
-    SoilLiqWaterTmp    = SoilLiqWater      
+    !$acc loop seq
+    do LoopInd = 1, NumSoilLayer
+      SoilIce(I,LoopInd,J)         = max(0.0, SoilMoisture(I,LoopInd,J)-SoilLiqWater(I,LoopInd,J))
+      SoilIceTmp(LoopInd)      = SoilIce(I,LoopInd,J)
+      SoilLiqWaterTmp(LoopInd) = SoilLiqWater(I,LoopInd,J)
+    enddo
     SnowWaterEquivPrev = SnowWaterEquiv
 
     ! compute soil/snow surface evap/dew rate based on energy flux
@@ -97,8 +90,51 @@ contains
     ! ground frost and dew
     FrostSnowSfcIce    = CondenseVapGrd
 
+      end associate
+    enddo
+   enddo
+
     ! snowpack water processs
     call SnowWaterMainGlacier(noahmp)
+
+    ! glacier ice water processing with OpenACC
+    !$acc parallel loop collapse(2) gang vector present(noahmp, SoilIceTmp, SoilLiqWaterTmp)
+    do J = noahmp%config%domain%JTS, noahmp%config%domain%JTE
+      do I = noahmp%config%domain%ITS,noahmp%config%domain%ITE
+! --------------------------------------------------------------------
+    associate(                                                                       &
+              OptGlacierTreatment    => noahmp%config%nmlist%OptGlacierTreatment    ,& ! in,    option for glacier treatment
+              NumSoilLayer           => noahmp%config%domain%NumSoilLayer           ,& ! in,    number of soil layers
+              MainTimeStep           => noahmp%config%domain%MainTimeStep           ,& ! in,    noahmp main time step [s]
+              VaporizeGrd            => noahmp%water%flux%VaporizeGrd(I,J)               ,& ! inout, ground vaporize rate total (evap+sublim) [mm/s]
+              CondenseVapGrd         => noahmp%water%flux%CondenseVapGrd(I,J)            ,& ! inout, ground vapor condense rate total (dew+frost) [mm/s]
+              RainfallGround         => noahmp%water%flux%RainfallGround(I,J)            ,& ! in,    ground surface rain rate [mm/s]
+              SnowfallGround         => noahmp%water%flux%SnowfallGround(I,J)            ,& ! in,    snowfall on the ground [mm/s]
+              SnowfallDensity        => noahmp%water%state%SnowfallDensity(I,J)          ,& ! in,    bulk density of snowfall [kg/m3]
+              LatHeatVapGrd          => noahmp%energy%state%LatHeatVapGrd(I,J)           ,& ! in,    latent heat of vaporization/subli [J/kg], ground
+              HeatLatentGrd          => noahmp%energy%flux%HeatLatentGrd(I,J)            ,& ! inout, total ground latent heat [W/m2] (+ to atm)
+              NumSnowLayerNeg        => noahmp%config%domain%NumSnowLayerNeg(I,J)        ,& ! inout, actual number of snow layers (negative)
+              ThicknessSnowSoilLayer => noahmp%config%domain%ThicknessSnowSoilLayer ,& ! inout, thickness of snow/glacier layers [m]
+              SnowWaterEquiv         => noahmp%water%state%SnowWaterEquiv(I,J)           ,& ! inout, snow water equivalent [mm]
+              SnowWaterEquivPrev     => noahmp%water%state%SnowWaterEquivPrev(I,J)       ,& ! inout, snow water equivalent at last time step [mm]
+              SoilLiqWater           => noahmp%water%state%SoilLiqWater             ,& ! inout, glacier water content [m3/m3]
+              SoilIce                => noahmp%water%state%SoilIce                  ,& ! inout, glacier ice moisture [m3/m3]
+              SoilMoisture           => noahmp%water%state%SoilMoisture                  ,& ! inout, total glacier water [m3/m3]
+              PondSfcThinSnwMelt     => noahmp%water%state%PondSfcThinSnwMelt(I,J)       ,& ! inout, surface ponding [mm] from snowmelt when thin snow has no layer
+              WaterHeadSfc           => noahmp%water%state%WaterHeadSfc(I,J)             ,& ! inout, surface water head [mm)]
+              SoilSfcInflow          => noahmp%water%flux%SoilSfcInflow(I,J)             ,& ! inout, water input on glacier/soil surface [m/s]
+              FrostSnowSfcIce        => noahmp%water%flux%FrostSnowSfcIce(I,J)           ,& ! inout, snow surface frost rate [mm/s]
+              SublimSnowSfcIce       => noahmp%water%flux%SublimSnowSfcIce(I,J)          ,& ! inout, snow surface sublimation rate [mm/s]
+              GlacierExcessFlow      => noahmp%water%flux%GlacierExcessFlow(I,J)         ,& ! inout, glacier snow excess flow [mm/s]
+              SnowDepthIncr          => noahmp%water%flux%SnowDepthIncr(I,J)             ,& ! out,   snow depth increasing rate [m/s] due to snowfall
+              EvapGroundNet          => noahmp%water%flux%EvapGroundNet(I,J)             ,& ! out,   net direct ground evaporation [mm/s]
+              RunoffSurface          => noahmp%water%flux%RunoffSurface(I,J)             ,& ! out,   surface runoff [mm/s]
+              RunoffSubsurface       => noahmp%water%flux%RunoffSubsurface(I,J)          ,& ! out,   subsurface runoff [mm/s]
+              SnowBotOutflow         => noahmp%water%flux%SnowBotOutflow(I,J)            ,& ! out,   total water (snowmelt + rain through pack) out of snowpack bottom [mm/s]
+              PondSfcThinSnwComb     => noahmp%water%state%PondSfcThinSnwComb(I,J)       ,& ! out,   surface ponding [mm] from liquid in thin snow layer combination
+              PondSfcThinSnwTrans    => noahmp%water%state%PondSfcThinSnwTrans(I,J)       & ! out,   surface ponding [mm] from thin snow liquid during transition from multilayer to no layer
+             )
+! ----------------------------------------------------------------------
 
     ! total surface input water to glacier ice
     SoilSfcInflow = (PondSfcThinSnwMelt + PondSfcThinSnwComb + PondSfcThinSnwTrans) / MainTimeStep * 0.001  ! convert units (mm/s -> m/s)
@@ -117,16 +153,28 @@ contains
     ! glacier ice water
     if ( OptGlacierTreatment == 1 ) then
        WatReplaceSublim = 0.0
+       !$acc loop seq
        do LoopInd = 1, NumSoilLayer
-          WatReplaceSublim = WatReplaceSublim + ThicknessSnowSoilLayer(LoopInd)*(SoilIce(LoopInd) - &
-                             SoilIceTmp(LoopInd) + SoilLiqWater(LoopInd) - SoilLiqWaterTmp(LoopInd))
+          WatReplaceSublim = WatReplaceSublim + ThicknessSnowSoilLayer(I,LoopInd,J)*(SoilIce(I,LoopInd,J) - &
+                             SoilIceTmp(LoopInd) + SoilLiqWater(I,LoopInd,J) - SoilLiqWaterTmp(LoopInd))
        enddo
-       WatReplaceSublim    = WatReplaceSublim * 1000.0 / MainTimeStep     ! convert to [mm/s]
-       SoilIce = min(1.0, SoilIceTmp)
+       WatReplaceSublim = WatReplaceSublim * 1000.0 / MainTimeStep     ! convert to [mm/s]
+       !$acc loop seq
+       do LoopInd = 1, NumSoilLayer
+          SoilIce(I,LoopInd,J) = min(1.0, SoilIceTmp(LoopInd))
+       enddo
     elseif ( OptGlacierTreatment == 2 ) then
-       SoilIce = 1.0
+       WatReplaceSublim = 0.0
+       !$acc loop seq
+       do LoopInd = 1, NumSoilLayer
+          SoilIce(I,LoopInd,J) = 1.0
+       enddo
     endif
-    SoilLiqWater = 1.0 - SoilIce
+
+    !$acc loop seq
+    do LoopInd = 1, NumSoilLayer
+       SoilLiqWater(I,LoopInd,J) = 1.0 - SoilIce(I,LoopInd,J)
+    enddo
 
     ! use RunoffSubsurface as a water balancer, GlacierExcessFlow is snow that disappears, WatReplaceSublim is
     ! water from below that replaces glacier loss
@@ -143,15 +191,18 @@ contains
        HeatLatentGrd = EvapGroundNet * LatHeatVapGrd
     endif
 
+#ifndef _OPENACC
     if ( maxval(SoilIce) < 0.0001 ) then
-       write(*,*) "GLACIER HAS MELTED AT: ", GridIndexI, GridIndexJ, " ARE YOU SURE THIS SHOULD BE A GLACIER POINT?"
+       write(*,*) "GLACIER HAS MELTED AT: ", I, J, " ARE YOU SURE THIS SHOULD BE A GLACIER POINT?"
     endif
-
-    ! deallocate local arrays to avoid memory leaks
-    deallocate(SoilIceTmp     )
-    deallocate(SoilLiqWaterTmp)
- 
+#endif
     end associate
+
+      end do
+    end do
+    !$acc end parallel loop
+
+    !$acc end data
 
   end subroutine WaterMainGlacier
 

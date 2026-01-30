@@ -18,12 +18,13 @@ module SoilWaterSupercoolKoren99Mod
 contains
 
   subroutine SoilWaterSupercoolKoren99(noahmp, IndSoil, SoilWatSupercool, &
-                                       SoilTemperature, SoilMoisture, SoilLiqWater)
-
+                                       SoilTemperature, SoilMoisture, SoilLiqWater, I, J)
+  !$acc routine seq
 ! ------------------------ Code history --------------------------------------------------
 ! Original Noah-MP subroutine: FRH2O
 ! Original code: Guo-Yue Niu and Noah-MP team (Niu et al. 2011)
 ! Refactered code: C. He, P. Valayamkunnath, & refactor team (He et al. 2023)
+! GPU port (2D arrays): Full SoA transformation for OpenACC (2026)
 ! ----------------------------------------------------------------------------------------
 
     implicit none
@@ -35,7 +36,7 @@ contains
     real(kind=kind_noahmp), intent(in   ) :: SoilMoisture         ! total soil moisture content [m3/m3]
     real(kind=kind_noahmp), intent(in   ) :: SoilTemperature      ! soil temperature [K]
     real(kind=kind_noahmp), intent(out  ) :: SoilWatSupercool     ! soil supercooled liquid water content [m3/m3]
-
+    integer               , intent(in   ) :: I, J                 ! grid indices
 ! local variable
     integer                               :: NumIter              ! number of iteration
     integer                               :: IndCnt               ! counting index 
@@ -61,10 +62,10 @@ contains
     ! limit on parameter B: B < 5.5  (use parameter SoilExpBMax)
     ! simulations showed if B > 5.5 unfrozen water content is
     ! non-realistically high at very low temperatures
-    SoilExpB = SoilExpCoeffB(IndSoil)
+    SoilExpB = SoilExpCoeffB(I,IndSoil,J)
 
     ! initializing iterations counter and interative solution flag
-    if ( SoilExpCoeffB(IndSoil) > SoilExpBMax ) SoilExpB = SoilExpBMax
+    if ( SoilExpCoeffB(I,IndSoil,J) > SoilExpBMax ) SoilExpB = SoilExpBMax
     NumIter = 0
 
     ! if soil temperature not largely below freezing point, SoilLiqWater = SoilMoisture
@@ -80,11 +81,10 @@ contains
           if ( SoilIce > (SoilMoisture-0.02) ) SoilIce = SoilMoisture - 0.02   ! keep within bounds
           ! start the iterations
           if ( SoilIce < 0.0 ) SoilIce = 0.0
-1001      Continue
-          if ( .not. ((NumIter < 10) .and. (IndCnt == 0)) ) goto 1002
+          do while ((NumIter < 10) .and. (IndCnt == 0) )
           NumIter = NumIter +1
-          DF = log((SoilMatPotentialSat(IndSoil)*ConstGravityAcc/ConstLatHeatFusion) * &
-               ((1.0 + CK*SoilIce)**2.0) * (SoilMoistureSat(IndSoil)/(SoilMoisture - SoilIce))**SoilExpB) - &
+          DF = log((SoilMatPotentialSat(I,IndSoil,J)*ConstGravityAcc/ConstLatHeatFusion) * &
+               ((1.0 + CK*SoilIce)**2.0) * (SoilMoistureSat(I,IndSoil,J)/(SoilMoisture - SoilIce))**SoilExpB) - &
                log(-(SoilTemperature - ConstFreezePoint) / SoilTemperature)
           Denom      = 2.0 * CK / (1.0 + CK * SoilIce) + SoilExpB / (SoilMoisture - SoilIce)
           SoilIceTmp = SoilIce - DF / Denom
@@ -100,8 +100,7 @@ contains
           endif
           ! end of iteration
           ! bounds applied within do-block are valid for physical solution 
-          goto 1001
-1002      continue
+         enddo
           SoilWatSupercool = SoilMoisture - SoilIce
        endif
        !--- End Option 1
@@ -110,9 +109,11 @@ contains
        ! in Koren et al. 1999 JGR Eqn. 17
        ! apply physical bounds to Flerchinger solution
        if ( IndCnt == 0 ) then
+#ifndef _OPENACC
           print*, 'Flerchinger used in NEW version. Iterations=', NumIter
-          FlerFac = (((ConstLatHeatFusion / (ConstGravityAcc * (-SoilMatPotentialSat(IndSoil)))) * &
-                    ((SoilTemperature-ConstFreezePoint) / SoilTemperature))**(-1.0/SoilExpB)) * SoilMoistureSat(IndSoil)
+#endif
+          FlerFac = (((ConstLatHeatFusion / (ConstGravityAcc * (-SoilMatPotentialSat(I,IndSoil,J)))) * &
+                    ((SoilTemperature-ConstFreezePoint) / SoilTemperature))**(-1.0/SoilExpB)) * SoilMoistureSat(I,IndSoil,J)
           if ( FlerFac < 0.02 ) FlerFac = 0.02
           SoilWatSupercool = min(FlerFac, SoilMoisture)
        endif

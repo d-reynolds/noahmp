@@ -21,6 +21,8 @@ contains
 
     implicit none
 
+!$acc routine seq
+
     real(kind=kind_noahmp), intent(in)   :: T                     ! air temperature [K]
     real(kind=kind_noahmp), intent(out)  :: VapPresSatWat         ! saturation vapor pressure over water [Pa]
     real(kind=kind_noahmp), intent(out)  :: VapPresSatIce         ! saturation vapor pressure over ice [Pa]

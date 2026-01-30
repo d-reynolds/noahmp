@@ -16,6 +16,7 @@ contains
 ! Original Noah-MP subroutine: None (embedded in ENERGY subroutine)
 ! Original code: Guo-Yue Niu and Noah-MP team (Niu et al. 2011)
 ! Refactered code: C. He, P. Valayamkunnath, & refactor team (He et al. 2023)
+! GPU port (2D arrays): Full SoA transformation for OpenACC (2026)
 ! -------------------------------------------------------------------------
 
     implicit none
@@ -23,20 +24,27 @@ contains
 ! in & out variables
     type(noahmp_type), intent(inout) :: noahmp
 
+! local variables
+    integer                          :: I, J         ! grid indices
+
 ! --------------------------------------------------------------------
+   !$acc parallel loop collapse(2) gang vector present(noahmp)
+    do J = noahmp%config%domain%JTS, noahmp%config%domain%JTE
+      do I = noahmp%config%domain%ITS, noahmp%config%domain%ITE
+
     associate(                                                              &
-              IndicatorIceSfc    => noahmp%config%domain%IndicatorIceSfc   ,& ! in,  indicator for ice point: 1->seaice; -1->land ice; 0->soil
-              SurfaceType        => noahmp%config%domain%SurfaceType       ,& ! in,  surface type 1-soil; 2-lake
-              EmissivitySnow     => noahmp%energy%param%EmissivitySnow     ,& ! in,  snow emissivity
+              IndicatorIceSfc    => noahmp%config%domain%IndicatorIceSfc(I,J)   ,& ! in,  indicator for ice point: 1->seaice; -1->land ice; 0->soil
+              SurfaceType        => noahmp%config%domain%SurfaceType(I,J)       ,& ! in,  surface type 1-soil; 2-lake
+              EmissivitySnow     => noahmp%energy%param%EmissivitySnow(I,J)     ,& ! in,  snow emissivity
               EmissivitySoilLake => noahmp%energy%param%EmissivitySoilLake ,& ! in,  emissivity soil surface
-              EmissivityIceSfc   => noahmp%energy%param%EmissivityIceSfc   ,& ! in,  emissivity ice surface
-              SnowCoverFrac      => noahmp%water%state%SnowCoverFrac       ,& ! in,  snow cover fraction
-              LeafAreaIndEff     => noahmp%energy%state%LeafAreaIndEff     ,& ! in,  leaf area index, after burying by snow
-              StemAreaIndEff     => noahmp%energy%state%StemAreaIndEff     ,& ! in,  stem area index, after burying by snow
-              VegFrac            => noahmp%energy%state%VegFrac            ,& ! in,  greeness vegetation fraction
-              EmissivityVeg      => noahmp%energy%state%EmissivityVeg      ,& ! out, vegetation emissivity
-              EmissivityGrd      => noahmp%energy%state%EmissivityGrd      ,& ! out, ground emissivity
-              EmissivitySfc      => noahmp%energy%state%EmissivitySfc       & ! out, surface emissivity
+              EmissivityIceSfc   => noahmp%energy%param%EmissivityIceSfc(I,J)   ,& ! in,  emissivity ice surface
+              SnowCoverFrac      => noahmp%water%state%SnowCoverFrac(I,J)       ,& ! in,  snow cover fraction
+              LeafAreaIndEff     => noahmp%energy%state%LeafAreaIndEff(I,J)     ,& ! in,  leaf area index, after burying by snow
+              StemAreaIndEff     => noahmp%energy%state%StemAreaIndEff(I,J)     ,& ! in,  stem area index, after burying by snow
+              VegFrac            => noahmp%energy%state%VegFrac(I,J)            ,& ! in,  greeness vegetation fraction
+              EmissivityVeg      => noahmp%energy%state%EmissivityVeg(I,J)      ,& ! out, vegetation emissivity
+              EmissivityGrd      => noahmp%energy%state%EmissivityGrd(I,J)      ,& ! out, ground emissivity
+              EmissivitySfc      => noahmp%energy%state%EmissivitySfc(I,J)       & ! out, surface emissivity
              )
 ! ----------------------------------------------------------------------
 
@@ -47,7 +55,7 @@ contains
     if ( IndicatorIceSfc == 1 ) then
        EmissivityGrd = EmissivityIceSfc * (1.0-SnowCoverFrac) + EmissivitySnow * SnowCoverFrac
     else
-       EmissivityGrd = EmissivitySoilLake(SurfaceType) * (1.0-SnowCoverFrac) + EmissivitySnow * SnowCoverFrac
+       EmissivityGrd = EmissivitySoilLake(I,SurfaceType,J) * (1.0-SnowCoverFrac) + EmissivitySnow * SnowCoverFrac
     endif
 
     ! net surface emissivity
@@ -55,6 +63,10 @@ contains
                     EmissivityVeg*(1-EmissivityVeg)*(1-EmissivityGrd)) + (1-VegFrac) * EmissivityGrd
 
     end associate
+
+      end do
+    end do
+   !$acc end parallel loop
 
   end subroutine SurfaceEmissivity
 
