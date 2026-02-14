@@ -154,6 +154,9 @@ contains
              cycle ILOOP                                             ! Skip any sea-ice points
           else
              if ( (NoahmpIO%XLAND(I,J)-1.5) >= 0.0 ) cycle ILOOP     ! Skip any open water points
+          endif
+       enddo ILOOP  ! I loop
+    enddo  JLOOP    ! J loop
 
              !------------------------------------------------------------------------------------
              !  initialize Data Types and transfer all the inputs from 2-D to 1-D column variables
@@ -168,6 +171,24 @@ contains
              call WaterVarInTransfer    (noahmp, NoahmpIO)
              call BiochemVarInitDefault (noahmp)
              call BiochemVarInTransfer  (noahmp, NoahmpIO)
+
+      JLOOP2 : do J = NoahmpIO%JTS, NoahmpIO%JTE
+       ILOOP2 : do I = NoahmpIO%ITS, NoahmpIO%ITE
+          if (.not.( NoahmpIO%XICE(I,J) >= NoahmpIO%XICE_THRESHOLD )) then  ! Sea-ice point
+             if ( (NoahmpIO%XLAND(I,J)-1.5) >= 0.0 ) cycle ILOOP2     ! Skip any open water points
+
+             ! glacier ice
+             if (noahmp%config%domain%VegType(I,J) == noahmp%config%domain%IndexIcePoint ) then
+                 noahmp%config%domain%IndicatorIceSfc(I,J) = -1  ! Land-ice point      
+                 noahmp%forcing%TemperatureSoilBottom(I,J) = min(noahmp%forcing%TemperatureSoilBottom(I,J),263.15) ! set deep glaicer temp to >= -10C
+             ! non-glacier land
+             else
+                 noahmp%config%domain%IndicatorIceSfc(I,J) = 0   ! land soil point.
+             endif ! glacial split ends
+
+          endif
+       enddo ILOOP2  ! I loop
+    enddo  JLOOP2  ! J loop
 
              !---------------------------------------------------------------------
              !  hydrological processes for vegetation in urban model
@@ -198,15 +219,15 @@ contains
              !------------------------------------------------------------------------
          
              ! glacier ice
-             if (noahmp%config%domain%VegType(I,J) == noahmp%config%domain%IndexIcePoint ) then
-                 noahmp%config%domain%IndicatorIceSfc(I,J) = -1  ! Land-ice point      
-                 noahmp%forcing%TemperatureSoilBottom(I,J) = min(noahmp%forcing%TemperatureSoilBottom(I,J),263.15) ! set deep glaicer temp to >= -10C
-                 call NoahmpMainGlacier(noahmp)
+            !  if (noahmp%config%domain%VegType(I,J) == noahmp%config%domain%IndexIcePoint ) then
+            !      noahmp%config%domain%IndicatorIceSfc(I,J) = -1  ! Land-ice point      
+            !      noahmp%forcing%TemperatureSoilBottom(I,J) = min(noahmp%forcing%TemperatureSoilBottom(I,J),263.15) ! set deep glaicer temp to >= -10C
+               !   call NoahmpMainGlacier(noahmp)
              ! non-glacier land
-             else
-                 noahmp%config%domain%IndicatorIceSfc(I,J) = 0   ! land soil point.
+            !  else
+               !   noahmp%config%domain%IndicatorIceSfc(I,J) = 0   ! land soil point.
                  call NoahmpMain(noahmp)
-             endif ! glacial split ends
+            !  endif ! glacial split ends
 
              !---------------------------------------------------------------------
              !  Transfer 1-D Noah-MP column variables to 2-D output variables
@@ -217,10 +238,10 @@ contains
              call WaterVarOutTransfer  (noahmp, NoahmpIO)
              call BiochemVarOutTransfer(noahmp, NoahmpIO) 
 
-          endif     ! land-sea split ends
+   !        endif     ! land-sea split ends
 
-       enddo ILOOP  ! I loop
-    enddo  JLOOP    ! J loop
+   !     enddo ILOOP  ! I loop
+   !  enddo  JLOOP    ! J loop
               
   end subroutine NoahmpDriverMain
   

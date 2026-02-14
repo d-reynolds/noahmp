@@ -86,7 +86,6 @@ contains
               SpecHumiditySfc        => noahmp%energy%state%SpecHumiditySfc(I,J)         ,& ! out,   specific humidity at surface [kg/kg]
               EvapGroundNet          => noahmp%water%flux%EvapGroundNet(I,J)             ,& ! out,   net ground (soil/snow) evaporation [mm/s]
               Transpiration          => noahmp%water%flux%Transpiration(I,J)             ,& ! out,   transpiration rate [mm/s]
-              EvapCanopyNet          => noahmp%water%flux%EvapCanopyNet(I,J)             ,& ! out,   evaporation of intercepted water [mm/s]
               RunoffSurface          => noahmp%water%flux%RunoffSurface(I,J)             ,& ! out,   surface runoff [mm/dt_soil] per soil timestep
               RunoffSubsurface       => noahmp%water%flux%RunoffSubsurface(I,J)          ,& ! out,   subsurface runoff [mm/dt_soil] per soil timestep
               TileDrain              => noahmp%water%flux%TileDrain(I,J)                 ,& ! out,   tile drainage per soil timestep [mm/dt_soil]
@@ -249,16 +248,43 @@ enddo
     do LoopInd = 1, NumSoilLayer
       TranspWatLossSoilAcc(I,LoopInd,J) = TranspWatLossSoilAcc(I,LoopInd,J) + TranspWatLossSoil(I,LoopInd,J)
     enddo
+    end associate
+   enddo
+enddo
+
     ! start soil water processes
-    if ( FlagSoilProcess .eqv. .true. ) then
+    if ( noahmp%config%domain%FlagSoilProcess .eqv. .true. ) then
 
        ! irrigation: call flood irrigation and add to SoilSfcInflowAcc
-       if ( (FlagCropland .eqv. .true.) .and. (IrrigationAmtFlood > 0.0) ) call IrrigationFlood(noahmp)
+       ! condition if ( (FlagCropland .eqv. .true.) .and. (IrrigationAmtFlood > 0.0) ) moved inside of function
+       call IrrigationFlood(noahmp)
 
        ! irrigation: call micro irrigation assuming we implement drip in first layer
        ! of the Noah-MP. Change layer 1 moisture wrt to MI rate
-       if ( (FlagCropland .eqv. .true.) .and. (IrrigationAmtMicro > 0.0) ) call IrrigationMicro(noahmp)
+       call IrrigationMicro(noahmp)
+    endif
 
+   !$acc parallel loop collapse(2) gang vector present(noahmp) private(LoopInd)
+   do J = noahmp%config%domain%JTS, noahmp%config%domain%JTE
+      do I = noahmp%config%domain%ITS, noahmp%config%domain%ITE
+         associate(                                                                       &
+            NumSoilTimeStep        => noahmp%config%domain%NumSoilTimeStep        ,& ! in,    number of timesteps for soil process calculation
+            SoilTimeStep           => noahmp%config%domain%SoilTimeStep           ,& ! in,    soil process timestep [s]
+            FlagSoilProcess     => noahmp%config%domain%FlagSoilProcess        ,& ! in,    flag to calculate soil processes
+            SurfaceType            => noahmp%config%domain%SurfaceType(I,J)            ,& ! in,    surface type 1-soil; 2-lake 
+            NumSoilLayer         => noahmp%config%domain%NumSoilLayer              ,& ! in,    number of soil layers
+            WaterStorageLake     => noahmp%water%state%WaterStorageLake(I,J)         ,& ! inout, water storage in lake (can be negative) [mm]
+            WaterStorageLakeMax  => noahmp%water%param%WaterStorageLakeMax(I,J)      ,& ! in,    maximum lake water storage [mm]
+            SoilSfcInflowMean    => noahmp%water%flux%SoilSfcInflowMean(I,J)         ,& ! out,   mean water flux into soil during soil timestep [m/s]
+            TranspWatLossSoilMean  => noahmp%water%flux%TranspWatLossSoilMean     ,& ! out,   mean transpiration water loss during soil timestep [m/s]
+            SoilSfcInflowAcc     => noahmp%water%flux%SoilSfcInflowAcc(I,J)          ,& ! inout, accumulated water flux into soil during soil timestep [m/s * dt_soil/dt_main]
+            EvapSoilSfcLiqAcc    => noahmp%water%flux%EvapSoilSfcLiqAcc(I,J)         ,& ! inout, accumulated soil surface evaporation during soil timestep [m/s * dt_soil/dt_main]
+            TranspWatLossSoilAcc => noahmp%water%flux%TranspWatLossSoilAcc           ,& ! inout, accumualted transpiration water loss during soil timestep [m/s * dt_soil/dt_main]
+            RunoffSurface        => noahmp%water%flux%RunoffSurface(I,J)             ,& ! out,   surface runoff [mm/dt_soil] per soil timestep
+            EvapSoilSfcLiqMean     => noahmp%water%flux%EvapSoilSfcLiqMean(I,J)       & ! out,   mean soil surface evaporation during soil timestep [m/s]
+           )
+    ! start soil water processes
+    if ( FlagSoilProcess .eqv. .true. ) then
        ! compute mean water flux during soil timestep
        SoilSfcInflowMean     = SoilSfcInflowAcc / NumSoilTimeStep
        EvapSoilSfcLiqMean    = EvapSoilSfcLiqAcc / NumSoilTimeStep

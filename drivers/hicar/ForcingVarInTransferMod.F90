@@ -32,7 +32,7 @@ contains
     real(kind=kind_noahmp)              :: PrecipTotalRefHeight  ! total precipitation [mm/s] at reference height
 
     !$acc parallel loop collapse(2) present(noahmp, NoahmpIO)
-    do J = noahmp%config%domain%JTS, noahmp%JTE
+    do J = noahmp%config%domain%JTS, noahmp%config%domain%JTE
       do I = noahmp%config%domain%ITS, noahmp%config%domain%ITE
     noahmp%forcing%TemperatureAirRefHeight(I,J) = NoahmpIO%T_PHY(I,1,J)
     noahmp%forcing%WindEastwardRefHeight(I,J)   = NoahmpIO%U_PHY(I,1,J)

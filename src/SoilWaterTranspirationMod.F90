@@ -31,6 +31,11 @@ contains
     real(kind=kind_noahmp)           :: SoilWetFac    ! temporary variable
     real(kind=kind_noahmp)           :: MinThr        ! minimum threshold to prevent divided by zero
 
+
+    !$acc parallel loop collapse(2) gang vector present(noahmp) &
+    !$acc private(IndSoil,SoilWetFac,MinThr)
+    do J = noahmp%config%domain%JTS, noahmp%config%domain%JTE
+      do I = noahmp%config%domain%ITS, noahmp%config%domain%ITE
 ! --------------------------------------------------------------------
     associate(                                                                             &
               SurfaceType               => noahmp%config%domain%SurfaceType(I,J)               ,& ! in,  surface type 1-soil; 2-lake
@@ -50,11 +55,6 @@ contains
               SoilMatPotential          => noahmp%water%state%SoilMatPotential             & ! out, soil matrix potential [m]
              )
 ! ----------------------------------------------------------------------
-
-    !$acc parallel loop collapse(2) gang vector present(noahmp) &
-    !$acc private(IndSoil,SoilWetFac,MinThr)
-    do J = noahmp%config%domain%JTS, noahmp%config%domain%JTE
-      do I = noahmp%config%domain%ITS, noahmp%config%domain%ITE
 
     ! soil moisture factor controlling stomatal resistance and evapotranspiration
     MinThr         = 1.0e-6
@@ -94,12 +94,13 @@ contains
           SoilTranspFac(I,IndSoil,J) = SoilTranspFac(I,IndSoil,J) / SoilTranspFacAcc
        enddo
     endif
+    
+    end associate
 
       end do
     end do
     !$acc end parallel loop
 
-    end associate
 
   end subroutine SoilWaterTranspiration
 

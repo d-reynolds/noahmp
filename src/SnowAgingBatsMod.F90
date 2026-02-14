@@ -41,6 +41,9 @@ contains
     do J = noahmp%config%domain%JTS, noahmp%config%domain%JTE
       do I = noahmp%config%domain%ITS, noahmp%config%domain%ITE
 
+        ! solar radiation process is only done if there is light
+        if ( noahmp%config%domain%CosSolarZenithAngle(I,J) <= 0 ) cycle
+
         associate(                                                                     &
                   MainTimeStep         => noahmp%config%domain%MainTimeStep           ,& ! in,    main noahmp timestep [s]
                   SnowMassFullCoverOld => noahmp%water%param%SnowMassFullCoverOld(I,J) ,& ! in,    new snow mass to fully cover old snow [mm]

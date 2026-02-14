@@ -10,7 +10,7 @@ module RunoffSurfaceExcessDynamicVicMod
 
 contains
 
-  subroutine RunoffSatExcessDynamicVic(noahmp, WaterDepthInit, WaterDepthMax, DepthYTmp, RunoffSatExcess)
+  subroutine RunoffSatExcessDynamicVic(noahmp, WaterDepthInit, WaterDepthMax, DepthYTmp, InfilFacDynVic, RunoffSatExcess)
   !$acc loop seq
 ! ------------------------ Code history --------------------------------------------------
 ! Original Noah-MP subroutine: RR1 for saturation excess runoff
@@ -26,16 +26,12 @@ contains
     real(kind=kind_noahmp), intent(in)    :: WaterDepthInit        ! initial water depth [m]
     real(kind=kind_noahmp), intent(in)    :: WaterDepthMax         ! maximum water depth [m]
     real(kind=kind_noahmp), intent(in)    :: DepthYTmp             ! initial depth Y [m]
+    real(kind=kind_noahmp), intent(in)    :: InfilFacDynVic        ! DVIC model infiltration parameter
     real(kind=kind_noahmp), intent(out)   :: RunoffSatExcess       ! saturation excess runoff [m/s]
+! ----------------------------------------------------------------------
 
 ! local variable
     real(kind=kind_noahmp)                :: WaterTableDepth       ! water table depth [m]
-    integer                               :: I, J                  ! grid indices
-! ------------------------------------------------------------------
-    associate(                                                     &
-              InfilFacDynVic => noahmp%water%param%InfilFacDynVic(I,J)  & ! in, DVIC model infiltration parameter
-             )
-! ------------------------------------------------------------------
 
     WaterTableDepth = WaterDepthInit + DepthYTmp
     if ( WaterTableDepth > WaterDepthMax ) WaterTableDepth = WaterDepthMax
@@ -46,8 +42,6 @@ contains
                       - ((1.0 - (WaterTableDepth/WaterDepthMax))**(InfilFacDynVic+1.0))))
 
     if ( RunoffSatExcess < 0.0 ) RunoffSatExcess = 0.0
-
-    end associate
 
   end subroutine RunoffSatExcessDynamicVic
 

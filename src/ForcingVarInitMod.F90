@@ -26,6 +26,143 @@ contains
 ! local variables
     integer :: I, J      ! grid indices
 
+    ! Allocate 3D crop parameter arrays and transfer to GPU
+    associate( NumCropGrowStage => noahmp%config%domain%NumCropGrowStage ,&
+               ITS => noahmp%config%domain%ITS, ITE => noahmp%config%domain%ITE ,&
+               JTS => noahmp%config%domain%JTS, JTE => noahmp%config%domain%JTE )
+
+    if (.not.(allocated(noahmp%forcing%SpecHumidityRefHeight))) then
+      allocate(noahmp%forcing%SpecHumidityRefHeight(ITS:ITE,JTS:JTE))
+      !$acc enter data create(noahmp%forcing%SpecHumidityRefHeight)
+    end if
+
+    if (.not.(allocated(noahmp%forcing%TemperatureAirRefHeight))) then
+      allocate(noahmp%forcing%TemperatureAirRefHeight(ITS:ITE,JTS:JTE))
+      !$acc enter data create(noahmp%forcing%TemperatureAirRefHeight)
+    end if
+
+    if (.not.(allocated(noahmp%forcing%WindEastwardRefHeight))) then
+      allocate(noahmp%forcing%WindEastwardRefHeight(ITS:ITE,JTS:JTE))
+      !$acc enter data create(noahmp%forcing%WindEastwardRefHeight)
+    end if
+
+    if (.not.(allocated(noahmp%forcing%WindNorthwardRefHeight))) then
+      allocate(noahmp%forcing%WindNorthwardRefHeight(ITS:ITE,JTS:JTE))
+      !$acc enter data create(noahmp%forcing%WindNorthwardRefHeight)
+    end if
+
+    if (.not.(allocated(noahmp%forcing%RadLwDownRefHeight))) then
+      allocate(noahmp%forcing%RadLwDownRefHeight(ITS:ITE,JTS:JTE))
+      !$acc enter data create(noahmp%forcing%RadLwDownRefHeight)
+    end if
+
+    if (.not.(allocated(noahmp%forcing%RadSwDownRefHeight))) then
+      allocate(noahmp%forcing%RadSwDownRefHeight(ITS:ITE,JTS:JTE))
+      !$acc enter data create(noahmp%forcing%RadSwDownRefHeight)
+    end if
+
+    if (.not.(allocated(noahmp%forcing%PrecipConvRefHeight))) then
+      allocate(noahmp%forcing%PrecipConvRefHeight(ITS:ITE,JTS:JTE))
+      !$acc enter data create(noahmp%forcing%PrecipConvRefHeight)
+    end if
+
+    if (.not.(allocated(noahmp%forcing%PrecipNonConvRefHeight))) then
+      allocate(noahmp%forcing%PrecipNonConvRefHeight(ITS:ITE,JTS:JTE))
+      !$acc enter data create(noahmp%forcing%PrecipNonConvRefHeight)
+    end if
+
+    if (.not.(allocated(noahmp%forcing%PrecipShConvRefHeight))) then
+      allocate(noahmp%forcing%PrecipShConvRefHeight(ITS:ITE,JTS:JTE))
+      !$acc enter data create(noahmp%forcing%PrecipShConvRefHeight)
+    end if
+
+    if (.not.(allocated(noahmp%forcing%PrecipSnowRefHeight))) then
+      allocate(noahmp%forcing%PrecipSnowRefHeight(ITS:ITE,JTS:JTE))
+      !$acc enter data create(noahmp%forcing%PrecipSnowRefHeight)
+    end if
+
+    if (.not.(allocated(noahmp%forcing%PrecipGraupelRefHeight))) then
+      allocate(noahmp%forcing%PrecipGraupelRefHeight(ITS:ITE,JTS:JTE))
+      !$acc enter data create(noahmp%forcing%PrecipGraupelRefHeight)
+    end if
+
+    if (.not.(allocated(noahmp%forcing%PrecipHailRefHeight))) then
+      allocate(noahmp%forcing%PrecipHailRefHeight(ITS:ITE,JTS:JTE))
+      !$acc enter data create(noahmp%forcing%PrecipHailRefHeight)
+    end if
+
+    if (.not.(allocated(noahmp%forcing%PressureAirSurface))) then
+      allocate(noahmp%forcing%PressureAirSurface(ITS:ITE,JTS:JTE))
+      !$acc enter data create(noahmp%forcing%PressureAirSurface)
+    end if
+
+    if (.not.(allocated(noahmp%forcing%PressureAirRefHeight))) then
+      allocate(noahmp%forcing%PressureAirRefHeight(ITS:ITE,JTS:JTE))
+      !$acc enter data create(noahmp%forcing%PressureAirRefHeight)
+    end if
+
+    if (.not.(allocated(noahmp%forcing%TemperatureSoilBottom))) then
+      allocate(noahmp%forcing%TemperatureSoilBottom(ITS:ITE,JTS:JTE))
+      !$acc enter data create(noahmp%forcing%TemperatureSoilBottom)
+    end if
+
+    if (.not.(allocated(noahmp%forcing%DepBChydropho))) then
+      allocate(noahmp%forcing%DepBChydropho(ITS:ITE,JTS:JTE))
+      !$acc enter data create(noahmp%forcing%DepBChydropho)
+    end if
+
+    if (.not.(allocated(noahmp%forcing%DepBChydrophi))) then
+      allocate(noahmp%forcing%DepBChydrophi(ITS:ITE,JTS:JTE))
+      !$acc enter data create(noahmp%forcing%DepBChydrophi)
+    end if
+
+    if (.not.(allocated(noahmp%forcing%DepOChydropho))) then
+      allocate(noahmp%forcing%DepOChydropho(ITS:ITE,JTS:JTE))
+      !$acc enter data create(noahmp%forcing%DepOChydropho)
+    end if
+
+    if (.not.(allocated(noahmp%forcing%DepOChydrophi))) then
+      allocate(noahmp%forcing%DepOChydrophi(ITS:ITE,JTS:JTE))
+      !$acc enter data create(noahmp%forcing%DepOChydrophi)
+    end if
+
+    if (.not.(allocated(noahmp%forcing%DepDust1))) then
+      allocate(noahmp%forcing%DepDust1(ITS:ITE,JTS:JTE))
+      !$acc enter data create(noahmp%forcing%DepDust1)
+    end if
+
+    if (.not.(allocated(noahmp%forcing%DepDust2))) then
+      allocate(noahmp%forcing%DepDust2(ITS:ITE,JTS:JTE))
+      !$acc enter data create(noahmp%forcing%DepDust2)
+    end if
+
+    if (.not.(allocated(noahmp%forcing%DepDust3))) then
+      allocate(noahmp%forcing%DepDust3(ITS:ITE,JTS:JTE))
+      !$acc enter data create(noahmp%forcing%DepDust3)
+    end if
+
+    if (.not.(allocated(noahmp%forcing%DepDust4))) then
+      allocate(noahmp%forcing%DepDust4(ITS:ITE,JTS:JTE))
+      !$acc enter data create(noahmp%forcing%DepDust4)
+    end if
+
+    if (.not.(allocated(noahmp%forcing%DepDust5))) then
+      allocate(noahmp%forcing%DepDust5(ITS:ITE,JTS:JTE))
+      !$acc enter data create(noahmp%forcing%DepDust5)
+    end if
+
+    if (.not.(allocated(noahmp%forcing%RadSwVisFrac))) then
+      allocate(noahmp%forcing%RadSwVisFrac(ITS:ITE,JTS:JTE))
+      !$acc enter data create(noahmp%forcing%RadSwVisFrac)
+    end if
+
+    if (.not.(allocated(noahmp%forcing%RadSwDirFrac))) then
+      allocate(noahmp%forcing%RadSwDirFrac(ITS:ITE,JTS:JTE))
+      !$acc enter data create(noahmp%forcing%RadSwDirFrac)
+    end if
+
+    end associate
+
     !$acc parallel loop collapse(2) gang vector present(noahmp)
     do J = noahmp%config%domain%JTS, noahmp%config%domain%JTE
       do I = noahmp%config%domain%ITS, noahmp%config%domain%ITE

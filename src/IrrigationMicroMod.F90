@@ -41,6 +41,7 @@ contains
     do J = noahmp%config%domain%JTS, noahmp%config%domain%JTE
       do I = noahmp%config%domain%ITS, noahmp%config%domain%ITE
 
+      if ( .not.((noahmp%config%domain%FlagCropland(I,J) .eqv. .true.) .and. (noahmp%water%state%IrrigationAmtFlood(I,J) > 0.0)) ) cycle
 ! --------------------------------------------------------------------
     associate(                                                               &
               SoilTimeStep        => noahmp%config%domain%SoilTimeStep      ,& ! in,    noahmp soil time step [s]

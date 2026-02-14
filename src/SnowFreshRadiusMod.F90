@@ -37,6 +37,9 @@ contains
     do J = noahmp%config%domain%JTS, noahmp%config%domain%JTE
       do I = noahmp%config%domain%ITS, noahmp%config%domain%ITE
 
+        ! solar radiation process is only done if there is light
+        if ( noahmp%config%domain%CosSolarZenithAngle(I,J) <= 0 ) cycle
+
     associate(                                                                      &
               TemperatureAirRefHeight => noahmp%forcing%TemperatureAirRefHeight(I,J),& ! in,  air temperature [K] at reference height
               SnowRadiusMin           => noahmp%water%param%SnowRadiusMin(I,J)      ,& ! in,  minimum allowed snow effective radius (also cold "fresh snow" value) [microns]

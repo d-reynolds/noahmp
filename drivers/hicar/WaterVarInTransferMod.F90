@@ -305,8 +305,9 @@ contains
                                                 ((noahmp%water%param%SoilMoistureSat(I,1,J) / &
                                                  noahmp%water%param%SoilMoistureFieldCap(I,1,J)) * (0.412/0.468))
     endif
-
-   !  noahmp%water%state%SnowIceFracPrev(I,J) = 0.0
+    do LoopInd = -NumSnowLayerMax+1, 0
+      noahmp%water%state%SnowIceFracPrev(I,LoopInd,J) = 0.0
+    enddo
     noahmp%water%state%SnowIceFracPrev(I,NumSnowLayerNeg+1:0,J) = NoahmpIO%SNICEXY(I,NumSnowLayerNeg+1:0,J) /  & 
                                                               (NoahmpIO%SNICEXY(I,NumSnowLayerNeg+1:0,J) + &
                                                                NoahmpIO%SNLIQXY(I,NumSnowLayerNeg+1:0,J))

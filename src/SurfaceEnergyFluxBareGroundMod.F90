@@ -59,11 +59,12 @@ contains
                             noahmp%config%domain%JTS:noahmp%config%domain%JTE))
     allocate(HeatSensibleTmp(noahmp%config%domain%ITS:noahmp%config%domain%ITE, &
                              noahmp%config%domain%JTS:noahmp%config%domain%JTE))
+    !$acc data create(MoStabParaSgn, HeatSensibleTmp)
     ! begin stability iteration for ground temperature and flux
     loop3: do IndIter = 1, NumIter
 
        ! First parallel region: roughness length calculation
-       !$acc parallel loop collapse(2) gang vector present(noahmp) create(HeatSensibleTmp, MoStabParaSgn) &
+       !$acc parallel loop collapse(2) gang vector present(noahmp,HeatSensibleTmp, MoStabParaSgn) &
        !$acc private(TemperatureGrdChg, LwRadCoeff, ShCoeff, LhCoeff, GrdHeatCoeff) &
        !$acc private(ExchCoeffShTmp, ExchCoeffMomTmp, MoistureFluxSfc, VapPresSatWatTmp, VapPresSatIceTmp) &
        !$acc private(VapPresSatWatTmpD, VapPresSatIceTmpD, FluxTotCoeff, EnergyResTmp, TempTmp)
@@ -302,7 +303,7 @@ contains
       end do
     end do
     !$acc end parallel loop
-
+    !$acc end data
   end subroutine SurfaceEnergyFluxBareGround
 
 end module SurfaceEnergyFluxBareGroundMod

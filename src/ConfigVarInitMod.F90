@@ -89,54 +89,6 @@ contains
     noahmp%config%domain%NumSnicarRadBand            = undefined_int
     noahmp%config%domain%NumRadiusSnwMieSnicar       = undefined_int
 
-    ! config domain 2D arrays (set in parallel region)
-    !$acc parallel loop collapse(2) gang vector present(noahmp)
-    do J = noahmp%config%domain%JTS, noahmp%config%domain%JTE
-      do I = noahmp%config%domain%ITS, noahmp%config%domain%ITE
-
-        associate(                                                                            &
-                  FlagUrban              => noahmp%config%domain%FlagUrban(I,J)              ,&
-                  FlagCropland           => noahmp%config%domain%FlagCropland(I,J)           ,&
-                  FlagWetland            => noahmp%config%domain%FlagWetland(I,J)            ,&
-                  FlagDynamicCrop        => noahmp%config%domain%FlagDynamicCrop(I,J)        ,&
-                  FlagDynamicVeg         => noahmp%config%domain%FlagDynamicVeg(I,J)         ,&
-                  FlagSoilProcess        => noahmp%config%domain%FlagSoilProcess             ,&
-                  NumSnowLayerNeg        => noahmp%config%domain%NumSnowLayerNeg(I,J)        ,&
-                  VegType                => noahmp%config%domain%VegType(I,J)                ,&
-                  CropType               => noahmp%config%domain%CropType(I,J)               ,&
-                  SurfaceType            => noahmp%config%domain%SurfaceType(I,J)            ,&
-                  SoilColor              => noahmp%config%domain%SoilColor(I,J)              ,&
-                  IndicatorIceSfc        => noahmp%config%domain%IndicatorIceSfc(I,J)        ,&
-                  CosSolarZenithAngle    => noahmp%config%domain%CosSolarZenithAngle(I,J)    ,&
-                  RefHeightAboveSfc      => noahmp%config%domain%RefHeightAboveSfc(I,J)      ,&
-                  ThicknessAtmosBotLayer => noahmp%config%domain%ThicknessAtmosBotLayer(I,J) ,&
-                  Latitude               => noahmp%config%domain%Latitude(I,J)               ,&
-                  DepthSoilTempBottom    => noahmp%config%domain%DepthSoilTempBottom(I,J)     &
-                 )
-
-        FlagUrban              = .false.
-        FlagCropland           = .false.
-        FlagWetland            = .false.
-        FlagDynamicCrop        = .false.
-        FlagDynamicVeg         = .false.
-        FlagSoilProcess        = .false.
-        NumSnowLayerNeg        = undefined_int
-        VegType                = undefined_int
-        CropType               = undefined_int
-        SurfaceType            = undefined_int
-        SoilColor              = undefined_int
-        IndicatorIceSfc        = undefined_int
-        CosSolarZenithAngle    = undefined_real
-        RefHeightAboveSfc      = undefined_real
-        ThicknessAtmosBotLayer = undefined_real
-        Latitude               = undefined_real
-        DepthSoilTempBottom    = undefined_real
-
-        end associate
-
-      end do
-    end do
-    !$acc end parallel loop
 
   end subroutine ConfigVarInitDefault
 

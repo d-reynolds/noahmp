@@ -84,8 +84,10 @@ contains
          MassWatLiqInit(LoopInd)     = 0.0
          MassWatIceTmp(LoopInd)      = 0.0
          MassWatLiqTmp(LoopInd)      = 0.0
-         SnowFreezeRate(I,LoopInd,J) = 0.0
          SoilSupercoolWater(I,LoopInd,J) = 0.0
+         if (OptSnowAlbedo == 3) then
+            SnowFreezeRate(I,LoopInd,J) = 0.0
+         endif
     enddo
 
     ! snow layer water mass

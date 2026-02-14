@@ -34,6 +34,9 @@ contains
     do J = noahmp%config%domain%JTS, noahmp%config%domain%JTE
       do I = noahmp%config%domain%ITS, noahmp%config%domain%ITE
 
+    ! condition to cycle moved from NoahmpMainMod to here
+    if ( .not. (noahmp%config%domain%FlagDynamicCrop(I,J) .and. (noahmp%config%nmlist%OptCropModel == 1) ) ) cycle
+
 !------------------------------------------------------------------------
     associate(                                                                   &
               MainTimeStep         => noahmp%config%domain%MainTimeStep         ,& ! in,    main noahmp timestep [s]

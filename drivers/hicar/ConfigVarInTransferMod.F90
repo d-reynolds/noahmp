@@ -28,6 +28,79 @@ contains
 
     integer :: I, J, LoopInd
 
+    ! config domain variable
+    noahmp%config%domain%NumSwRadBand                = NoahmpIO%NUMRAD
+    noahmp%config%domain%NumCropGrowStage            = 8
+    noahmp%config%domain%FlagSoilProcess             = NoahmpIO%calculate_soil
+    noahmp%config%domain%NumSoilTimeStep             = NoahmpIO%soil_update_steps
+    noahmp%config%domain%NumSnowLayerMax             = NoahmpIO%NSNOW
+    noahmp%config%domain%NumSoilLayer                = NoahmpIO%NSOIL
+    noahmp%config%domain%MainTimeStep                = NoahmpIO%DTBL
+    noahmp%config%domain%SoilTimeStep                = NoahmpIO%DTBL * NoahmpIO%soil_update_steps
+    noahmp%config%domain%GridSize                    = sqrt(max(10.0,NoahmpIO%DX) * max(10.0,NoahmpIO%DY))
+    noahmp%config%domain%LandUseDataName             = NoahmpIO%LLANDUSE
+    noahmp%config%domain%DayJulianInYear             = NoahmpIO%JULIAN
+    noahmp%config%domain%NumDayInYear                = NoahmpIO%YEARLEN
+
+    noahmp%config%domain%ITS = NoahmpIO%ITS
+    noahmp%config%domain%ITE = NoahmpIO%ITE
+    noahmp%config%domain%JTS = NoahmpIO%JTS
+    noahmp%config%domain%JTE = NoahmpIO%JTE
+
+    associate(                                      &
+              NumSnowLayerMax => NoahmpIO%NSNOW    ,&
+              NumSoilLayer    => NoahmpIO%NSOIL    ,&
+              ITS             => noahmp%config%domain%ITS              ,&
+              ITE             => noahmp%config%domain%ITE              ,&
+              JTS             => noahmp%config%domain%JTS              ,&
+              JTE             => noahmp%config%domain%JTE              &
+             )
+    ! the following initialization cannot be done in ConfigVarInitMod
+    ! because the NumSoilLayer and NumSnowLayerMax are initialized with input values in this module
+    if ( .not. allocated(noahmp%config%domain%DepthSoilLayer) )          &
+       allocate( noahmp%config%domain%DepthSoilLayer(ITS:ITE,1:NumSoilLayer,JTS:JTE) )
+    if ( .not. allocated(noahmp%config%domain%ThicknessSoilLayer) )      &
+       allocate( noahmp%config%domain%ThicknessSoilLayer(ITS:ITE,1:NumSoilLayer,JTS:JTE) )
+    if ( .not. allocated(noahmp%config%domain%SoilType) )                &
+       allocate( noahmp%config%domain%SoilType(ITS:ITE,1:NumSoilLayer,JTS:JTE) )
+    if ( .not. allocated(noahmp%config%domain%ThicknessSnowSoilLayer) )  &
+       allocate( noahmp%config%domain%ThicknessSnowSoilLayer(ITS:ITE,-NumSnowLayerMax+1:NumSoilLayer,JTS:JTE) )
+    if ( .not. allocated(noahmp%config%domain%DepthSnowSoilLayer) )      &
+       allocate( noahmp%config%domain%DepthSnowSoilLayer(ITS:ITE,-NumSnowLayerMax+1:NumSoilLayer,JTS:JTE) )
+    if ( .not. allocated(noahmp%config%domain%VegType) )                &
+       allocate( noahmp%config%domain%VegType(ITS:ITE,JTS:JTE) )
+      if ( .not. allocated(noahmp%config%domain%CropType) )                &
+         allocate( noahmp%config%domain%CropType(ITS:ITE,JTS:JTE) )
+      if ( .not. allocated(noahmp%config%domain%Latitude) )               &
+         allocate( noahmp%config%domain%Latitude(ITS:ITE,JTS:JTE) )
+      if ( .not. allocated(noahmp%config%domain%SurfaceType) )            &
+         allocate( noahmp%config%domain%SurfaceType(ITS:ITE,JTS:JTE) )
+      if ( .not. allocated(noahmp%config%domain%FlagUrban) )               &
+         allocate( noahmp%config%domain%FlagUrban(ITS:ITE,JTS:JTE) )
+      if ( .not. allocated(noahmp%config%domain%SoilColor) )             &
+         allocate( noahmp%config%domain%SoilColor(ITS:ITE,JTS:JTE) )
+      if ( .not. allocated(noahmp%config%domain%FlagCropland) )       &
+         allocate( noahmp%config%domain%FlagCropland(ITS:ITE,JTS:JTE) )
+      if ( .not. allocated(noahmp%config%domain%FlagWetland) )       &
+         allocate( noahmp%config%domain%FlagWetland(ITS:ITE,JTS:JTE) )
+      if ( .not. allocated(noahmp%config%domain%FlagDynamicCrop) )       &
+         allocate( noahmp%config%domain%FlagDynamicCrop(ITS:ITE,JTS:JTE) )
+      if ( .not. allocated(noahmp%config%domain%FlagDynamicVeg) )       &
+         allocate( noahmp%config%domain%FlagDynamicVeg(ITS:ITE,JTS:JTE) )
+      if ( .not. allocated(noahmp%config%domain%NumSnowLayerNeg) )       &
+         allocate( noahmp%config%domain%NumSnowLayerNeg(ITS:ITE,JTS:JTE) )
+      if ( .not. allocated(noahmp%config%domain%IndicatorIceSfc) )       &
+         allocate( noahmp%config%domain%IndicatorIceSfc(ITS:ITE,JTS:JTE) )
+      if ( .not. allocated(noahmp%config%domain%DepthSoilTempBottom) )     &
+         allocate( noahmp%config%domain%DepthSoilTempBottom(ITS:ITE,JTS:JTE) )
+    if ( .not. allocated(noahmp%config%domain%RefHeightAboveSfc) )      &
+       allocate( noahmp%config%domain%RefHeightAboveSfc(ITS:ITE,JTS:JTE) )
+    if ( .not. allocated(noahmp%config%domain%ThicknessAtmosBotLayer) ) &
+       allocate( noahmp%config%domain%ThicknessAtmosBotLayer(ITS:ITE,JTS:JTE) )
+    if ( .not. allocated(noahmp%config%domain%CosSolarZenithAngle) )    &
+       allocate( noahmp%config%domain%CosSolarZenithAngle(ITS:ITE,JTS:JTE) )
+   end associate
+
     !$acc parallel loop collapse(2) gang vector present(noahmp, NoahmpIO) private(I, J)
       do J = noahmp%config%domain%JTS, noahmp%config%domain%JTE
          do I = noahmp%config%domain%ITS, noahmp%config%domain%ITE
@@ -41,6 +114,27 @@ contains
               JTE             => noahmp%config%domain%JTE              &
              )
 ! ---------------------------------------------------------------------
+
+    ! initial setting default values of 2D config arrays -- moved from ConfigVarInitMod,
+    ! since these arrays are only allocated above and not earlier
+
+      noahmp%config%domain%FlagUrban(I,J)              = .false.
+      noahmp%config%domain%FlagCropland(I,J)           = .false.
+      noahmp%config%domain%FlagWetland(I,J)            = .false.
+      noahmp%config%domain%FlagDynamicCrop(I,J)        = .false.
+      noahmp%config%domain%FlagDynamicVeg(I,J)         = .false.
+      noahmp%config%domain%NumSnowLayerNeg(I,J)        = undefined_int
+      noahmp%config%domain%VegType(I,J)                = undefined_int
+      noahmp%config%domain%CropType(I,J)               = undefined_int
+      noahmp%config%domain%SurfaceType(I,J)            = undefined_int
+      noahmp%config%domain%SoilColor(I,J)              = undefined_int
+      noahmp%config%domain%IndicatorIceSfc(I,J)        = undefined_int
+      noahmp%config%domain%CosSolarZenithAngle(I,J)    = undefined_real
+      noahmp%config%domain%RefHeightAboveSfc(I,J)      = undefined_real
+      noahmp%config%domain%ThicknessAtmosBotLayer(I,J) = undefined_real
+      noahmp%config%domain%Latitude(I,J)               = undefined_real
+      noahmp%config%domain%DepthSoilTempBottom(I,J)    = undefined_real
+
 
     ! config namelist variable
     noahmp%config%nmlist%OptDynamicVeg               = NoahmpIO%IOPT_DVEG
@@ -85,9 +179,9 @@ contains
     endif
 
     ! config domain variable
-    noahmp%config%domain%SurfaceType                 = 1
+    noahmp%config%domain%SurfaceType(I,J)                 = 1
     noahmp%config%domain%NumSwRadBand                = NoahmpIO%NUMRAD
-    noahmp%config%domain%SoilColor                   = 4
+    noahmp%config%domain%SoilColor(I,J)                   = 4
     noahmp%config%domain%NumCropGrowStage            = 8
     noahmp%config%domain%FlagSoilProcess             = NoahmpIO%calculate_soil
     noahmp%config%domain%NumSoilTimeStep             = NoahmpIO%soil_update_steps
@@ -100,7 +194,7 @@ contains
     noahmp%config%domain%LandUseDataName             = NoahmpIO%LLANDUSE
     noahmp%config%domain%VegType(I,J)                     = NoahmpIO%IVGTYP(I,J)
     noahmp%config%domain%CropType(I,J)                    = NoahmpIO%CROPCAT(I,J)
-    noahmp%config%domain%IndicatorIceSfc             = NoahmpIO%ICE
+    noahmp%config%domain%IndicatorIceSfc(I,J)             = NoahmpIO%ICE
     noahmp%config%domain%DayJulianInYear             = NoahmpIO%JULIAN
     noahmp%config%domain%NumDayInYear                = NoahmpIO%YEARLEN
     noahmp%config%domain%Latitude(I,J)                    = NoahmpIO%XLAT(I,J)
@@ -122,19 +216,6 @@ contains
        noahmp%config%domain%NumSnicarRadBand         = NoahmpIO%snicar_numrad_snw
        noahmp%config%domain%NumRadiusSnwMieSnicar    = NoahmpIO%idx_Mie_snw_mx
     endif
-
-    ! the following initialization cannot be done in ConfigVarInitMod
-    ! because the NumSoilLayer and NumSnowLayerMax are initialized with input values in this module
-    if ( .not. allocated(noahmp%config%domain%DepthSoilLayer) )          &
-       allocate( noahmp%config%domain%DepthSoilLayer(ITS:ITE,1:NumSoilLayer,JTS:JTE) )
-    if ( .not. allocated(noahmp%config%domain%ThicknessSoilLayer) )      &
-       allocate( noahmp%config%domain%ThicknessSoilLayer(ITS:ITE,1:NumSoilLayer,JTS:JTE) )
-    if ( .not. allocated(noahmp%config%domain%SoilType) )                &
-       allocate( noahmp%config%domain%SoilType(ITS:ITE,1:NumSoilLayer,JTS:JTE) )
-    if ( .not. allocated(noahmp%config%domain%ThicknessSnowSoilLayer) )  &
-       allocate( noahmp%config%domain%ThicknessSnowSoilLayer(ITS:ITE,-NumSnowLayerMax+1:NumSoilLayer,JTS:JTE) )
-    if ( .not. allocated(noahmp%config%domain%DepthSnowSoilLayer) )      &
-       allocate( noahmp%config%domain%DepthSnowSoilLayer(ITS:ITE,-NumSnowLayerMax+1:NumSoilLayer,JTS:JTE) )
     
     !$acc loop seq
     do LoopInd = 1, NumSoilLayer

@@ -88,11 +88,11 @@ contains
     ! Initialization parallel region
     !$acc parallel loop collapse(2) gang vector present(noahmp, ShGrdTmp, ShCanTmp, VegAreaIndTmp, MoStabParaSgn) &
     !$acc private(LastIter, TemperatureCanChg, TemperatureGrdChg) &
-    !$acc private(LeafAreaIndSunEff, LeafAreaIndShdEff) &
     !$acc private(VapPresSatWatTmp, VapPresSatIceTmp, VapPresSatWatTmpD, VapPresSatIceTmpD, TempTmp) &
     !$acc private(LwCoeffAir, LwCoeffCan, MoistureFluxSfc)
     do J = noahmp%config%domain%JTS, noahmp%config%domain%JTE
       do I = noahmp%config%domain%ITS, noahmp%config%domain%ITE
+       if ( .not. ((noahmp%energy%state%VegAreaIndEff(I,J) > 0.0 ) .and. (noahmp%energy%state%VegFrac(I,J) > 0)) ) cycle ! skip non-vegetated surface
 
         associate(                                                                        &
                   SnowDepth               => noahmp%water%state%SnowDepth(I,J)           ,& ! in,    snow depth [m]
@@ -129,11 +129,9 @@ contains
         MoistureFluxSfc   = 0.0
         ! limit LeafAreaIndex
         VegAreaIndTmp(I,J)     = min(6.0, VegAreaIndEff)
-        LeafAreaIndSunEff = min(6.0, LeafAreaIndSunlit)
-        LeafAreaIndShdEff = min(6.0, LeafAreaIndShade)
 
         ! saturation vapor pressure at ground temperature
-        TempTmp = min(50.0, max(-50.0, (TemperatureGrdVeg - ConstFreezePoint)))
+        TempTmp = TempUnitConv(TemperatureGrdVeg)
         call VaporPressureSaturation(TempTmp, VapPresSatWatTmp, VapPresSatIceTmp, VapPresSatWatTmpD, VapPresSatIceTmpD)
         if ( TempTmp > 0.0 ) then
            VapPresSatGrdVeg = VapPresSatWatTmp
@@ -166,9 +164,11 @@ contains
     loop1: do IndIter = 1, NumIterC
 
        ! Roughness length calculation
-       !$acc parallel loop collapse(2) gang vector present(noahmp)
+       !$acc parallel loop collapse(2) gang vector present(noahmp, ShGrdTmp, ShCanTmp, VegAreaIndTmp, MoStabParaSgn)
        do J = noahmp%config%domain%JTS, noahmp%config%domain%JTE
          do I = noahmp%config%domain%ITS, noahmp%config%domain%ITE
+            
+         if ( .not. ((noahmp%energy%state%VegAreaIndEff(I,J) > 0.0 ) .and. (noahmp%energy%state%VegFrac(I,J) > 0)) ) cycle ! skip non-vegetated surface
 
            associate(                                                                        &
                      RoughLenMomSfc          => noahmp%energy%state%RoughLenMomSfc(I,J)     ,& ! in,    roughness length [m], momentum, surface
@@ -226,6 +226,8 @@ contains
        do J = noahmp%config%domain%JTS, noahmp%config%domain%JTE
          do I = noahmp%config%domain%ITS, noahmp%config%domain%ITE
 
+        if ( .not. ((noahmp%energy%state%VegAreaIndEff(I,J) > 0.0 ) .and. (noahmp%energy%state%VegFrac(I,J) > 0)) ) cycle ! skip non-vegetated surface
+
            associate(                                                                        &
                      MainTimeStep            => noahmp%config%domain%MainTimeStep           ,& ! in,    main noahmp timestep [s]
                      RadLwDownRefHeight      => noahmp%forcing%RadLwDownRefHeight(I,J)      ,& ! in,    downward longwave radiation [W/m2] at reference height
@@ -275,7 +277,6 @@ contains
                     )
 
            ! limit LeafAreaIndex
-           VegAreaIndTmp(I,J)     = min(6.0, VegAreaIndEff)
            LeafAreaIndSunEff = min(6.0, LeafAreaIndSunlit)
            LeafAreaIndShdEff = min(6.0, LeafAreaIndShade)
 
@@ -285,7 +286,7 @@ contains
            LwCoeffCan = (2.0 - EmissivityVeg * (1.0-EmissivityGrd)) * EmissivityVeg * ConstStefanBoltzmann
 
            ! ES and d(ES)/dt evaluated at TemperatureCanopy
-           TempTmp = min(50.0, max(-50.0, (TemperatureCanopy - ConstFreezePoint)))
+           TempTmp = TempUnitConv(TemperatureCanopy)
            call VaporPressureSaturation(TempTmp, VapPresSatWatTmp, VapPresSatIceTmp, VapPresSatWatTmpD, VapPresSatIceTmpD)
            if ( TempTmp > 0.0 ) then
               VapPresSatCanopy   = VapPresSatWatTmp
@@ -353,17 +354,17 @@ contains
           !TemperatureCanopyAir = TempShGhTmp + ExchCoeffShFrac * TemperatureCanopy                        ! canopy air T; update here for consistency
 
             ! for computing M-O length in the next iteration
-            ShCanTmp = DensityAirRefHeight * ConstHeatCapacAir * (TemperatureCanopyAir-TemperatureAirRefHeight) / ResistanceShAbvCan
-            ShGrdTmp = DensityAirRefHeight * ConstHeatCapacAir * (TemperatureGrdVeg-TemperatureCanopyAir) / ResistanceShUndCan
+            ShCanTmp(I,J) = DensityAirRefHeight * ConstHeatCapacAir * (TemperatureCanopyAir-TemperatureAirRefHeight) / ResistanceShAbvCan
+            ShGrdTmp(I,J) = DensityAirRefHeight * ConstHeatCapacAir * (TemperatureGrdVeg-TemperatureCanopyAir) / ResistanceShUndCan
 
            ! consistent specific humidity from canopy air vapor pressure
            SpecHumiditySfc = (0.622 * PressureVaporCanAir) / (PressureAirRefHeight - 0.378 * PressureVaporCanAir)
-           if ( LastIter == 1 ) then
-              exit loop1
-           endif
-           if ( (IndIter >= 5) .and. (abs(TemperatureCanChg) <= 0.01) .and. (LastIter == 0) ) then
-              LastIter = 1
-           endif
+         !   if ( LastIter == 1 ) then
+         !      exit loop1
+         !   endif
+         !   if ( (IndIter >= 5) .and. (abs(TemperatureCanChg) <= 0.01) .and. (LastIter == 0) ) then
+         !      LastIter = 1
+         !   endif
 
            end associate
          end do
@@ -380,6 +381,7 @@ contains
     !$acc private(FluxTotCoeff, EnergyResTmp, ExchCoeffShAbvCanTmp, ExchCoeffShLeafTmp)
     do J = noahmp%config%domain%JTS, noahmp%config%domain%JTE
       do I = noahmp%config%domain%ITS, noahmp%config%domain%ITE
+        if ( .not. ((noahmp%energy%state%VegAreaIndEff(I,J) > 0.0 ) .and. (noahmp%energy%state%VegFrac(I,J) > 0)) ) cycle ! skip non-vegetated surface
 
         associate(                                                                        &
                   NumSnowLayerNeg         => noahmp%config%domain%NumSnowLayerNeg(I,J)   ,& ! in,    actual number of snow layers (negative)
@@ -439,8 +441,6 @@ contains
                   HeatGroundVegGrd        => noahmp%energy%flux%HeatGroundVegGrd(I,J)     & ! out,   vegetated ground heat [W/m2] (+ to soil/snow)
                  )
 
-        VegAreaIndTmp(I,J) = min(6.0, VegAreaIndEff)
-
         ! under-canopy fluxes and ground temperature
         LwCoeffAir   = -EmissivityGrd * (1.0 - EmissivityVeg) * RadLwDownRefHeight - &
                         EmissivityGrd * EmissivityVeg * ConstStefanBoltzmann * TemperatureCanopy**4
@@ -452,7 +452,7 @@ contains
         ! begin stability iteration
         !$acc loop seq
         loop2: do IndIter = 1, NumIterG
-           TempTmp = min(50.0, max(-50.0, (TemperatureGrdVeg - ConstFreezePoint)))
+           TempTmp = TempUnitConv(TemperatureGrdVeg)
            call VaporPressureSaturation(TempTmp, VapPresSatWatTmp, VapPresSatIceTmp, VapPresSatWatTmpD, VapPresSatIceTmpD)
            if ( TempTmp > 0.0 ) then
               VapPresSatGrdVeg      = VapPresSatWatTmp

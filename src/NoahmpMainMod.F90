@@ -73,7 +73,9 @@ contains
     !---------------------------------------------------------------------
     ! Sprinkler irrigation
     !--------------------------------------------------------------------- 
-
+    ! call sprinkler irrigation before canopy process to have canopy interception
+    ! Following condition now handeled inside function:
+    ! if ( (FlagCropland .eqv. .true.) .and. (IrrigationAmtSprinkler > 0.0) )
     call IrrigationSprinkler(noahmp)
 
     !---------------------------------------------------------------------
@@ -99,10 +101,14 @@ contains
     ! Biochem processes (crop and carbon)
     !--------------------------------------------------------------------- 
 
-    ! for generic vegetation - handled within BiochemNatureVegMain
+    ! for generic vegetation
+    ! Following condition now handeled inside function:
+    ! if ( FlagDynamicVeg .eqv. .true. ) 
     call BiochemNatureVegMain(noahmp)
 
     ! for explicit crop treatment - handled within BiochemCropMain
+    ! Following condition now handeled inside function:
+    ! if ( (OptCropModel == 1) .and. (FlagDynamicCrop .eqv. .true.) )
     call BiochemCropMain(noahmp)
 
     !---------------------------------------------------------------------

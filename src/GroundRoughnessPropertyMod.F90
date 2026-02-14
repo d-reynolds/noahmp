@@ -23,7 +23,7 @@ contains
 
 ! in & out variables
     type(noahmp_type)              , intent(inout) :: noahmp
-    logical, dimension(:,:), intent(in   ) :: FlagVegSfc          ! flag: true if vegetated surface
+    logical, dimension(noahmp%config%domain%ITS:noahmp%config%domain%ITE,noahmp%config%domain%JTS:noahmp%config%domain%JTE), intent(in   ) :: FlagVegSfc          ! flag: true if vegetated surface
 
 ! local variables
     integer :: I, J  ! grid indices

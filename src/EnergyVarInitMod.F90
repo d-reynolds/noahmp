@@ -40,7 +40,808 @@ contains
               NumRadiusSnwMieSnicar => noahmp%config%domain%NumRadiusSnwMieSnicar &
              )
 
+    ! Allocate 2D energy flux arrays and transfer to GPU
+    if ( .not. allocated(noahmp%energy%flux%HeatLatentCanopy) ) then
+       allocate( noahmp%energy%flux%HeatLatentCanopy(ITS:ITE,JTS:JTE) )
+       !$acc enter data create(noahmp%energy%flux%HeatLatentCanopy)
+    endif
+    if ( .not. allocated(noahmp%energy%flux%HeatLatentTransp) ) then
+       allocate( noahmp%energy%flux%HeatLatentTransp(ITS:ITE,JTS:JTE) )
+       !$acc enter data create(noahmp%energy%flux%HeatLatentTransp)
+    endif
+    if ( .not. allocated(noahmp%energy%flux%HeatLatentGrd) ) then
+       allocate( noahmp%energy%flux%HeatLatentGrd(ITS:ITE,JTS:JTE) )
+       !$acc enter data create(noahmp%energy%flux%HeatLatentGrd)
+    endif
+    if ( .not. allocated(noahmp%energy%flux%HeatLatentIrriEvap) ) then
+       allocate( noahmp%energy%flux%HeatLatentIrriEvap(ITS:ITE,JTS:JTE) )
+       !$acc enter data create(noahmp%energy%flux%HeatLatentIrriEvap)
+    endif
+    if ( .not. allocated(noahmp%energy%flux%HeatPrecipAdvCanopy) ) then
+       allocate( noahmp%energy%flux%HeatPrecipAdvCanopy(ITS:ITE,JTS:JTE) )
+       !$acc enter data create(noahmp%energy%flux%HeatPrecipAdvCanopy)
+    endif
+    if ( .not. allocated(noahmp%energy%flux%HeatPrecipAdvVegGrd) ) then
+       allocate( noahmp%energy%flux%HeatPrecipAdvVegGrd(ITS:ITE,JTS:JTE) )
+       !$acc enter data create(noahmp%energy%flux%HeatPrecipAdvVegGrd)
+    endif
+    if ( .not. allocated(noahmp%energy%flux%HeatPrecipAdvBareGrd) ) then
+       allocate( noahmp%energy%flux%HeatPrecipAdvBareGrd(ITS:ITE,JTS:JTE) )
+       !$acc enter data create(noahmp%energy%flux%HeatPrecipAdvBareGrd)
+    endif
+    if ( .not. allocated(noahmp%energy%flux%HeatPrecipAdvSfc) ) then
+       allocate( noahmp%energy%flux%HeatPrecipAdvSfc(ITS:ITE,JTS:JTE) )
+       !$acc enter data create(noahmp%energy%flux%HeatPrecipAdvSfc)
+    endif
+    if ( .not. allocated(noahmp%energy%flux%HeatSensibleCanopy) ) then
+       allocate( noahmp%energy%flux%HeatSensibleCanopy(ITS:ITE,JTS:JTE) )
+       !$acc enter data create(noahmp%energy%flux%HeatSensibleCanopy)
+    endif
+    if ( .not. allocated(noahmp%energy%flux%HeatLatentCanEvap) ) then
+       allocate( noahmp%energy%flux%HeatLatentCanEvap(ITS:ITE,JTS:JTE) )
+       !$acc enter data create(noahmp%energy%flux%HeatLatentCanEvap)
+    endif
+    if ( .not. allocated(noahmp%energy%flux%HeatSensibleVegGrd) ) then
+       allocate( noahmp%energy%flux%HeatSensibleVegGrd(ITS:ITE,JTS:JTE) )
+       !$acc enter data create(noahmp%energy%flux%HeatSensibleVegGrd)
+    endif
+    if ( .not. allocated(noahmp%energy%flux%HeatSensibleSfc) ) then
+       allocate( noahmp%energy%flux%HeatSensibleSfc(ITS:ITE,JTS:JTE) )
+       !$acc enter data create(noahmp%energy%flux%HeatSensibleSfc)
+    endif
+    if ( .not. allocated(noahmp%energy%flux%HeatLatentVegGrd) ) then
+       allocate( noahmp%energy%flux%HeatLatentVegGrd(ITS:ITE,JTS:JTE) )
+       !$acc enter data create(noahmp%energy%flux%HeatLatentVegGrd)
+    endif
+    if ( .not. allocated(noahmp%energy%flux%HeatLatentCanTransp) ) then
+       allocate( noahmp%energy%flux%HeatLatentCanTransp(ITS:ITE,JTS:JTE) )
+       !$acc enter data create(noahmp%energy%flux%HeatLatentCanTransp)
+    endif
+    if ( .not. allocated(noahmp%energy%flux%HeatGroundVegGrd) ) then
+       allocate( noahmp%energy%flux%HeatGroundVegGrd(ITS:ITE,JTS:JTE) )
+       !$acc enter data create(noahmp%energy%flux%HeatGroundVegGrd)
+    endif
+    if ( .not. allocated(noahmp%energy%flux%HeatSensibleBareGrd) ) then
+       allocate( noahmp%energy%flux%HeatSensibleBareGrd(ITS:ITE,JTS:JTE) )
+       !$acc enter data create(noahmp%energy%flux%HeatSensibleBareGrd)
+    endif
+    if ( .not. allocated(noahmp%energy%flux%HeatLatentBareGrd) ) then
+       allocate( noahmp%energy%flux%HeatLatentBareGrd(ITS:ITE,JTS:JTE) )
+       !$acc enter data create(noahmp%energy%flux%HeatLatentBareGrd)
+    endif
+    if ( .not. allocated(noahmp%energy%flux%HeatGroundBareGrd) ) then
+       allocate( noahmp%energy%flux%HeatGroundBareGrd(ITS:ITE,JTS:JTE) )
+       !$acc enter data create(noahmp%energy%flux%HeatGroundBareGrd)
+    endif
+    if ( .not. allocated(noahmp%energy%flux%HeatGroundTot) ) then
+       allocate( noahmp%energy%flux%HeatGroundTot(ITS:ITE,JTS:JTE) )
+       !$acc enter data create(noahmp%energy%flux%HeatGroundTot)
+    endif
+    if ( .not. allocated(noahmp%energy%flux%HeatGroundTotMean) ) then
+       allocate( noahmp%energy%flux%HeatGroundTotMean(ITS:ITE,JTS:JTE) )
+       !$acc enter data create(noahmp%energy%flux%HeatGroundTotMean)
+    endif
+    if ( .not. allocated(noahmp%energy%flux%HeatFromSoilBot) ) then
+       allocate( noahmp%energy%flux%HeatFromSoilBot(ITS:ITE,JTS:JTE) )
+       !$acc enter data create(noahmp%energy%flux%HeatFromSoilBot)
+    endif
+    if ( .not. allocated(noahmp%energy%flux%HeatCanStorageChg) ) then
+       allocate( noahmp%energy%flux%HeatCanStorageChg(ITS:ITE,JTS:JTE) )
+       !$acc enter data create(noahmp%energy%flux%HeatCanStorageChg)
+    endif
+    if ( .not. allocated(noahmp%energy%flux%HeatGroundTotAcc) ) then
+       allocate( noahmp%energy%flux%HeatGroundTotAcc(ITS:ITE,JTS:JTE) )
+       !$acc enter data create(noahmp%energy%flux%HeatGroundTotAcc)
+    endif
+    if ( .not. allocated(noahmp%energy%flux%RadPhotoActAbsSunlit) ) then
+       allocate( noahmp%energy%flux%RadPhotoActAbsSunlit(ITS:ITE,JTS:JTE) )
+       !$acc enter data create(noahmp%energy%flux%RadPhotoActAbsSunlit)
+    endif
+    if ( .not. allocated(noahmp%energy%flux%RadPhotoActAbsShade) ) then
+       allocate( noahmp%energy%flux%RadPhotoActAbsShade(ITS:ITE,JTS:JTE) )
+       !$acc enter data create(noahmp%energy%flux%RadPhotoActAbsShade)
+    endif
+    if ( .not. allocated(noahmp%energy%flux%RadSwAbsVeg) ) then
+       allocate( noahmp%energy%flux%RadSwAbsVeg(ITS:ITE,JTS:JTE) )
+       !$acc enter data create(noahmp%energy%flux%RadSwAbsVeg)
+    endif
+    if ( .not. allocated(noahmp%energy%flux%RadSwAbsGrd) ) then
+       allocate( noahmp%energy%flux%RadSwAbsGrd(ITS:ITE,JTS:JTE) )
+       !$acc enter data create(noahmp%energy%flux%RadSwAbsGrd)
+    endif
+    if ( .not. allocated(noahmp%energy%flux%RadSwAbsSfc) ) then
+       allocate( noahmp%energy%flux%RadSwAbsSfc(ITS:ITE,JTS:JTE) )
+       !$acc enter data create(noahmp%energy%flux%RadSwAbsSfc)
+    endif
+    if ( .not. allocated(noahmp%energy%flux%RadSwReflSfc) ) then
+       allocate( noahmp%energy%flux%RadSwReflSfc(ITS:ITE,JTS:JTE) )
+       !$acc enter data create(noahmp%energy%flux%RadSwReflSfc)
+    endif
+    if ( .not. allocated(noahmp%energy%flux%RadSwReflVeg) ) then
+       allocate( noahmp%energy%flux%RadSwReflVeg(ITS:ITE,JTS:JTE) )
+       !$acc enter data create(noahmp%energy%flux%RadSwReflVeg)
+    endif
+    if ( .not. allocated(noahmp%energy%flux%RadSwReflGrd) ) then
+       allocate( noahmp%energy%flux%RadSwReflGrd(ITS:ITE,JTS:JTE) )
+       !$acc enter data create(noahmp%energy%flux%RadSwReflGrd)
+    endif
+    if ( .not. allocated(noahmp%energy%flux%RadLwNetCanopy) ) then
+       allocate( noahmp%energy%flux%RadLwNetCanopy(ITS:ITE,JTS:JTE) )
+       !$acc enter data create(noahmp%energy%flux%RadLwNetCanopy)
+    endif
+    if ( .not. allocated(noahmp%energy%flux%RadLwNetSfc) ) then
+       allocate( noahmp%energy%flux%RadLwNetSfc(ITS:ITE,JTS:JTE) )
+       !$acc enter data create(noahmp%energy%flux%RadLwNetSfc)
+    endif
+    if ( .not. allocated(noahmp%energy%flux%RadPhotoActAbsCan) ) then
+       allocate( noahmp%energy%flux%RadPhotoActAbsCan(ITS:ITE,JTS:JTE) )
+       !$acc enter data create(noahmp%energy%flux%RadPhotoActAbsCan)
+    endif
+    if ( .not. allocated(noahmp%energy%flux%RadLwEmitSfc) ) then
+       allocate( noahmp%energy%flux%RadLwEmitSfc(ITS:ITE,JTS:JTE) )
+       !$acc enter data create(noahmp%energy%flux%RadLwEmitSfc)
+    endif
+    if ( .not. allocated(noahmp%energy%flux%RadLwNetVegGrd) ) then
+       allocate( noahmp%energy%flux%RadLwNetVegGrd(ITS:ITE,JTS:JTE) )
+       !$acc enter data create(noahmp%energy%flux%RadLwNetVegGrd)
+    endif
+    if ( .not. allocated(noahmp%energy%flux%RadLwNetBareGrd) ) then
+       allocate( noahmp%energy%flux%RadLwNetBareGrd(ITS:ITE,JTS:JTE) )
+       !$acc enter data create(noahmp%energy%flux%RadLwNetBareGrd)
+    endif
+
     ! Allocate 3D energy state arrays and transfer to GPU
+
+    if (.not. allocated(noahmp%energy%state%FlagFrozenCanopy) ) then
+       allocate( noahmp%energy%state%FlagFrozenCanopy(ITS:ITE,JTS:JTE) )
+       !$acc enter data create(noahmp%energy%state%FlagFrozenCanopy)
+    end if
+
+    if ( .not. allocated(noahmp%energy%state%FlagFrozenGround) ) then
+       allocate( noahmp%energy%state%FlagFrozenGround(ITS:ITE,JTS:JTE) )
+       !$acc enter data create(noahmp%energy%state%FlagFrozenGround)
+    end if
+
+    if ( .not. allocated(noahmp%energy%state%LeafAreaIndEff) ) then
+       allocate( noahmp%energy%state%LeafAreaIndEff(ITS:ITE,JTS:JTE) )
+       !$acc enter data create(noahmp%energy%state%LeafAreaIndEff)
+    end if
+
+    if ( .not. allocated(noahmp%energy%state%StemAreaIndEff) ) then
+       allocate( noahmp%energy%state%StemAreaIndEff(ITS:ITE,JTS:JTE) )
+       !$acc enter data create(noahmp%energy%state%StemAreaIndEff)
+    end if
+
+    if ( .not. allocated(noahmp%energy%state%LeafAreaIndex) ) then
+       allocate( noahmp%energy%state%LeafAreaIndex(ITS:ITE,JTS:JTE) )
+       !$acc enter data create(noahmp%energy%state%LeafAreaIndex)
+    end if
+
+    if ( .not. allocated(noahmp%energy%state%StemAreaIndex) ) then
+       allocate( noahmp%energy%state%StemAreaIndex(ITS:ITE,JTS:JTE) )
+       !$acc enter data create(noahmp%energy%state%StemAreaIndex)
+    end if
+
+    if ( .not. allocated(noahmp%energy%state%VegAreaIndEff) ) then
+       allocate( noahmp%energy%state%VegAreaIndEff(ITS:ITE,JTS:JTE) )
+       !$acc enter data create(noahmp%energy%state%VegAreaIndEff)
+    end if
+
+    if ( .not. allocated(noahmp%energy%state%VegFrac) ) then
+       allocate( noahmp%energy%state%VegFrac(ITS:ITE,JTS:JTE) )
+       !$acc enter data create(noahmp%energy%state%VegFrac)
+    end if
+
+    if ( .not. allocated(noahmp%energy%state%TemperatureGrd) ) then
+       allocate( noahmp%energy%state%TemperatureGrd(ITS:ITE,JTS:JTE) )
+       !$acc enter data create(noahmp%energy%state%TemperatureGrd)
+    end if
+
+    if ( .not. allocated(noahmp%energy%state%TemperatureCanopy) ) then
+       allocate( noahmp%energy%state%TemperatureCanopy(ITS:ITE,JTS:JTE) )
+       !$acc enter data create(noahmp%energy%state%TemperatureCanopy)
+    end if
+
+    if ( .not. allocated(noahmp%energy%state%TemperatureSfc) ) then
+       allocate( noahmp%energy%state%TemperatureSfc(ITS:ITE,JTS:JTE) )
+       !$acc enter data create(noahmp%energy%state%TemperatureSfc)
+    end if
+
+    if ( .not. allocated(noahmp%energy%state%TemperatureRootZone) ) then
+       allocate( noahmp%energy%state%TemperatureRootZone(ITS:ITE,JTS:JTE) )
+       !$acc enter data create(noahmp%energy%state%TemperatureRootZone)
+    end if
+
+    if ( .not. allocated(noahmp%energy%state%PressureVaporRefHeight) ) then
+       allocate( noahmp%energy%state%PressureVaporRefHeight(ITS:ITE,JTS:JTE) )
+       !$acc enter data create(noahmp%energy%state%PressureVaporRefHeight)
+    end if
+
+    if ( .not. allocated(noahmp%energy%state%SnowAgeFac) ) then
+       allocate( noahmp%energy%state%SnowAgeFac(ITS:ITE,JTS:JTE) )
+       !$acc enter data create(noahmp%energy%state%SnowAgeFac)
+    end if
+
+    if ( .not. allocated(noahmp%energy%state%SnowAgeNondim) ) then
+       allocate( noahmp%energy%state%SnowAgeNondim(ITS:ITE,JTS:JTE) )
+       !$acc enter data create(noahmp%energy%state%SnowAgeNondim)
+    end if
+
+    if ( .not. allocated(noahmp%energy%state%AlbedoSnowPrev) ) then
+       allocate( noahmp%energy%state%AlbedoSnowPrev(ITS:ITE,JTS:JTE) )
+       !$acc enter data create(noahmp%energy%state%AlbedoSnowPrev)
+    end if
+
+    if ( .not. allocated(noahmp%energy%state%VegAreaProjDir) ) then
+       allocate( noahmp%energy%state%VegAreaProjDir(ITS:ITE,JTS:JTE) )
+       !$acc enter data create(noahmp%energy%state%VegAreaProjDir)
+    end if
+
+    if ( .not. allocated(noahmp%energy%state%GapBtwCanopy) ) then
+       allocate( noahmp%energy%state%GapBtwCanopy(ITS:ITE,JTS:JTE) )
+       !$acc enter data create(noahmp%energy%state%GapBtwCanopy)
+    end if
+
+    if ( .not. allocated(noahmp%energy%state%GapInCanopy) ) then
+       allocate( noahmp%energy%state%GapInCanopy(ITS:ITE,JTS:JTE) )
+       !$acc enter data create(noahmp%energy%state%GapInCanopy)
+    end if
+
+    if ( .not. allocated(noahmp%energy%state%GapCanopyDif) ) then
+       allocate( noahmp%energy%state%GapCanopyDif(ITS:ITE,JTS:JTE) )
+       !$acc enter data create(noahmp%energy%state%GapCanopyDif)
+    end if
+
+    if ( .not. allocated(noahmp%energy%state%GapCanopyDir) ) then
+       allocate( noahmp%energy%state%GapCanopyDir(ITS:ITE,JTS:JTE) )
+       !$acc enter data create(noahmp%energy%state%GapCanopyDir)
+    end if
+
+    if ( .not. allocated(noahmp%energy%state%CanopySunlitFrac) ) then
+       allocate( noahmp%energy%state%CanopySunlitFrac(ITS:ITE,JTS:JTE) )
+       !$acc enter data create(noahmp%energy%state%CanopySunlitFrac)
+    end if
+
+    if ( .not. allocated(noahmp%energy%state%CanopyShadeFrac) ) then
+       allocate( noahmp%energy%state%CanopyShadeFrac(ITS:ITE,JTS:JTE) )
+       !$acc enter data create(noahmp%energy%state%CanopyShadeFrac)
+    end if
+
+    if ( .not. allocated(noahmp%energy%state%LeafAreaIndSunlit) ) then
+       allocate( noahmp%energy%state%LeafAreaIndSunlit(ITS:ITE,JTS:JTE) )
+       !$acc enter data create(noahmp%energy%state%LeafAreaIndSunlit)
+    end if
+
+    if ( .not. allocated(noahmp%energy%state%LeafAreaIndShade) ) then
+       allocate( noahmp%energy%state%LeafAreaIndShade(ITS:ITE,JTS:JTE) )
+       !$acc enter data create(noahmp%energy%state%LeafAreaIndShade)
+    end if
+
+    if ( .not. allocated(noahmp%energy%state%VapPresSatCanopy) ) then
+       allocate( noahmp%energy%state%VapPresSatCanopy(ITS:ITE,JTS:JTE) )
+       !$acc enter data create(noahmp%energy%state%VapPresSatCanopy)
+    end if
+
+    if ( .not. allocated(noahmp%energy%state%VapPresSatGrdVeg) ) then
+       allocate( noahmp%energy%state%VapPresSatGrdVeg(ITS:ITE,JTS:JTE) )
+       !$acc enter data create(noahmp%energy%state%VapPresSatGrdVeg)
+    end if
+
+    if ( .not. allocated(noahmp%energy%state%VapPresSatGrdBare) ) then
+       allocate( noahmp%energy%state%VapPresSatGrdBare(ITS:ITE,JTS:JTE) )
+       !$acc enter data create(noahmp%energy%state%VapPresSatGrdBare)
+    end if
+
+    if ( .not. allocated(noahmp%energy%state%VapPresSatCanTempD) ) then
+       allocate( noahmp%energy%state%VapPresSatCanTempD(ITS:ITE,JTS:JTE) )
+       !$acc enter data create(noahmp%energy%state%VapPresSatCanTempD)
+    end if
+
+    if ( .not. allocated(noahmp%energy%state%VapPresSatGrdVegTempD) ) then
+       allocate( noahmp%energy%state%VapPresSatGrdVegTempD(ITS:ITE,JTS:JTE) )
+       !$acc enter data create(noahmp%energy%state%VapPresSatGrdVegTempD)
+    end if
+
+    if ( .not. allocated(noahmp%energy%state%VapPresSatGrdBareTempD) ) then
+       allocate( noahmp%energy%state%VapPresSatGrdBareTempD(ITS:ITE,JTS:JTE) )
+       !$acc enter data create(noahmp%energy%state%VapPresSatGrdBareTempD)
+    end if
+
+    if ( .not. allocated(noahmp%energy%state%PressureVaporCanAir) ) then
+       allocate( noahmp%energy%state%PressureVaporCanAir(ITS:ITE,JTS:JTE) )
+       !$acc enter data create(noahmp%energy%state%PressureVaporCanAir)
+    end if
+
+    if ( .not. allocated(noahmp%energy%state%PressureAtmosCO2) ) then
+       allocate( noahmp%energy%state%PressureAtmosCO2(ITS:ITE,JTS:JTE) )
+       !$acc enter data create(noahmp%energy%state%PressureAtmosCO2)
+    end if
+
+    if ( .not. allocated(noahmp%energy%state%PressureAtmosO2) ) then
+       allocate( noahmp%energy%state%PressureAtmosO2(ITS:ITE,JTS:JTE) )
+       !$acc enter data create(noahmp%energy%state%PressureAtmosO2)
+    end if
+
+    if ( .not. allocated(noahmp%energy%state%ResistanceStomataSunlit) ) then
+       allocate( noahmp%energy%state%ResistanceStomataSunlit(ITS:ITE,JTS:JTE) )
+       !$acc enter data create(noahmp%energy%state%ResistanceStomataSunlit)
+    end if
+
+    if ( .not. allocated(noahmp%energy%state%ResistanceStomataShade) ) then
+       allocate( noahmp%energy%state%ResistanceStomataShade(ITS:ITE,JTS:JTE) )
+       !$acc enter data create(noahmp%energy%state%ResistanceStomataShade)
+    end if
+
+    if ( .not. allocated(noahmp%energy%state%DensityAirRefHeight) ) then
+       allocate( noahmp%energy%state%DensityAirRefHeight(ITS:ITE,JTS:JTE) )
+       !$acc enter data create(noahmp%energy%state%DensityAirRefHeight)
+    end if
+
+    if ( .not. allocated(noahmp%energy%state%TemperatureCanopyAir) ) then
+       allocate( noahmp%energy%state%TemperatureCanopyAir(ITS:ITE,JTS:JTE) )
+       !$acc enter data create(noahmp%energy%state%TemperatureCanopyAir)
+    end if
+
+    if ( .not. allocated(noahmp%energy%state%ZeroPlaneDispSfc) ) then
+       allocate( noahmp%energy%state%ZeroPlaneDispSfc(ITS:ITE,JTS:JTE) )
+       !$acc enter data create(noahmp%energy%state%ZeroPlaneDispSfc)
+    end if
+
+    if ( .not. allocated(noahmp%energy%state%ZeroPlaneDispGrd) ) then
+       allocate( noahmp%energy%state%ZeroPlaneDispGrd(ITS:ITE,JTS:JTE) )
+       !$acc enter data create(noahmp%energy%state%ZeroPlaneDispGrd)
+    end if
+
+    if ( .not. allocated(noahmp%energy%state%RoughLenMomGrd) ) then
+       allocate( noahmp%energy%state%RoughLenMomGrd(ITS:ITE,JTS:JTE) )
+       !$acc enter data create(noahmp%energy%state%RoughLenMomGrd)
+    end if
+
+    if ( .not. allocated(noahmp%energy%state%RoughLenMomSfc) ) then
+       allocate( noahmp%energy%state%RoughLenMomSfc(ITS:ITE,JTS:JTE) )
+       !$acc enter data create(noahmp%energy%state%RoughLenMomSfc)
+    end if
+
+    if ( .not. allocated(noahmp%energy%state%RoughLenShCanopy) ) then
+       allocate( noahmp%energy%state%RoughLenShCanopy(ITS:ITE,JTS:JTE) )
+       !$acc enter data create(noahmp%energy%state%RoughLenShCanopy)
+    end if
+
+    if ( .not. allocated(noahmp%energy%state%RoughLenShVegGrd) ) then
+       allocate( noahmp%energy%state%RoughLenShVegGrd(ITS:ITE,JTS:JTE) )
+       !$acc enter data create(noahmp%energy%state%RoughLenShVegGrd)
+    end if
+
+    if ( .not. allocated(noahmp%energy%state%RoughLenShBareGrd) ) then
+       allocate( noahmp%energy%state%RoughLenShBareGrd(ITS:ITE,JTS:JTE) )
+       !$acc enter data create(noahmp%energy%state%RoughLenShBareGrd)
+    end if
+
+    if ( .not. allocated(noahmp%energy%state%CanopyHeight) ) then
+       allocate( noahmp%energy%state%CanopyHeight(ITS:ITE,JTS:JTE) )
+       !$acc enter data create(noahmp%energy%state%CanopyHeight)
+    end if
+
+    if ( .not. allocated(noahmp%energy%state%WindSpdCanopyTop) ) then
+       allocate( noahmp%energy%state%WindSpdCanopyTop(ITS:ITE,JTS:JTE) )
+       !$acc enter data create(noahmp%energy%state%WindSpdCanopyTop)
+    end if
+
+    if ( .not. allocated(noahmp%energy%state%FrictionVelVeg) ) then
+       allocate( noahmp%energy%state%FrictionVelVeg(ITS:ITE,JTS:JTE) )
+       !$acc enter data create(noahmp%energy%state%FrictionVelVeg)
+    end if
+
+    if ( .not. allocated(noahmp%energy%state%FrictionVelBare) ) then
+       allocate( noahmp%energy%state%FrictionVelBare(ITS:ITE,JTS:JTE) )
+       !$acc enter data create(noahmp%energy%state%FrictionVelBare)
+    end if
+
+    if ( .not. allocated(noahmp%energy%state%WindExtCoeffCanopy) ) then
+       allocate( noahmp%energy%state%WindExtCoeffCanopy(ITS:ITE,JTS:JTE) )
+       !$acc enter data create(noahmp%energy%state%WindExtCoeffCanopy)
+    end if
+
+    if ( .not. allocated(noahmp%energy%state%MoStabParaUndCan) ) then
+       allocate( noahmp%energy%state%MoStabParaUndCan(ITS:ITE,JTS:JTE) )
+       !$acc enter data create(noahmp%energy%state%MoStabParaUndCan)
+    end if
+
+    if ( .not. allocated(noahmp%energy%state%MoStabParaAbvCan) ) then
+       allocate( noahmp%energy%state%MoStabParaAbvCan(ITS:ITE,JTS:JTE) )
+       !$acc enter data create(noahmp%energy%state%MoStabParaAbvCan)
+    end if
+
+    if ( .not. allocated(noahmp%energy%state%MoStabParaBare) ) then
+       allocate( noahmp%energy%state%MoStabParaBare(ITS:ITE,JTS:JTE) )
+       !$acc enter data create(noahmp%energy%state%MoStabParaBare)
+    end if
+
+    if ( .not. allocated(noahmp%energy%state%MoStabParaVeg2m) ) then
+       allocate( noahmp%energy%state%MoStabParaVeg2m(ITS:ITE,JTS:JTE) )
+       !$acc enter data create(noahmp%energy%state%MoStabParaVeg2m)
+    end if
+
+    if ( .not. allocated(noahmp%energy%state%MoStabParaBare2m) ) then
+       allocate( noahmp%energy%state%MoStabParaBare2m(ITS:ITE,JTS:JTE) )
+       !$acc enter data create(noahmp%energy%state%MoStabParaBare2m)
+    end if
+
+    if ( .not. allocated(noahmp%energy%state%MoLengthUndCan) ) then
+       allocate( noahmp%energy%state%MoLengthUndCan(ITS:ITE,JTS:JTE) )
+       !$acc enter data create(noahmp%energy%state%MoLengthUndCan)
+    end if
+
+    if ( .not. allocated(noahmp%energy%state%MoLengthAbvCan) ) then
+       allocate( noahmp%energy%state%MoLengthAbvCan(ITS:ITE,JTS:JTE) )
+       !$acc enter data create(noahmp%energy%state%MoLengthAbvCan)
+    end if
+
+    if ( .not. allocated(noahmp%energy%state%MoLengthBare) ) then
+       allocate( noahmp%energy%state%MoLengthBare(ITS:ITE,JTS:JTE) )
+       !$acc enter data create(noahmp%energy%state%MoLengthBare)
+    end if
+
+    if ( .not. allocated(noahmp%energy%state%MoStabCorrShUndCan) ) then
+       allocate( noahmp%energy%state%MoStabCorrShUndCan(ITS:ITE,JTS:JTE) )
+       !$acc enter data create(noahmp%energy%state%MoStabCorrShUndCan)
+    end if
+
+    if ( .not. allocated(noahmp%energy%state%MoStabCorrMomAbvCan) ) then
+       allocate( noahmp%energy%state%MoStabCorrMomAbvCan(ITS:ITE,JTS:JTE) )
+       !$acc enter data create(noahmp%energy%state%MoStabCorrMomAbvCan)
+    end if
+
+    if ( .not. allocated(noahmp%energy%state%MoStabCorrShAbvCan) ) then
+       allocate( noahmp%energy%state%MoStabCorrShAbvCan(ITS:ITE,JTS:JTE) )
+       !$acc enter data create(noahmp%energy%state%MoStabCorrShAbvCan)
+    end if
+
+    if ( .not. allocated(noahmp%energy%state%MoStabCorrMomVeg2m) ) then
+       allocate( noahmp%energy%state%MoStabCorrMomVeg2m(ITS:ITE,JTS:JTE) )
+       !$acc enter data create(noahmp%energy%state%MoStabCorrMomVeg2m)
+    end if
+
+    if ( .not. allocated(noahmp%energy%state%MoStabCorrShVeg2m) ) then
+       allocate( noahmp%energy%state%MoStabCorrShVeg2m(ITS:ITE,JTS:JTE) )
+       !$acc enter data create(noahmp%energy%state%MoStabCorrShVeg2m)
+    end if
+
+    if ( .not. allocated(noahmp%energy%state%MoStabCorrShBare) ) then
+       allocate( noahmp%energy%state%MoStabCorrShBare(ITS:ITE,JTS:JTE) )
+       !$acc enter data create(noahmp%energy%state%MoStabCorrShBare)
+    end if
+
+    if ( .not. allocated(noahmp%energy%state%MoStabCorrMomBare) ) then
+       allocate( noahmp%energy%state%MoStabCorrMomBare(ITS:ITE,JTS:JTE) )
+       !$acc enter data create(noahmp%energy%state%MoStabCorrMomBare)
+    end if
+
+    if ( .not. allocated(noahmp%energy%state%MoStabCorrMomBare2m) ) then
+       allocate( noahmp%energy%state%MoStabCorrMomBare2m(ITS:ITE,JTS:JTE) )
+       !$acc enter data create(noahmp%energy%state%MoStabCorrMomBare2m)
+    end if
+
+    if ( .not. allocated(noahmp%energy%state%MoStabCorrShBare2m) ) then
+       allocate( noahmp%energy%state%MoStabCorrShBare2m(ITS:ITE,JTS:JTE) )
+       !$acc enter data create(noahmp%energy%state%MoStabCorrShBare2m)
+    end if
+
+    if ( .not. allocated(noahmp%energy%state%ExchCoeffMomSfc) ) then
+       allocate( noahmp%energy%state%ExchCoeffMomSfc(ITS:ITE,JTS:JTE) )
+       !$acc enter data create(noahmp%energy%state%ExchCoeffMomSfc)
+    end if
+
+    if ( .not. allocated(noahmp%energy%state%ExchCoeffMomAbvCan) ) then
+       allocate( noahmp%energy%state%ExchCoeffMomAbvCan(ITS:ITE,JTS:JTE) )
+       !$acc enter data create(noahmp%energy%state%ExchCoeffMomAbvCan)
+    end if
+
+    if ( .not. allocated(noahmp%energy%state%ExchCoeffMomBare) ) then
+       allocate( noahmp%energy%state%ExchCoeffMomBare(ITS:ITE,JTS:JTE) )
+       !$acc enter data create(noahmp%energy%state%ExchCoeffMomBare)
+    end if
+
+    if ( .not. allocated(noahmp%energy%state%ExchCoeffShSfc) ) then
+       allocate( noahmp%energy%state%ExchCoeffShSfc(ITS:ITE,JTS:JTE) )
+       !$acc enter data create(noahmp%energy%state%ExchCoeffShSfc)
+    end if
+
+    if ( .not. allocated(noahmp%energy%state%ExchCoeffShAbvCan) ) then
+       allocate( noahmp%energy%state%ExchCoeffShAbvCan(ITS:ITE,JTS:JTE) )
+       !$acc enter data create(noahmp%energy%state%ExchCoeffShAbvCan)
+    end if
+
+    if ( .not. allocated(noahmp%energy%state%ExchCoeffShBare) ) then
+       allocate( noahmp%energy%state%ExchCoeffShBare(ITS:ITE,JTS:JTE) )
+       !$acc enter data create(noahmp%energy%state%ExchCoeffShBare)
+    end if
+
+    if ( .not. allocated(noahmp%energy%state%ExchCoeffSh2mVegMo) ) then
+       allocate( noahmp%energy%state%ExchCoeffSh2mVegMo(ITS:ITE,JTS:JTE) )
+       !$acc enter data create(noahmp%energy%state%ExchCoeffSh2mVegMo)
+    end if
+
+    if ( .not. allocated(noahmp%energy%state%ExchCoeffSh2mBareMo) ) then
+       allocate( noahmp%energy%state%ExchCoeffSh2mBareMo(ITS:ITE,JTS:JTE) )
+       !$acc enter data create(noahmp%energy%state%ExchCoeffSh2mBareMo)
+    end if
+
+    if ( .not. allocated(noahmp%energy%state%ExchCoeffSh2mVeg) ) then
+       allocate( noahmp%energy%state%ExchCoeffSh2mVeg(ITS:ITE,JTS:JTE) )
+       !$acc enter data create(noahmp%energy%state%ExchCoeffSh2mVeg)
+    end if
+
+    if ( .not. allocated(noahmp%energy%state%ExchCoeffLhAbvCan) ) then
+       allocate( noahmp%energy%state%ExchCoeffLhAbvCan(ITS:ITE,JTS:JTE) )
+       !$acc enter data create(noahmp%energy%state%ExchCoeffLhAbvCan)
+    end if
+
+    if ( .not. allocated(noahmp%energy%state%ExchCoeffLhTransp) ) then
+       allocate( noahmp%energy%state%ExchCoeffLhTransp(ITS:ITE,JTS:JTE) )
+       !$acc enter data create(noahmp%energy%state%ExchCoeffLhTransp)
+    end if
+
+    if ( .not. allocated(noahmp%energy%state%ExchCoeffLhEvap) ) then
+       allocate( noahmp%energy%state%ExchCoeffLhEvap(ITS:ITE,JTS:JTE) )
+       !$acc enter data create(noahmp%energy%state%ExchCoeffLhEvap)
+    end if
+
+    if ( .not. allocated(noahmp%energy%state%ExchCoeffLhUndCan) ) then
+       allocate( noahmp%energy%state%ExchCoeffLhUndCan(ITS:ITE,JTS:JTE) )
+       !$acc enter data create(noahmp%energy%state%ExchCoeffLhUndCan)
+    end if
+
+    if ( .not. allocated(noahmp%energy%state%ResistanceMomUndCan) ) then
+       allocate( noahmp%energy%state%ResistanceMomUndCan(ITS:ITE,JTS:JTE) )
+       !$acc enter data create(noahmp%energy%state%ResistanceMomUndCan)
+    end if
+
+    if ( .not. allocated(noahmp%energy%state%ResistanceShUndCan) ) then
+       allocate( noahmp%energy%state%ResistanceShUndCan(ITS:ITE,JTS:JTE) )
+       !$acc enter data create(noahmp%energy%state%ResistanceShUndCan)
+    end if
+
+    if ( .not. allocated(noahmp%energy%state%ResistanceLhUndCan) ) then
+       allocate( noahmp%energy%state%ResistanceLhUndCan(ITS:ITE,JTS:JTE) )
+       !$acc enter data create(noahmp%energy%state%ResistanceLhUndCan)
+    end if
+
+    if ( .not. allocated(noahmp%energy%state%ResistanceMomAbvCan) ) then
+       allocate( noahmp%energy%state%ResistanceMomAbvCan(ITS:ITE,JTS:JTE) )
+       !$acc enter data create(noahmp%energy%state%ResistanceMomAbvCan)
+    end if
+
+    if ( .not. allocated(noahmp%energy%state%ResistanceShAbvCan) ) then
+       allocate( noahmp%energy%state%ResistanceShAbvCan(ITS:ITE,JTS:JTE) )
+       !$acc enter data create(noahmp%energy%state%ResistanceShAbvCan)
+    end if
+
+    if ( .not. allocated(noahmp%energy%state%ResistanceLhAbvCan) ) then
+       allocate( noahmp%energy%state%ResistanceLhAbvCan(ITS:ITE,JTS:JTE) )
+       !$acc enter data create(noahmp%energy%state%ResistanceLhAbvCan)
+    end if
+
+    if ( .not. allocated(noahmp%energy%state%ResistanceMomBareGrd) ) then
+       allocate( noahmp%energy%state%ResistanceMomBareGrd(ITS:ITE,JTS:JTE) )
+       !$acc enter data create(noahmp%energy%state%ResistanceMomBareGrd)
+    end if
+
+    if ( .not. allocated(noahmp%energy%state%ResistanceShBareGrd) ) then
+       allocate( noahmp%energy%state%ResistanceShBareGrd(ITS:ITE,JTS:JTE) )
+       !$acc enter data create(noahmp%energy%state%ResistanceShBareGrd)
+    end if
+
+    if ( .not. allocated(noahmp%energy%state%ResistanceLhBareGrd) ) then
+       allocate( noahmp%energy%state%ResistanceLhBareGrd(ITS:ITE,JTS:JTE) )
+       !$acc enter data create(noahmp%energy%state%ResistanceLhBareGrd)
+    end if
+
+    if ( .not. allocated(noahmp%energy%state%ResistanceLeafBoundary) ) then
+       allocate( noahmp%energy%state%ResistanceLeafBoundary(ITS:ITE,JTS:JTE) )
+       !$acc enter data create(noahmp%energy%state%ResistanceLeafBoundary)
+    end if
+
+    if ( .not. allocated(noahmp%energy%state%TemperaturePotRefHeight) ) then
+       allocate( noahmp%energy%state%TemperaturePotRefHeight(ITS:ITE,JTS:JTE) )
+       !$acc enter data create(noahmp%energy%state%TemperaturePotRefHeight)
+    end if
+
+    if ( .not. allocated(noahmp%energy%state%WindSpdRefHeight) ) then
+       allocate( noahmp%energy%state%WindSpdRefHeight(ITS:ITE,JTS:JTE) )
+       !$acc enter data create(noahmp%energy%state%WindSpdRefHeight)
+    end if
+
+    if ( .not. allocated(noahmp%energy%state%FrictionVelVertVeg) ) then
+       allocate( noahmp%energy%state%FrictionVelVertVeg(ITS:ITE,JTS:JTE) )
+       !$acc enter data create(noahmp%energy%state%FrictionVelVertVeg)
+    end if
+
+    if ( .not. allocated(noahmp%energy%state%FrictionVelVertBare) ) then
+       allocate( noahmp%energy%state%FrictionVelVertBare(ITS:ITE,JTS:JTE) )
+       !$acc enter data create(noahmp%energy%state%FrictionVelVertBare)
+    end if
+
+    if ( .not. allocated(noahmp%energy%state%EmissivityVeg) ) then
+       allocate( noahmp%energy%state%EmissivityVeg(ITS:ITE,JTS:JTE) )
+       !$acc enter data create(noahmp%energy%state%EmissivityVeg)
+    end if
+
+    if ( .not. allocated(noahmp%energy%state%EmissivityGrd) ) then
+       allocate( noahmp%energy%state%EmissivityGrd(ITS:ITE,JTS:JTE) )
+       !$acc enter data create(noahmp%energy%state%EmissivityGrd)
+    end if
+
+    if ( .not. allocated(noahmp%energy%state%ResistanceGrdEvap) ) then
+       allocate( noahmp%energy%state%ResistanceGrdEvap(ITS:ITE,JTS:JTE) )
+       !$acc enter data create(noahmp%energy%state%ResistanceGrdEvap)
+    end if
+
+    if ( .not. allocated(noahmp%energy%state%PsychConstCanopy) ) then
+       allocate( noahmp%energy%state%PsychConstCanopy(ITS:ITE,JTS:JTE) )
+       !$acc enter data create(noahmp%energy%state%PsychConstCanopy)
+    end if
+
+    if ( .not. allocated(noahmp%energy%state%LatHeatVapCanopy) ) then
+       allocate( noahmp%energy%state%LatHeatVapCanopy(ITS:ITE,JTS:JTE) )
+       !$acc enter data create(noahmp%energy%state%LatHeatVapCanopy)
+    end if
+
+    if ( .not. allocated(noahmp%energy%state%PsychConstGrd) ) then
+       allocate( noahmp%energy%state%PsychConstGrd(ITS:ITE,JTS:JTE) )
+       !$acc enter data create(noahmp%energy%state%PsychConstGrd)
+    end if
+
+    if ( .not. allocated(noahmp%energy%state%LatHeatVapGrd) ) then
+       allocate( noahmp%energy%state%LatHeatVapGrd(ITS:ITE,JTS:JTE) )
+       !$acc enter data create(noahmp%energy%state%LatHeatVapGrd)
+    end if
+
+    if ( .not. allocated(noahmp%energy%state%RelHumidityGrd) ) then
+       allocate( noahmp%energy%state%RelHumidityGrd(ITS:ITE,JTS:JTE) )
+       !$acc enter data create(noahmp%energy%state%RelHumidityGrd)
+    end if
+
+    if ( .not. allocated(noahmp%energy%state%SpecHumiditySfc) ) then
+       allocate( noahmp%energy%state%SpecHumiditySfc(ITS:ITE,JTS:JTE) )
+       !$acc enter data create(noahmp%energy%state%SpecHumiditySfc)
+    end if
+
+    if ( .not. allocated(noahmp%energy%state%SpecHumiditySfcMean) ) then
+       allocate( noahmp%energy%state%SpecHumiditySfcMean(ITS:ITE,JTS:JTE) )
+       !$acc enter data create(noahmp%energy%state%SpecHumiditySfcMean)
+    end if
+
+    if ( .not. allocated(noahmp%energy%state%SpecHumidity2mVeg) ) then
+       allocate( noahmp%energy%state%SpecHumidity2mVeg(ITS:ITE,JTS:JTE) )
+       !$acc enter data create(noahmp%energy%state%SpecHumidity2mVeg)
+    end if
+
+    if ( .not. allocated(noahmp%energy%state%SpecHumidity2mBare) ) then
+       allocate( noahmp%energy%state%SpecHumidity2mBare(ITS:ITE,JTS:JTE) )
+       !$acc enter data create(noahmp%energy%state%SpecHumidity2mBare)
+    end if
+
+    if ( .not. allocated(noahmp%energy%state%SpecHumidity2m) ) then
+       allocate( noahmp%energy%state%SpecHumidity2m(ITS:ITE,JTS:JTE) )
+       !$acc enter data create(noahmp%energy%state%SpecHumidity2m)
+    end if
+
+    if ( .not. allocated(noahmp%energy%state%TemperatureGrdVeg) ) then
+       allocate( noahmp%energy%state%TemperatureGrdVeg(ITS:ITE,JTS:JTE) )
+       !$acc enter data create(noahmp%energy%state%TemperatureGrdVeg)
+    end if
+
+    if ( .not. allocated(noahmp%energy%state%TemperatureGrdBare) ) then
+       allocate( noahmp%energy%state%TemperatureGrdBare(ITS:ITE,JTS:JTE) )
+       !$acc enter data create(noahmp%energy%state%TemperatureGrdBare)
+    end if
+
+    if ( .not. allocated(noahmp%energy%state%WindStressEwVeg) ) then
+       allocate( noahmp%energy%state%WindStressEwVeg(ITS:ITE,JTS:JTE) )
+       !$acc enter data create(noahmp%energy%state%WindStressEwVeg)
+    end if
+
+    if ( .not. allocated(noahmp%energy%state%WindStressNsVeg) ) then
+       allocate( noahmp%energy%state%WindStressNsVeg(ITS:ITE,JTS:JTE) )
+       !$acc enter data create(noahmp%energy%state%WindStressNsVeg)
+    end if
+
+    if ( .not. allocated(noahmp%energy%state%WindStressEwBare) ) then
+       allocate( noahmp%energy%state%WindStressEwBare(ITS:ITE,JTS:JTE) )
+       !$acc enter data create(noahmp%energy%state%WindStressEwBare)
+    end if
+
+    if ( .not. allocated(noahmp%energy%state%WindStressNsBare) ) then
+       allocate( noahmp%energy%state%WindStressNsBare(ITS:ITE,JTS:JTE) )
+       !$acc enter data create(noahmp%energy%state%WindStressNsBare)
+    end if
+
+    if ( .not. allocated(noahmp%energy%state%WindStressEwSfc) ) then
+       allocate( noahmp%energy%state%WindStressEwSfc(ITS:ITE,JTS:JTE) )
+       !$acc enter data create(noahmp%energy%state%WindStressEwSfc)
+    end if
+
+    if ( .not. allocated(noahmp%energy%state%WindStressNsSfc) ) then
+       allocate( noahmp%energy%state%WindStressNsSfc(ITS:ITE,JTS:JTE) )
+       !$acc enter data create(noahmp%energy%state%WindStressNsSfc)
+    end if
+
+    if ( .not. allocated(noahmp%energy%state%TemperatureAir2mVeg) ) then
+       allocate( noahmp%energy%state%TemperatureAir2mVeg(ITS:ITE,JTS:JTE) )
+       !$acc enter data create(noahmp%energy%state%TemperatureAir2mVeg)
+    end if
+
+    if ( .not. allocated(noahmp%energy%state%TemperatureAir2mBare) ) then
+       allocate( noahmp%energy%state%TemperatureAir2mBare(ITS:ITE,JTS:JTE) )
+       !$acc enter data create(noahmp%energy%state%TemperatureAir2mBare)
+    end if
+
+    if ( .not. allocated(noahmp%energy%state%TemperatureAir2m) ) then
+       allocate( noahmp%energy%state%TemperatureAir2m(ITS:ITE,JTS:JTE) )
+       !$acc enter data create(noahmp%energy%state%TemperatureAir2m)
+    end if
+
+    if ( .not. allocated(noahmp%energy%state%ExchCoeffShLeaf) ) then
+       allocate( noahmp%energy%state%ExchCoeffShLeaf(ITS:ITE,JTS:JTE) )
+       !$acc enter data create(noahmp%energy%state%ExchCoeffShLeaf)
+    end if
+
+    if ( .not. allocated(noahmp%energy%state%ExchCoeffShUndCan) ) then
+       allocate( noahmp%energy%state%ExchCoeffShUndCan(ITS:ITE,JTS:JTE) )
+       !$acc enter data create(noahmp%energy%state%ExchCoeffShUndCan)
+    end if
+
+    if ( .not. allocated(noahmp%energy%state%ExchCoeffSh2mBare) ) then
+       allocate( noahmp%energy%state%ExchCoeffSh2mBare(ITS:ITE,JTS:JTE) )
+       !$acc enter data create(noahmp%energy%state%ExchCoeffSh2mBare)
+    end if
+
+    if ( .not. allocated(noahmp%energy%state%RefHeightAboveGrd) ) then
+       allocate( noahmp%energy%state%RefHeightAboveGrd(ITS:ITE,JTS:JTE) )
+       !$acc enter data create(noahmp%energy%state%RefHeightAboveGrd)
+    end if
+
+    if ( .not. allocated(noahmp%energy%state%CanopyFracSnowBury) ) then
+       allocate( noahmp%energy%state%CanopyFracSnowBury(ITS:ITE,JTS:JTE) )
+       !$acc enter data create(noahmp%energy%state%CanopyFracSnowBury)
+    end if
+
+    if ( .not. allocated(noahmp%energy%state%DepthSoilTempBotToSno) ) then
+       allocate( noahmp%energy%state%DepthSoilTempBotToSno(ITS:ITE,JTS:JTE) )
+       !$acc enter data create(noahmp%energy%state%DepthSoilTempBotToSno)
+    end if
+
+    if ( .not. allocated(noahmp%energy%state%RoughLenMomSfcToAtm) ) then
+       allocate( noahmp%energy%state%RoughLenMomSfcToAtm(ITS:ITE,JTS:JTE) )
+       !$acc enter data create(noahmp%energy%state%RoughLenMomSfcToAtm)
+    end if
+
+    if ( .not. allocated(noahmp%energy%state%TemperatureRadSfc) ) then
+       allocate( noahmp%energy%state%TemperatureRadSfc(ITS:ITE,JTS:JTE) )
+       !$acc enter data create(noahmp%energy%state%TemperatureRadSfc)
+    end if
+
+    if ( .not. allocated(noahmp%energy%state%EmissivitySfc) ) then
+       allocate( noahmp%energy%state%EmissivitySfc(ITS:ITE,JTS:JTE) )
+       !$acc enter data create(noahmp%energy%state%EmissivitySfc)
+    end if
+
+    if ( .not. allocated(noahmp%energy%state%AlbedoSfc) ) then
+       allocate( noahmp%energy%state%AlbedoSfc(ITS:ITE,JTS:JTE) )
+       !$acc enter data create(noahmp%energy%state%AlbedoSfc)
+    end if
+
+    if ( .not. allocated(noahmp%energy%state%EnergyBalanceError) ) then
+       allocate( noahmp%energy%state%EnergyBalanceError(ITS:ITE,JTS:JTE) )
+       !$acc enter data create(noahmp%energy%state%EnergyBalanceError)
+    end if
+
+    if ( .not. allocated(noahmp%energy%state%RadSwBalanceError) ) then
+       allocate( noahmp%energy%state%RadSwBalanceError(ITS:ITE,JTS:JTE) )
+       !$acc enter data create(noahmp%energy%state%RadSwBalanceError)
+    end if
+
     if ( .not. allocated(noahmp%energy%state%TemperatureSoilSnow) ) then
        allocate( noahmp%energy%state%TemperatureSoilSnow(ITS:ITE,-NumSnowLayerMax+1:NumSoilLayer,JTS:JTE) )
        !$acc enter data create(noahmp%energy%state%TemperatureSoilSnow)
@@ -391,8 +1192,12 @@ contains
        endif
 
        ! Initialize SNICAR lookup tables (not spatially varying)
+       !$acc parallel loop gang vector collapse(2) present(noahmp)
+       do I = ITS, ITE
+         do J = JTS, JTE
         !$acc loop seq
         do LoopInd = 1, NumSnicarRadBand
+        !$acc loop seq
          do k = 1, NumRadiusSnwMieSnicar
            noahmp%energy%param%SsAlbSnwRadDir       (I,k,LoopInd,J) = undefined_real
            noahmp%energy%param%AsyPrmSnwRadDir      (I,k,LoopInd,J) = undefined_real
@@ -431,6 +1236,194 @@ contains
          noahmp%energy%param%AsyPrmDustB5          (I,LoopInd,J)       = undefined_real
          noahmp%energy%param%ExtCffMassDustB5      (I,LoopInd,J)       = undefined_real
          end do
+      enddo
+    enddo
+    endif
+
+    ! Allocate 2D energy param arrays and transfer to GPU
+    if ( .not. allocated(noahmp%energy%param%TreeCrownRadius) ) then
+       allocate( noahmp%energy%param%TreeCrownRadius(ITS:ITE,JTS:JTE) )
+       !$acc enter data create(noahmp%energy%param%TreeCrownRadius)
+    endif
+    if ( .not. allocated(noahmp%energy%param%HeightCanopyTop) ) then
+       allocate( noahmp%energy%param%HeightCanopyTop(ITS:ITE,JTS:JTE) )
+       !$acc enter data create(noahmp%energy%param%HeightCanopyTop)
+    endif
+    if ( .not. allocated(noahmp%energy%param%HeightCanopyBot) ) then
+       allocate( noahmp%energy%param%HeightCanopyBot(ITS:ITE,JTS:JTE) )
+       !$acc enter data create(noahmp%energy%param%HeightCanopyBot)
+    endif
+    if ( .not. allocated(noahmp%energy%param%RoughLenMomVeg) ) then
+       allocate( noahmp%energy%param%RoughLenMomVeg(ITS:ITE,JTS:JTE) )
+       !$acc enter data create(noahmp%energy%param%RoughLenMomVeg)
+    endif
+    if ( .not. allocated(noahmp%energy%param%TreeDensity) ) then
+       allocate( noahmp%energy%param%TreeDensity(ITS:ITE,JTS:JTE) )
+       !$acc enter data create(noahmp%energy%param%TreeDensity)
+    endif
+    if ( .not. allocated(noahmp%energy%param%CanopyOrientIndex) ) then
+       allocate( noahmp%energy%param%CanopyOrientIndex(ITS:ITE,JTS:JTE) )
+       !$acc enter data create(noahmp%energy%param%CanopyOrientIndex)
+    endif
+    if ( .not. allocated(noahmp%energy%param%UpscatterCoeffSnowDir) ) then
+       allocate( noahmp%energy%param%UpscatterCoeffSnowDir(ITS:ITE,JTS:JTE) )
+       !$acc enter data create(noahmp%energy%param%UpscatterCoeffSnowDir)
+    endif
+    if ( .not. allocated(noahmp%energy%param%UpscatterCoeffSnowDif) ) then
+       allocate( noahmp%energy%param%UpscatterCoeffSnowDif(ITS:ITE,JTS:JTE) )
+       !$acc enter data create(noahmp%energy%param%UpscatterCoeffSnowDif)
+    endif
+    if ( .not. allocated(noahmp%energy%param%SoilHeatCapacity) ) then
+       allocate( noahmp%energy%param%SoilHeatCapacity(ITS:ITE,JTS:JTE) )
+       !$acc enter data create(noahmp%energy%param%SoilHeatCapacity)
+    endif
+    if ( .not. allocated(noahmp%energy%param%SnowAgeFacBats) ) then
+       allocate( noahmp%energy%param%SnowAgeFacBats(ITS:ITE,JTS:JTE) )
+       !$acc enter data create(noahmp%energy%param%SnowAgeFacBats)
+    endif
+    if ( .not. allocated(noahmp%energy%param%SnowGrowVapFacBats) ) then
+       allocate( noahmp%energy%param%SnowGrowVapFacBats(ITS:ITE,JTS:JTE) )
+       !$acc enter data create(noahmp%energy%param%SnowGrowVapFacBats)
+    endif
+    if ( .not. allocated(noahmp%energy%param%SnowSootFacBats) ) then
+       allocate( noahmp%energy%param%SnowSootFacBats(ITS:ITE,JTS:JTE) )
+       !$acc enter data create(noahmp%energy%param%SnowSootFacBats)
+    endif
+    if ( .not. allocated(noahmp%energy%param%SnowGrowFrzFacBats) ) then
+       allocate( noahmp%energy%param%SnowGrowFrzFacBats(ITS:ITE,JTS:JTE) )
+       !$acc enter data create(noahmp%energy%param%SnowGrowFrzFacBats)
+    endif
+    if ( .not. allocated(noahmp%energy%param%SolarZenithAdjBats) ) then
+       allocate( noahmp%energy%param%SolarZenithAdjBats(ITS:ITE,JTS:JTE) )
+       !$acc enter data create(noahmp%energy%param%SolarZenithAdjBats)
+    endif
+    if ( .not. allocated(noahmp%energy%param%FreshSnoAlbVisBats) ) then
+       allocate( noahmp%energy%param%FreshSnoAlbVisBats(ITS:ITE,JTS:JTE) )
+       !$acc enter data create(noahmp%energy%param%FreshSnoAlbVisBats)
+    endif
+    if ( .not. allocated(noahmp%energy%param%FreshSnoAlbNirBats) ) then
+       allocate( noahmp%energy%param%FreshSnoAlbNirBats(ITS:ITE,JTS:JTE) )
+       !$acc enter data create(noahmp%energy%param%FreshSnoAlbNirBats)
+    endif
+    if ( .not. allocated(noahmp%energy%param%SnoAgeFacDifVisBats) ) then
+       allocate( noahmp%energy%param%SnoAgeFacDifVisBats(ITS:ITE,JTS:JTE) )
+       !$acc enter data create(noahmp%energy%param%SnoAgeFacDifVisBats)
+    endif
+    if ( .not. allocated(noahmp%energy%param%SnoAgeFacDifNirBats) ) then
+       allocate( noahmp%energy%param%SnoAgeFacDifNirBats(ITS:ITE,JTS:JTE) )
+       !$acc enter data create(noahmp%energy%param%SnoAgeFacDifNirBats)
+    endif
+    if ( .not. allocated(noahmp%energy%param%SzaFacDirVisBats) ) then
+       allocate( noahmp%energy%param%SzaFacDirVisBats(ITS:ITE,JTS:JTE) )
+       !$acc enter data create(noahmp%energy%param%SzaFacDirVisBats)
+    endif
+    if ( .not. allocated(noahmp%energy%param%SzaFacDirNirBats) ) then
+       allocate( noahmp%energy%param%SzaFacDirNirBats(ITS:ITE,JTS:JTE) )
+       !$acc enter data create(noahmp%energy%param%SzaFacDirNirBats)
+    endif
+    if ( .not. allocated(noahmp%energy%param%SnowAlbRefClass) ) then
+       allocate( noahmp%energy%param%SnowAlbRefClass(ITS:ITE,JTS:JTE) )
+       !$acc enter data create(noahmp%energy%param%SnowAlbRefClass)
+    endif
+    if ( .not. allocated(noahmp%energy%param%SnowAgeFacClass) ) then
+       allocate( noahmp%energy%param%SnowAgeFacClass(ITS:ITE,JTS:JTE) )
+       !$acc enter data create(noahmp%energy%param%SnowAgeFacClass)
+    endif
+    if ( .not. allocated(noahmp%energy%param%SnowAlbFreshClass) ) then
+       allocate( noahmp%energy%param%SnowAlbFreshClass(ITS:ITE,JTS:JTE) )
+       !$acc enter data create(noahmp%energy%param%SnowAlbFreshClass)
+    endif
+    if ( .not. allocated(noahmp%energy%param%ConductanceLeafMin) ) then
+       allocate( noahmp%energy%param%ConductanceLeafMin(ITS:ITE,JTS:JTE) )
+       !$acc enter data create(noahmp%energy%param%ConductanceLeafMin)
+    endif
+    if ( .not. allocated(noahmp%energy%param%Co2MmConst25C) ) then
+       allocate( noahmp%energy%param%Co2MmConst25C(ITS:ITE,JTS:JTE) )
+       !$acc enter data create(noahmp%energy%param%Co2MmConst25C)
+    endif
+    if ( .not. allocated(noahmp%energy%param%O2MmConst25C) ) then
+       allocate( noahmp%energy%param%O2MmConst25C(ITS:ITE,JTS:JTE) )
+       !$acc enter data create(noahmp%energy%param%O2MmConst25C)
+    endif
+    if ( .not. allocated(noahmp%energy%param%Co2MmConstQ10) ) then
+       allocate( noahmp%energy%param%Co2MmConstQ10(ITS:ITE,JTS:JTE) )
+       !$acc enter data create(noahmp%energy%param%Co2MmConstQ10)
+    endif
+    if ( .not. allocated(noahmp%energy%param%O2MmConstQ10) ) then
+       allocate( noahmp%energy%param%O2MmConstQ10(ITS:ITE,JTS:JTE) )
+       !$acc enter data create(noahmp%energy%param%O2MmConstQ10)
+    endif
+    if ( .not. allocated(noahmp%energy%param%RadiationStressFac) ) then
+       allocate( noahmp%energy%param%RadiationStressFac(ITS:ITE,JTS:JTE) )
+       !$acc enter data create(noahmp%energy%param%RadiationStressFac)
+    endif
+    if ( .not. allocated(noahmp%energy%param%ResistanceStomataMin) ) then
+       allocate( noahmp%energy%param%ResistanceStomataMin(ITS:ITE,JTS:JTE) )
+       !$acc enter data create(noahmp%energy%param%ResistanceStomataMin)
+    endif
+    if ( .not. allocated(noahmp%energy%param%ResistanceStomataMax) ) then
+       allocate( noahmp%energy%param%ResistanceStomataMax(ITS:ITE,JTS:JTE) )
+       !$acc enter data create(noahmp%energy%param%ResistanceStomataMax)
+    endif
+    if ( .not. allocated(noahmp%energy%param%AirTempOptimTransp) ) then
+       allocate( noahmp%energy%param%AirTempOptimTransp(ITS:ITE,JTS:JTE) )
+       !$acc enter data create(noahmp%energy%param%AirTempOptimTransp)
+    endif
+    if ( .not. allocated(noahmp%energy%param%VaporPresDeficitFac) ) then
+       allocate( noahmp%energy%param%VaporPresDeficitFac(ITS:ITE,JTS:JTE) )
+       !$acc enter data create(noahmp%energy%param%VaporPresDeficitFac)
+    endif
+    if ( .not. allocated(noahmp%energy%param%LeafDimLength) ) then
+       allocate( noahmp%energy%param%LeafDimLength(ITS:ITE,JTS:JTE) )
+       !$acc enter data create(noahmp%energy%param%LeafDimLength)
+    endif
+    if ( .not. allocated(noahmp%energy%param%ZilitinkevichCoeff) ) then
+       allocate( noahmp%energy%param%ZilitinkevichCoeff(ITS:ITE,JTS:JTE) )
+       !$acc enter data create(noahmp%energy%param%ZilitinkevichCoeff)
+    endif
+    if ( .not. allocated(noahmp%energy%param%EmissivitySnow) ) then
+       allocate( noahmp%energy%param%EmissivitySnow(ITS:ITE,JTS:JTE) )
+       !$acc enter data create(noahmp%energy%param%EmissivitySnow)
+    endif
+    if ( .not. allocated(noahmp%energy%param%CanopyWindExtFac) ) then
+       allocate( noahmp%energy%param%CanopyWindExtFac(ITS:ITE,JTS:JTE) )
+       !$acc enter data create(noahmp%energy%param%CanopyWindExtFac)
+    endif
+    if ( .not. allocated(noahmp%energy%param%RoughLenMomSnow) ) then
+       allocate( noahmp%energy%param%RoughLenMomSnow(ITS:ITE,JTS:JTE) )
+       !$acc enter data create(noahmp%energy%param%RoughLenMomSnow)
+    endif
+    if ( .not. allocated(noahmp%energy%param%RoughLenMomSoil) ) then
+       allocate( noahmp%energy%param%RoughLenMomSoil(ITS:ITE,JTS:JTE) )
+       !$acc enter data create(noahmp%energy%param%RoughLenMomSoil)
+    endif
+    if ( .not. allocated(noahmp%energy%param%RoughLenMomLake) ) then
+       allocate( noahmp%energy%param%RoughLenMomLake(ITS:ITE,JTS:JTE) )
+       !$acc enter data create(noahmp%energy%param%RoughLenMomLake)
+    endif
+    if ( .not. allocated(noahmp%energy%param%EmissivityIceSfc) ) then
+       allocate( noahmp%energy%param%EmissivityIceSfc(ITS:ITE,JTS:JTE) )
+       !$acc enter data create(noahmp%energy%param%EmissivityIceSfc)
+    endif
+    if ( .not. allocated(noahmp%energy%param%ResistanceSoilExp) ) then
+       allocate( noahmp%energy%param%ResistanceSoilExp(ITS:ITE,JTS:JTE) )
+       !$acc enter data create(noahmp%energy%param%ResistanceSoilExp)
+    endif
+    if ( .not. allocated(noahmp%energy%param%ResistanceSnowSfc) ) then
+       allocate( noahmp%energy%param%ResistanceSnowSfc(ITS:ITE,JTS:JTE) )
+       !$acc enter data create(noahmp%energy%param%ResistanceSnowSfc)
+    endif
+    if ( .not. allocated(noahmp%energy%param%VegFracGreen) ) then
+       allocate( noahmp%energy%param%VegFracGreen(ITS:ITE,JTS:JTE) )
+       !$acc enter data create(noahmp%energy%param%VegFracGreen)
+    endif
+    if ( .not. allocated(noahmp%energy%param%VegFracAnnMax) ) then
+       allocate( noahmp%energy%param%VegFracAnnMax(ITS:ITE,JTS:JTE) )
+       !$acc enter data create(noahmp%energy%param%VegFracAnnMax)
+    endif
+    if ( .not. allocated(noahmp%energy%param%HeatCapacCanFac) ) then
+       allocate( noahmp%energy%param%HeatCapacCanFac(ITS:ITE,JTS:JTE) )
+       !$acc enter data create(noahmp%energy%param%HeatCapacCanFac)
     endif
 
     end associate

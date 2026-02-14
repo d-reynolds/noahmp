@@ -27,7 +27,7 @@ contains
 ! IN & OUT variables
     type(noahmp_type)     , intent(inout)  :: noahmp
     real(kind=kind_noahmp), intent(in)     :: TimeStep           ! time step [s]
-    real(kind=kind_noahmp), intent(inout)  :: InfilRateSfc(:,:)       ! surface infiltration rate [m/s]
+    real(kind=kind_noahmp), intent(inout)  :: InfilRateSfc(noahmp%config%domain%ITS:noahmp%config%domain%ITE,noahmp%config%domain%JTS:noahmp%config%domain%JTE)       ! surface infiltration rate [m/s]
 
 ! local variables
     integer                                :: I, J                 ! grid indices

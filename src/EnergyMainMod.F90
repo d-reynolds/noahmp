@@ -73,7 +73,6 @@ contains
 
 ! local variable
     integer                          :: I, J          ! grid indices
-    logical                          :: FlagVegSfcLoc ! flag: true if vegetated surface (local scalar)
     logical, allocatable             :: FlagVegSfc(:,:) ! flag: true if vegetated surface (2D array for subroutine call)
 
 ! --------------------------------------------------------------------

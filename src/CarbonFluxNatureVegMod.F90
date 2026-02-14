@@ -38,6 +38,9 @@ contains
     do J = noahmp%config%domain%JTS, noahmp%config%domain%JTE
       do I = noahmp%config%domain%ITS, noahmp%config%domain%ITE
 
+    ! condition to cycle moved from NoahmpMainMod to here
+    if ( noahmp%config%domain%FlagDynamicVeg(I,J) .eqv. .false. ) cycle
+
 !------------------------------------------------------------------------
     associate(                                                                           &
               VegType                  => noahmp%config%domain%VegType(I,J)              ,& ! in,    vegetation type

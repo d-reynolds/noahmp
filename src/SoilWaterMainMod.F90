@@ -60,7 +60,7 @@ contains
     real(kind=kind_noahmp), allocatable, dimension(:,:,:) :: MatLeft1 ! left-hand side term
     real(kind=kind_noahmp), allocatable, dimension(:,:,:) :: MatLeft2 ! left-hand side term
     real(kind=kind_noahmp), allocatable, dimension(:,:,:) :: MatLeft3 ! left-hand side term
-    real(kind=kind_noahmp), allocatable, dimension(:) :: SoilLiqTmp   ! temporary soil liquid water [mm]
+    real(kind=kind_noahmp) :: SoilLiqTmp(1:noahmp%config%domain%NumSoilLayer)   ! temporary soil liquid water [mm]
     ! 2D accumulator arrays that persist across parallel regions
     real(kind=kind_noahmp), allocatable, dimension(:,:)   :: SoilSatExcAcc2D
     real(kind=kind_noahmp), allocatable, dimension(:,:)   :: DrainSoilBotAcc2D
@@ -139,9 +139,7 @@ contains
            MatLeft1(I,LoopInd1,J) = 0.0
            MatLeft2(I,LoopInd1,J) = 0.0
            MatLeft3(I,LoopInd1,J) = 0.0
-           SoilLiqTmp(LoopInd1)    = 0.0
         enddo
-         SoilLiqTmp       = 0.0
          RunoffSurface    = 0.0
          RunoffSubsurface = 0.0
          InfilRateSfc     = 0.0
@@ -285,6 +283,10 @@ contains
                   TileDrain              => noahmp%water%flux%TileDrain(I,J)               & ! inout, tile drainage [mm per soil timestep]
                  )
 
+        !$acc loop seq
+        do LoopInd1 = 1, NumSoilLayer
+           SoilLiqTmp(LoopInd1)    = 0.0
+        enddo
         ! removal of soil water due to subsurface runoff (option 2)
         if ( OptRunoffSubsurface == 2 ) then
            SoilWatConductAcc = 0.0

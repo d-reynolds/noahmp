@@ -110,7 +110,7 @@ contains
              )
 ! ----------------------------------------------------------------------
 
-    if (CosSolarZenithAngle < 0.0) cycle
+    if (CosSolarZenithAngle <= 0.0) cycle
     ! compute within and between gaps
     if ( VegAreaIndEff == 0.0 ) then
        GapCanopyDir = 1.0

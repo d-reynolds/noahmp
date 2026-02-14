@@ -40,6 +40,9 @@ contains
     do J = noahmp%config%domain%JTS, noahmp%config%domain%JTE
       do I = noahmp%config%domain%ITS, noahmp%config%domain%ITE
 
+    ! condition to cycle moved from NoahmpMainMod to here
+    if ( .not. (noahmp%config%domain%FlagDynamicCrop(I,J) .and. (noahmp%config%nmlist%OptCropModel == 1) ) ) cycle
+
     associate(                                                                           &
               MainTimeStep             => noahmp%config%domain%MainTimeStep             ,& ! in,    main noahmp timestep [s]
               WaterStressCoeff         => noahmp%biochem%param%WaterStressCoeff(I,J)         ,& ! in,    water stress coeficient
@@ -247,7 +250,7 @@ contains
     CarbonMassLiveTot   = (LeafMass + RootMass + StemMass + GrainMass) * 0.4                                ! gC/m2 0.4=12/30, CH20 to C
  
     ! leaf area index and stem area index
-    LeafAreaIndex = max(LeafMass*LeafAreaPerBiomass, LeafAreaIndexMin)
+    LeafAreaIndex = 0.9!max(LeafMass*LeafAreaPerBiomass, LeafAreaIndexMin)
     StemAreaIndex = max(StemMass*StemAreaPerMass, StemAreaIndexMin)
    
     ! After harversting
@@ -260,7 +263,7 @@ contains
     !if ( (PlantGrowStage == 1) .or. (PlantGrowStage == 2) .or. (PlantGrowStage == 8) ) then
     if ( (PlantGrowStage == 8) .and. &
          ((GrainMass > 0) .or. (LeafMass > 0) .or. (StemMass > 0) .or. (RootMass > 0)) ) then
-       LeafAreaIndex = 0.05
+       LeafAreaIndex = 0.7!0.05
        StemAreaIndex = 0.05
        LeafMass      = LeafMassMin
        StemMass      = StemMassMin

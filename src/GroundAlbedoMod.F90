@@ -53,7 +53,7 @@ contains
 ! ----------------------------------------------------------------------
 
     ! solar radiation process is only done if there is light
-    if ( CosSolarZenithAngle < 0 ) cycle
+    if ( CosSolarZenithAngle <= 0 ) cycle
 
     !$acc loop seq
     do IndSwBnd = 1, NumSwRadBand

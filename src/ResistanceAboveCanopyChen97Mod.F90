@@ -81,6 +81,8 @@ contains
     do J = noahmp%config%domain%JTS, noahmp%config%domain%JTE
       do I = noahmp%config%domain%ITS, noahmp%config%domain%ITE
 
+        if ( .not. ((noahmp%energy%state%VegAreaIndEff(I,J) > 0.0 ) .and. (noahmp%energy%state%VegFrac(I,J) > 0)) ) cycle ! skip non-vegetated surface
+
     associate(                                                                           &
               ZilitinkevichCoeff      => noahmp%energy%param%ZilitinkevichCoeff(I,J)     ,& ! in,    Calculate roughness length of heat
               RefHeightAboveGrd       => noahmp%energy%state%RefHeightAboveGrd(I,J)      ,& ! in,    reference height [m] above ground

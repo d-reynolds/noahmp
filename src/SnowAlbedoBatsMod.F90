@@ -37,7 +37,7 @@ contains
       do I = noahmp%config%domain%ITS, noahmp%config%domain%ITE
 
         ! solar radiation process is only done if there is light
-        if ( noahmp%config%domain%CosSolarZenithAngle(I,J) < 0 ) cycle
+        if ( noahmp%config%domain%CosSolarZenithAngle(I,J) <= 0 ) cycle
 
         associate(                                                                     &
                   NumSwRadBand        => noahmp%config%domain%NumSwRadBand            ,& ! in,  number of solar radiation wave bands

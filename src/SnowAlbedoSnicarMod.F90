@@ -30,6 +30,10 @@ contains
     !$acc parallel loop collapse(2) gang vector present(noahmp)
     do J = noahmp%config%domain%JTS, noahmp%config%domain%JTE
       do I = noahmp%config%domain%ITS, noahmp%config%domain%ITE
+
+        ! solar radiation process is only done if there is light
+        if ( noahmp%config%domain%CosSolarZenithAngle(I,J) <= 0 ) cycle
+
 ! --------------------------------------------------------------------
     associate(                                                          &
               NumSwRadBand  => noahmp%config%domain%NumSwRadBand ,& ! in,  number of solar radiation wave bands

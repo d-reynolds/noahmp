@@ -63,10 +63,12 @@ contains
        AlbedoGrdDif (I,IndBand,J) = 0.0
        AlbedoSnowDir(I,IndBand,J) = 0.0
        AlbedoSnowDif(I,IndBand,J) = 0.0
+      if ( OptSnowAlbedo == 3 ) then
        do IndSnow = -noahmp%config%domain%NumSnowLayerMax+1,1
          FracRadSwAbsSnowDir(I,IndSnow,IndBand,J) = 0.0
          FracRadSwAbsSnowDif(I,IndSnow,IndBand,J) = 0.0
        enddo
+      endif
     enddo
     end associate
 

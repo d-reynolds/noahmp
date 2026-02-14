@@ -51,6 +51,8 @@ contains
     do J = noahmp%config%domain%JTS, noahmp%config%domain%JTE
       do I = noahmp%config%domain%ITS, noahmp%config%domain%ITE
 
+        if ( .not. ((noahmp%energy%state%VegAreaIndEff(I,J) > 0.0 ) .and. (noahmp%energy%state%VegFrac(I,J) > 0)) ) cycle ! skip non-vegetated surface
+
         associate(                                                                    &
                   TemperatureAirRefHeight => noahmp%forcing%TemperatureAirRefHeight(I,J) ,& ! in,    air temperature [K] at reference height
                   SpecHumidityRefHeight   => noahmp%forcing%SpecHumidityRefHeight(I,J) ,& ! in,    specific humidity [kg/kg] at reference height

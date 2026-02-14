@@ -304,6 +304,772 @@ contains
        end do
     endif
 
+    ! Allocate 2D water state arrays and transfer to GPU
+    if ( .not. allocated(noahmp%water%state%IrrigationCntSprinkler) ) then
+       allocate( noahmp%water%state%IrrigationCntSprinkler(ITS:ITE,JTS:JTE) )
+       !$acc enter data create(noahmp%water%state%IrrigationCntSprinkler)
+    endif
+    if ( .not. allocated(noahmp%water%state%IrrigationCntMicro) ) then
+       allocate( noahmp%water%state%IrrigationCntMicro(ITS:ITE,JTS:JTE) )
+       !$acc enter data create(noahmp%water%state%IrrigationCntMicro)
+    endif
+    if ( .not. allocated(noahmp%water%state%IrrigationCntFlood) ) then
+       allocate( noahmp%water%state%IrrigationCntFlood(ITS:ITE,JTS:JTE) )
+       !$acc enter data create(noahmp%water%state%IrrigationCntFlood)
+    endif
+    if ( .not. allocated(noahmp%water%state%CanopyTotalWater) ) then
+       allocate( noahmp%water%state%CanopyTotalWater(ITS:ITE,JTS:JTE) )
+       !$acc enter data create(noahmp%water%state%CanopyTotalWater)
+    endif
+    if ( .not. allocated(noahmp%water%state%CanopyWetFrac) ) then
+       allocate( noahmp%water%state%CanopyWetFrac(ITS:ITE,JTS:JTE) )
+       !$acc enter data create(noahmp%water%state%CanopyWetFrac)
+    endif
+    if ( .not. allocated(noahmp%water%state%SnowfallDensity) ) then
+       allocate( noahmp%water%state%SnowfallDensity(ITS:ITE,JTS:JTE) )
+       !$acc enter data create(noahmp%water%state%SnowfallDensity)
+    endif
+    if ( .not. allocated(noahmp%water%state%CanopyLiqWater) ) then
+       allocate( noahmp%water%state%CanopyLiqWater(ITS:ITE,JTS:JTE) )
+       !$acc enter data create(noahmp%water%state%CanopyLiqWater)
+    endif
+    if ( .not. allocated(noahmp%water%state%CanopyIce) ) then
+       allocate( noahmp%water%state%CanopyIce(ITS:ITE,JTS:JTE) )
+       !$acc enter data create(noahmp%water%state%CanopyIce)
+    endif
+    if ( .not. allocated(noahmp%water%state%CanopyIceMax) ) then
+       allocate( noahmp%water%state%CanopyIceMax(ITS:ITE,JTS:JTE) )
+       !$acc enter data create(noahmp%water%state%CanopyIceMax)
+    endif
+    if ( .not. allocated(noahmp%water%state%CanopyLiqWaterMax) ) then
+       allocate( noahmp%water%state%CanopyLiqWaterMax(ITS:ITE,JTS:JTE) )
+       !$acc enter data create(noahmp%water%state%CanopyLiqWaterMax)
+    endif
+    if ( .not. allocated(noahmp%water%state%SnowDepth) ) then
+       allocate( noahmp%water%state%SnowDepth(ITS:ITE,JTS:JTE) )
+       !$acc enter data create(noahmp%water%state%SnowDepth)
+    endif
+    if ( .not. allocated(noahmp%water%state%SnowWaterEquiv) ) then
+       allocate( noahmp%water%state%SnowWaterEquiv(ITS:ITE,JTS:JTE) )
+       !$acc enter data create(noahmp%water%state%SnowWaterEquiv)
+    endif
+    if ( .not. allocated(noahmp%water%state%SnowWaterEquivPrev) ) then
+       allocate( noahmp%water%state%SnowWaterEquivPrev(ITS:ITE,JTS:JTE) )
+       !$acc enter data create(noahmp%water%state%SnowWaterEquivPrev)
+    endif
+    if ( .not. allocated(noahmp%water%state%PondSfcThinSnwMelt) ) then
+       allocate( noahmp%water%state%PondSfcThinSnwMelt(ITS:ITE,JTS:JTE) )
+       !$acc enter data create(noahmp%water%state%PondSfcThinSnwMelt)
+    endif
+    if ( .not. allocated(noahmp%water%state%PondSfcThinSnwComb) ) then
+       allocate( noahmp%water%state%PondSfcThinSnwComb(ITS:ITE,JTS:JTE) )
+       !$acc enter data create(noahmp%water%state%PondSfcThinSnwComb)
+    endif
+    if ( .not. allocated(noahmp%water%state%PondSfcThinSnwTrans) ) then
+       allocate( noahmp%water%state%PondSfcThinSnwTrans(ITS:ITE,JTS:JTE) )
+       !$acc enter data create(noahmp%water%state%PondSfcThinSnwTrans)
+    endif
+    if ( .not. allocated(noahmp%water%state%IrrigationFracFlood) ) then
+       allocate( noahmp%water%state%IrrigationFracFlood(ITS:ITE,JTS:JTE) )
+       !$acc enter data create(noahmp%water%state%IrrigationFracFlood)
+    endif
+    if ( .not. allocated(noahmp%water%state%IrrigationAmtFlood) ) then
+       allocate( noahmp%water%state%IrrigationAmtFlood(ITS:ITE,JTS:JTE) )
+       !$acc enter data create(noahmp%water%state%IrrigationAmtFlood)
+    endif
+    if ( .not. allocated(noahmp%water%state%IrrigationFracMicro) ) then
+       allocate( noahmp%water%state%IrrigationFracMicro(ITS:ITE,JTS:JTE) )
+       !$acc enter data create(noahmp%water%state%IrrigationFracMicro)
+    endif
+    if ( .not. allocated(noahmp%water%state%IrrigationAmtMicro) ) then
+       allocate( noahmp%water%state%IrrigationAmtMicro(ITS:ITE,JTS:JTE) )
+       !$acc enter data create(noahmp%water%state%IrrigationAmtMicro)
+    endif
+    if ( .not. allocated(noahmp%water%state%IrrigationFracSprinkler) ) then
+       allocate( noahmp%water%state%IrrigationFracSprinkler(ITS:ITE,JTS:JTE) )
+       !$acc enter data create(noahmp%water%state%IrrigationFracSprinkler)
+    endif
+    if ( .not. allocated(noahmp%water%state%IrrigationAmtSprinkler) ) then
+       allocate( noahmp%water%state%IrrigationAmtSprinkler(ITS:ITE,JTS:JTE) )
+       !$acc enter data create(noahmp%water%state%IrrigationAmtSprinkler)
+    endif
+    if ( .not. allocated(noahmp%water%state%WaterTableDepth) ) then
+       allocate( noahmp%water%state%WaterTableDepth(ITS:ITE,JTS:JTE) )
+       !$acc enter data create(noahmp%water%state%WaterTableDepth)
+    endif
+    if ( .not. allocated(noahmp%water%state%SoilIceMax) ) then
+       allocate( noahmp%water%state%SoilIceMax(ITS:ITE,JTS:JTE) )
+       !$acc enter data create(noahmp%water%state%SoilIceMax)
+    endif
+    if ( .not. allocated(noahmp%water%state%SoilLiqWaterMin) ) then
+       allocate( noahmp%water%state%SoilLiqWaterMin(ITS:ITE,JTS:JTE) )
+       !$acc enter data create(noahmp%water%state%SoilLiqWaterMin)
+    endif
+    if ( .not. allocated(noahmp%water%state%SoilSaturateFrac) ) then
+       allocate( noahmp%water%state%SoilSaturateFrac(ITS:ITE,JTS:JTE) )
+       !$acc enter data create(noahmp%water%state%SoilSaturateFrac)
+    endif
+    if ( .not. allocated(noahmp%water%state%SoilImpervFracMax) ) then
+       allocate( noahmp%water%state%SoilImpervFracMax(ITS:ITE,JTS:JTE) )
+       !$acc enter data create(noahmp%water%state%SoilImpervFracMax)
+    endif
+    if ( .not. allocated(noahmp%water%state%SoilMoistureToWT) ) then
+       allocate( noahmp%water%state%SoilMoistureToWT(ITS:ITE,JTS:JTE) )
+       !$acc enter data create(noahmp%water%state%SoilMoistureToWT)
+    endif
+    if ( .not. allocated(noahmp%water%state%RechargeGwDeepWT) ) then
+       allocate( noahmp%water%state%RechargeGwDeepWT(ITS:ITE,JTS:JTE) )
+       !$acc enter data create(noahmp%water%state%RechargeGwDeepWT)
+    endif
+    if ( .not. allocated(noahmp%water%state%RechargeGwShallowWT) ) then
+       allocate( noahmp%water%state%RechargeGwShallowWT(ITS:ITE,JTS:JTE) )
+       !$acc enter data create(noahmp%water%state%RechargeGwShallowWT)
+    endif
+    if ( .not. allocated(noahmp%water%state%SoilSaturationExcess) ) then
+       allocate( noahmp%water%state%SoilSaturationExcess(ITS:ITE,JTS:JTE) )
+       !$acc enter data create(noahmp%water%state%SoilSaturationExcess)
+    endif
+    if ( .not. allocated(noahmp%water%state%WaterTableHydro) ) then
+       allocate( noahmp%water%state%WaterTableHydro(ITS:ITE,JTS:JTE) )
+       !$acc enter data create(noahmp%water%state%WaterTableHydro)
+    endif
+    if ( .not. allocated(noahmp%water%state%TileDrainFrac) ) then
+       allocate( noahmp%water%state%TileDrainFrac(ITS:ITE,JTS:JTE) )
+       !$acc enter data create(noahmp%water%state%TileDrainFrac)
+    endif
+    if ( .not. allocated(noahmp%water%state%WaterStorageAquifer) ) then
+       allocate( noahmp%water%state%WaterStorageAquifer(ITS:ITE,JTS:JTE) )
+       !$acc enter data create(noahmp%water%state%WaterStorageAquifer)
+    endif
+    if ( .not. allocated(noahmp%water%state%WaterStorageSoilAqf) ) then
+       allocate( noahmp%water%state%WaterStorageSoilAqf(ITS:ITE,JTS:JTE) )
+       !$acc enter data create(noahmp%water%state%WaterStorageSoilAqf)
+    endif
+    if ( .not. allocated(noahmp%water%state%WaterStorageLake) ) then
+       allocate( noahmp%water%state%WaterStorageLake(ITS:ITE,JTS:JTE) )
+       !$acc enter data create(noahmp%water%state%WaterStorageLake)
+    endif
+    if ( .not. allocated(noahmp%water%state%WaterStorageWetland) ) then
+       allocate( noahmp%water%state%WaterStorageWetland(ITS:ITE,JTS:JTE) )
+       !$acc enter data create(noahmp%water%state%WaterStorageWetland)
+    endif
+    if ( .not. allocated(noahmp%water%state%WaterHeadSfc) ) then
+       allocate( noahmp%water%state%WaterHeadSfc(ITS:ITE,JTS:JTE) )
+       !$acc enter data create(noahmp%water%state%WaterHeadSfc)
+    endif
+    if ( .not. allocated(noahmp%water%state%IrrigationFracGrid) ) then
+       allocate( noahmp%water%state%IrrigationFracGrid(ITS:ITE,JTS:JTE) )
+       !$acc enter data create(noahmp%water%state%IrrigationFracGrid)
+    endif
+    if ( .not. allocated(noahmp%water%state%PrecipAreaFrac) ) then
+       allocate( noahmp%water%state%PrecipAreaFrac(ITS:ITE,JTS:JTE) )
+       !$acc enter data create(noahmp%water%state%PrecipAreaFrac)
+    endif
+    if ( .not. allocated(noahmp%water%state%SnowCoverFrac) ) then
+       allocate( noahmp%water%state%SnowCoverFrac(ITS:ITE,JTS:JTE) )
+       !$acc enter data create(noahmp%water%state%SnowCoverFrac)
+    endif
+    if ( .not. allocated(noahmp%water%state%SoilTranspFacAcc) ) then
+       allocate( noahmp%water%state%SoilTranspFacAcc(ITS:ITE,JTS:JTE) )
+       !$acc enter data create(noahmp%water%state%SoilTranspFacAcc)
+    endif
+    if ( .not. allocated(noahmp%water%state%FrozenPrecipFrac) ) then
+       allocate( noahmp%water%state%FrozenPrecipFrac(ITS:ITE,JTS:JTE) )
+       !$acc enter data create(noahmp%water%state%FrozenPrecipFrac)
+    endif
+    if ( .not. allocated(noahmp%water%state%SoilWaterRootZone) ) then
+       allocate( noahmp%water%state%SoilWaterRootZone(ITS:ITE,JTS:JTE) )
+       !$acc enter data create(noahmp%water%state%SoilWaterRootZone)
+    endif
+    if ( .not. allocated(noahmp%water%state%SoilWaterStress) ) then
+       allocate( noahmp%water%state%SoilWaterStress(ITS:ITE,JTS:JTE) )
+       !$acc enter data create(noahmp%water%state%SoilWaterStress)
+    endif
+    if ( .not. allocated(noahmp%water%state%WaterStorageTotBeg) ) then
+       allocate( noahmp%water%state%WaterStorageTotBeg(ITS:ITE,JTS:JTE) )
+       !$acc enter data create(noahmp%water%state%WaterStorageTotBeg)
+    endif
+    if ( .not. allocated(noahmp%water%state%WaterBalanceError) ) then
+       allocate( noahmp%water%state%WaterBalanceError(ITS:ITE,JTS:JTE) )
+       !$acc enter data create(noahmp%water%state%WaterBalanceError)
+    endif
+    if ( .not. allocated(noahmp%water%state%WaterStorageTotEnd) ) then
+       allocate( noahmp%water%state%WaterStorageTotEnd(ITS:ITE,JTS:JTE) )
+       !$acc enter data create(noahmp%water%state%WaterStorageTotEnd)
+    endif
+    if ( .not. allocated(noahmp%water%state%SnowRadiusFresh) ) then
+       allocate( noahmp%water%state%SnowRadiusFresh(ITS:ITE,JTS:JTE) )
+       !$acc enter data create(noahmp%water%state%SnowRadiusFresh)
+    endif
+
+    ! Allocate 2D water flux arrays and transfer to GPU
+    if ( .not. allocated(noahmp%water%flux%RainfallRefHeight) ) then
+       allocate( noahmp%water%flux%RainfallRefHeight(ITS:ITE,JTS:JTE) )
+       !$acc enter data create(noahmp%water%flux%RainfallRefHeight)
+    endif
+    if ( .not. allocated(noahmp%water%flux%SnowfallRefHeight) ) then
+       allocate( noahmp%water%flux%SnowfallRefHeight(ITS:ITE,JTS:JTE) )
+       !$acc enter data create(noahmp%water%flux%SnowfallRefHeight)
+    endif
+    if ( .not. allocated(noahmp%water%flux%PrecipTotRefHeight) ) then
+       allocate( noahmp%water%flux%PrecipTotRefHeight(ITS:ITE,JTS:JTE) )
+       !$acc enter data create(noahmp%water%flux%PrecipTotRefHeight)
+    endif
+    if ( .not. allocated(noahmp%water%flux%PrecipConvTotRefHeight) ) then
+       allocate( noahmp%water%flux%PrecipConvTotRefHeight(ITS:ITE,JTS:JTE) )
+       !$acc enter data create(noahmp%water%flux%PrecipConvTotRefHeight)
+    endif
+    if ( .not. allocated(noahmp%water%flux%PrecipLargeSclRefHeight) ) then
+       allocate( noahmp%water%flux%PrecipLargeSclRefHeight(ITS:ITE,JTS:JTE) )
+       !$acc enter data create(noahmp%water%flux%PrecipLargeSclRefHeight)
+    endif
+    if ( .not. allocated(noahmp%water%flux%EvapCanopyNet) ) then
+       allocate( noahmp%water%flux%EvapCanopyNet(ITS:ITE,JTS:JTE) )
+       !$acc enter data create(noahmp%water%flux%EvapCanopyNet)
+    endif
+    if ( .not. allocated(noahmp%water%flux%Transpiration) ) then
+       allocate( noahmp%water%flux%Transpiration(ITS:ITE,JTS:JTE) )
+       !$acc enter data create(noahmp%water%flux%Transpiration)
+    endif
+    if ( .not. allocated(noahmp%water%flux%EvapCanopyLiq) ) then
+       allocate( noahmp%water%flux%EvapCanopyLiq(ITS:ITE,JTS:JTE) )
+       !$acc enter data create(noahmp%water%flux%EvapCanopyLiq)
+    endif
+    if ( .not. allocated(noahmp%water%flux%DewCanopyLiq) ) then
+       allocate( noahmp%water%flux%DewCanopyLiq(ITS:ITE,JTS:JTE) )
+       !$acc enter data create(noahmp%water%flux%DewCanopyLiq)
+    endif
+    if ( .not. allocated(noahmp%water%flux%FrostCanopyIce) ) then
+       allocate( noahmp%water%flux%FrostCanopyIce(ITS:ITE,JTS:JTE) )
+       !$acc enter data create(noahmp%water%flux%FrostCanopyIce)
+    endif
+    if ( .not. allocated(noahmp%water%flux%SublimCanopyIce) ) then
+       allocate( noahmp%water%flux%SublimCanopyIce(ITS:ITE,JTS:JTE) )
+       !$acc enter data create(noahmp%water%flux%SublimCanopyIce)
+    endif
+    if ( .not. allocated(noahmp%water%flux%MeltCanopyIce) ) then
+       allocate( noahmp%water%flux%MeltCanopyIce(ITS:ITE,JTS:JTE) )
+       !$acc enter data create(noahmp%water%flux%MeltCanopyIce)
+    endif
+    if ( .not. allocated(noahmp%water%flux%FreezeCanopyLiq) ) then
+       allocate( noahmp%water%flux%FreezeCanopyLiq(ITS:ITE,JTS:JTE) )
+       !$acc enter data create(noahmp%water%flux%FreezeCanopyLiq)
+    endif
+    if ( .not. allocated(noahmp%water%flux%SnowfallGround) ) then
+       allocate( noahmp%water%flux%SnowfallGround(ITS:ITE,JTS:JTE) )
+       !$acc enter data create(noahmp%water%flux%SnowfallGround)
+    endif
+    if ( .not. allocated(noahmp%water%flux%SnowDepthIncr) ) then
+       allocate( noahmp%water%flux%SnowDepthIncr(ITS:ITE,JTS:JTE) )
+       !$acc enter data create(noahmp%water%flux%SnowDepthIncr)
+    endif
+    if ( .not. allocated(noahmp%water%flux%FrostSnowSfcIce) ) then
+       allocate( noahmp%water%flux%FrostSnowSfcIce(ITS:ITE,JTS:JTE) )
+       !$acc enter data create(noahmp%water%flux%FrostSnowSfcIce)
+    endif
+    if ( .not. allocated(noahmp%water%flux%SublimSnowSfcIce) ) then
+       allocate( noahmp%water%flux%SublimSnowSfcIce(ITS:ITE,JTS:JTE) )
+       !$acc enter data create(noahmp%water%flux%SublimSnowSfcIce)
+    endif
+    if ( .not. allocated(noahmp%water%flux%RainfallGround) ) then
+       allocate( noahmp%water%flux%RainfallGround(ITS:ITE,JTS:JTE) )
+       !$acc enter data create(noahmp%water%flux%RainfallGround)
+    endif
+    if ( .not. allocated(noahmp%water%flux%SnowBotOutflow) ) then
+       allocate( noahmp%water%flux%SnowBotOutflow(ITS:ITE,JTS:JTE) )
+       !$acc enter data create(noahmp%water%flux%SnowBotOutflow)
+    endif
+    if ( .not. allocated(noahmp%water%flux%GlacierExcessFlow) ) then
+       allocate( noahmp%water%flux%GlacierExcessFlow(ITS:ITE,JTS:JTE) )
+       !$acc enter data create(noahmp%water%flux%GlacierExcessFlow)
+    endif
+    if ( .not. allocated(noahmp%water%flux%IrrigationRateFlood) ) then
+       allocate( noahmp%water%flux%IrrigationRateFlood(ITS:ITE,JTS:JTE) )
+       !$acc enter data create(noahmp%water%flux%IrrigationRateFlood)
+    endif
+    if ( .not. allocated(noahmp%water%flux%IrrigationRateMicro) ) then
+       allocate( noahmp%water%flux%IrrigationRateMicro(ITS:ITE,JTS:JTE) )
+       !$acc enter data create(noahmp%water%flux%IrrigationRateMicro)
+    endif
+    if ( .not. allocated(noahmp%water%flux%IrrigationRateSprinkler) ) then
+       allocate( noahmp%water%flux%IrrigationRateSprinkler(ITS:ITE,JTS:JTE) )
+       !$acc enter data create(noahmp%water%flux%IrrigationRateSprinkler)
+    endif
+    if ( .not. allocated(noahmp%water%flux%IrriEvapLossSprinkler) ) then
+       allocate( noahmp%water%flux%IrriEvapLossSprinkler(ITS:ITE,JTS:JTE) )
+       !$acc enter data create(noahmp%water%flux%IrriEvapLossSprinkler)
+    endif
+    if ( .not. allocated(noahmp%water%flux%SoilSfcInflow) ) then
+       allocate( noahmp%water%flux%SoilSfcInflow(ITS:ITE,JTS:JTE) )
+       !$acc enter data create(noahmp%water%flux%SoilSfcInflow)
+    endif
+    if ( .not. allocated(noahmp%water%flux%RunoffSurface) ) then
+       allocate( noahmp%water%flux%RunoffSurface(ITS:ITE,JTS:JTE) )
+       !$acc enter data create(noahmp%water%flux%RunoffSurface)
+    endif
+    if ( .not. allocated(noahmp%water%flux%RunoffSubsurface) ) then
+       allocate( noahmp%water%flux%RunoffSubsurface(ITS:ITE,JTS:JTE) )
+       !$acc enter data create(noahmp%water%flux%RunoffSubsurface)
+    endif
+    if ( .not. allocated(noahmp%water%flux%InfilRateSfc) ) then
+       allocate( noahmp%water%flux%InfilRateSfc(ITS:ITE,JTS:JTE) )
+       !$acc enter data create(noahmp%water%flux%InfilRateSfc)
+    endif
+    if ( .not. allocated(noahmp%water%flux%EvapSoilSfcLiq) ) then
+       allocate( noahmp%water%flux%EvapSoilSfcLiq(ITS:ITE,JTS:JTE) )
+       !$acc enter data create(noahmp%water%flux%EvapSoilSfcLiq)
+    endif
+    if ( .not. allocated(noahmp%water%flux%DrainSoilBot) ) then
+       allocate( noahmp%water%flux%DrainSoilBot(ITS:ITE,JTS:JTE) )
+       !$acc enter data create(noahmp%water%flux%DrainSoilBot)
+    endif
+    if ( .not. allocated(noahmp%water%flux%TileDrain) ) then
+       allocate( noahmp%water%flux%TileDrain(ITS:ITE,JTS:JTE) )
+       !$acc enter data create(noahmp%water%flux%TileDrain)
+    endif
+    if ( .not. allocated(noahmp%water%flux%RechargeGw) ) then
+       allocate( noahmp%water%flux%RechargeGw(ITS:ITE,JTS:JTE) )
+       !$acc enter data create(noahmp%water%flux%RechargeGw)
+    endif
+    if ( .not. allocated(noahmp%water%flux%DischargeGw) ) then
+       allocate( noahmp%water%flux%DischargeGw(ITS:ITE,JTS:JTE) )
+       !$acc enter data create(noahmp%water%flux%DischargeGw)
+    endif
+    if ( .not. allocated(noahmp%water%flux%VaporizeGrd) ) then
+       allocate( noahmp%water%flux%VaporizeGrd(ITS:ITE,JTS:JTE) )
+       !$acc enter data create(noahmp%water%flux%VaporizeGrd)
+    endif
+    if ( .not. allocated(noahmp%water%flux%CondenseVapGrd) ) then
+       allocate( noahmp%water%flux%CondenseVapGrd(ITS:ITE,JTS:JTE) )
+       !$acc enter data create(noahmp%water%flux%CondenseVapGrd)
+    endif
+    if ( .not. allocated(noahmp%water%flux%DewSoilSfcLiq) ) then
+       allocate( noahmp%water%flux%DewSoilSfcLiq(ITS:ITE,JTS:JTE) )
+       !$acc enter data create(noahmp%water%flux%DewSoilSfcLiq)
+    endif
+    if ( .not. allocated(noahmp%water%flux%EvapIrriSprinkler) ) then
+       allocate( noahmp%water%flux%EvapIrriSprinkler(ITS:ITE,JTS:JTE) )
+       !$acc enter data create(noahmp%water%flux%EvapIrriSprinkler)
+    endif
+    if ( .not. allocated(noahmp%water%flux%InterceptCanopyRain) ) then
+       allocate( noahmp%water%flux%InterceptCanopyRain(ITS:ITE,JTS:JTE) )
+       !$acc enter data create(noahmp%water%flux%InterceptCanopyRain)
+    endif
+    if ( .not. allocated(noahmp%water%flux%DripCanopyRain) ) then
+       allocate( noahmp%water%flux%DripCanopyRain(ITS:ITE,JTS:JTE) )
+       !$acc enter data create(noahmp%water%flux%DripCanopyRain)
+    endif
+    if ( .not. allocated(noahmp%water%flux%ThroughfallRain) ) then
+       allocate( noahmp%water%flux%ThroughfallRain(ITS:ITE,JTS:JTE) )
+       !$acc enter data create(noahmp%water%flux%ThroughfallRain)
+    endif
+    if ( .not. allocated(noahmp%water%flux%InterceptCanopySnow) ) then
+       allocate( noahmp%water%flux%InterceptCanopySnow(ITS:ITE,JTS:JTE) )
+       !$acc enter data create(noahmp%water%flux%InterceptCanopySnow)
+    endif
+    if ( .not. allocated(noahmp%water%flux%DripCanopySnow) ) then
+       allocate( noahmp%water%flux%DripCanopySnow(ITS:ITE,JTS:JTE) )
+       !$acc enter data create(noahmp%water%flux%DripCanopySnow)
+    endif
+    if ( .not. allocated(noahmp%water%flux%ThroughfallSnow) ) then
+       allocate( noahmp%water%flux%ThroughfallSnow(ITS:ITE,JTS:JTE) )
+       !$acc enter data create(noahmp%water%flux%ThroughfallSnow)
+    endif
+    if ( .not. allocated(noahmp%water%flux%EvapGroundNet) ) then
+       allocate( noahmp%water%flux%EvapGroundNet(ITS:ITE,JTS:JTE) )
+       !$acc enter data create(noahmp%water%flux%EvapGroundNet)
+    endif
+    if ( .not. allocated(noahmp%water%flux%MeltGroundSnow) ) then
+       allocate( noahmp%water%flux%MeltGroundSnow(ITS:ITE,JTS:JTE) )
+       !$acc enter data create(noahmp%water%flux%MeltGroundSnow)
+    endif
+    if ( .not. allocated(noahmp%water%flux%WaterToAtmosTotal) ) then
+       allocate( noahmp%water%flux%WaterToAtmosTotal(ITS:ITE,JTS:JTE) )
+       !$acc enter data create(noahmp%water%flux%WaterToAtmosTotal)
+    endif
+    if ( .not. allocated(noahmp%water%flux%EvapSoilSfcLiqAcc) ) then
+       allocate( noahmp%water%flux%EvapSoilSfcLiqAcc(ITS:ITE,JTS:JTE) )
+       !$acc enter data create(noahmp%water%flux%EvapSoilSfcLiqAcc)
+    endif
+    if ( .not. allocated(noahmp%water%flux%SoilSfcInflowAcc) ) then
+       allocate( noahmp%water%flux%SoilSfcInflowAcc(ITS:ITE,JTS:JTE) )
+       !$acc enter data create(noahmp%water%flux%SoilSfcInflowAcc)
+    endif
+    if ( .not. allocated(noahmp%water%flux%SfcWaterTotChgAcc) ) then
+       allocate( noahmp%water%flux%SfcWaterTotChgAcc(ITS:ITE,JTS:JTE) )
+       !$acc enter data create(noahmp%water%flux%SfcWaterTotChgAcc)
+    endif
+    if ( .not. allocated(noahmp%water%flux%PrecipTotAcc) ) then
+       allocate( noahmp%water%flux%PrecipTotAcc(ITS:ITE,JTS:JTE) )
+       !$acc enter data create(noahmp%water%flux%PrecipTotAcc)
+    endif
+    if ( .not. allocated(noahmp%water%flux%EvapCanopyNetAcc) ) then
+       allocate( noahmp%water%flux%EvapCanopyNetAcc(ITS:ITE,JTS:JTE) )
+       !$acc enter data create(noahmp%water%flux%EvapCanopyNetAcc)
+    endif
+    if ( .not. allocated(noahmp%water%flux%TranspirationAcc) ) then
+       allocate( noahmp%water%flux%TranspirationAcc(ITS:ITE,JTS:JTE) )
+       !$acc enter data create(noahmp%water%flux%TranspirationAcc)
+    endif
+    if ( .not. allocated(noahmp%water%flux%EvapGroundNetAcc) ) then
+       allocate( noahmp%water%flux%EvapGroundNetAcc(ITS:ITE,JTS:JTE) )
+       !$acc enter data create(noahmp%water%flux%EvapGroundNetAcc)
+    endif
+    if ( .not. allocated(noahmp%water%flux%GlacierExcessFlowAcc) ) then
+       allocate( noahmp%water%flux%GlacierExcessFlowAcc(ITS:ITE,JTS:JTE) )
+       !$acc enter data create(noahmp%water%flux%GlacierExcessFlowAcc)
+    endif
+    if ( .not. allocated(noahmp%water%flux%EvapSoilSfcLiqMean) ) then
+       allocate( noahmp%water%flux%EvapSoilSfcLiqMean(ITS:ITE,JTS:JTE) )
+       !$acc enter data create(noahmp%water%flux%EvapSoilSfcLiqMean)
+    endif
+    if ( .not. allocated(noahmp%water%flux%SoilSfcInflowMean) ) then
+       allocate( noahmp%water%flux%SoilSfcInflowMean(ITS:ITE,JTS:JTE) )
+       !$acc enter data create(noahmp%water%flux%SoilSfcInflowMean)
+    endif
+
+    ! Allocate 2D water param arrays and transfer to GPU
+    if ( .not. allocated(noahmp%water%param%SnowCoverFac) ) then
+       allocate( noahmp%water%param%SnowCoverFac(ITS:ITE,JTS:JTE) )
+       !$acc enter data create(noahmp%water%param%SnowCoverFac)
+    endif
+    if ( .not. allocated(noahmp%water%param%DrainSoilLayerInd) ) then
+       allocate( noahmp%water%param%DrainSoilLayerInd(ITS:ITE,JTS:JTE) )
+       !$acc enter data create(noahmp%water%param%DrainSoilLayerInd)
+    endif
+    if ( .not. allocated(noahmp%water%param%TileDrainTubeDepth) ) then
+       allocate( noahmp%water%param%TileDrainTubeDepth(ITS:ITE,JTS:JTE) )
+       !$acc enter data create(noahmp%water%param%TileDrainTubeDepth)
+    endif
+    if ( .not. allocated(noahmp%water%param%NumSoilLayerRoot) ) then
+       allocate( noahmp%water%param%NumSoilLayerRoot(ITS:ITE,JTS:JTE) )
+       !$acc enter data create(noahmp%water%param%NumSoilLayerRoot)
+    endif
+    if ( .not. allocated(noahmp%water%param%IrriStopDayBfHarvest) ) then
+       allocate( noahmp%water%param%IrriStopDayBfHarvest(ITS:ITE,JTS:JTE) )
+       !$acc enter data create(noahmp%water%param%IrriStopDayBfHarvest)
+    endif
+    if ( .not. allocated(noahmp%water%param%CanopyLiqHoldCap) ) then
+       allocate( noahmp%water%param%CanopyLiqHoldCap(ITS:ITE,JTS:JTE) )
+       !$acc enter data create(noahmp%water%param%CanopyLiqHoldCap)
+    endif
+    if ( .not. allocated(noahmp%water%param%SnowCompactBurdenFac) ) then
+       allocate( noahmp%water%param%SnowCompactBurdenFac(ITS:ITE,JTS:JTE) )
+       !$acc enter data create(noahmp%water%param%SnowCompactBurdenFac)
+    endif
+    if ( .not. allocated(noahmp%water%param%SnowCompactAgingFac1) ) then
+       allocate( noahmp%water%param%SnowCompactAgingFac1(ITS:ITE,JTS:JTE) )
+       !$acc enter data create(noahmp%water%param%SnowCompactAgingFac1)
+    endif
+    if ( .not. allocated(noahmp%water%param%SnowCompactAgingFac2) ) then
+       allocate( noahmp%water%param%SnowCompactAgingFac2(ITS:ITE,JTS:JTE) )
+       !$acc enter data create(noahmp%water%param%SnowCompactAgingFac2)
+    endif
+    if ( .not. allocated(noahmp%water%param%SnowCompactAgingFac3) ) then
+       allocate( noahmp%water%param%SnowCompactAgingFac3(ITS:ITE,JTS:JTE) )
+       !$acc enter data create(noahmp%water%param%SnowCompactAgingFac3)
+    endif
+    if ( .not. allocated(noahmp%water%param%SnowCompactAgingMax) ) then
+       allocate( noahmp%water%param%SnowCompactAgingMax(ITS:ITE,JTS:JTE) )
+       !$acc enter data create(noahmp%water%param%SnowCompactAgingMax)
+    endif
+    if ( .not. allocated(noahmp%water%param%SnowViscosityCoeff) ) then
+       allocate( noahmp%water%param%SnowViscosityCoeff(ITS:ITE,JTS:JTE) )
+       !$acc enter data create(noahmp%water%param%SnowViscosityCoeff)
+    endif
+    if ( .not. allocated(noahmp%water%param%SnowCompactmAR24) ) then
+       allocate( noahmp%water%param%SnowCompactmAR24(ITS:ITE,JTS:JTE) )
+       !$acc enter data create(noahmp%water%param%SnowCompactmAR24)
+    endif
+    if ( .not. allocated(noahmp%water%param%SnowCompactbAR24) ) then
+       allocate( noahmp%water%param%SnowCompactbAR24(ITS:ITE,JTS:JTE) )
+       !$acc enter data create(noahmp%water%param%SnowCompactbAR24)
+    endif
+    if ( .not. allocated(noahmp%water%param%SnowCompactP1AR24) ) then
+       allocate( noahmp%water%param%SnowCompactP1AR24(ITS:ITE,JTS:JTE) )
+       !$acc enter data create(noahmp%water%param%SnowCompactP1AR24)
+    endif
+    if ( .not. allocated(noahmp%water%param%SnowCompactP2AR24) ) then
+       allocate( noahmp%water%param%SnowCompactP2AR24(ITS:ITE,JTS:JTE) )
+       !$acc enter data create(noahmp%water%param%SnowCompactP2AR24)
+    endif
+    if ( .not. allocated(noahmp%water%param%SnowCompactP3AR24) ) then
+       allocate( noahmp%water%param%SnowCompactP3AR24(ITS:ITE,JTS:JTE) )
+       !$acc enter data create(noahmp%water%param%SnowCompactP3AR24)
+    endif
+    if ( .not. allocated(noahmp%water%param%BurdenFacUpAR24) ) then
+       allocate( noahmp%water%param%BurdenFacUpAR24(ITS:ITE,JTS:JTE) )
+       !$acc enter data create(noahmp%water%param%BurdenFacUpAR24)
+    endif
+    if ( .not. allocated(noahmp%water%param%SnowCoverM1AR25) ) then
+       allocate( noahmp%water%param%SnowCoverM1AR25(ITS:ITE,JTS:JTE) )
+       !$acc enter data create(noahmp%water%param%SnowCoverM1AR25)
+    endif
+    if ( .not. allocated(noahmp%water%param%SnowCoverM2AR25) ) then
+       allocate( noahmp%water%param%SnowCoverM2AR25(ITS:ITE,JTS:JTE) )
+       !$acc enter data create(noahmp%water%param%SnowCoverM2AR25)
+    endif
+    if ( .not. allocated(noahmp%water%param%SnowCoverFac1AR25) ) then
+       allocate( noahmp%water%param%SnowCoverFac1AR25(ITS:ITE,JTS:JTE) )
+       !$acc enter data create(noahmp%water%param%SnowCoverFac1AR25)
+    endif
+    if ( .not. allocated(noahmp%water%param%SnowCoverFac2AR25) ) then
+       allocate( noahmp%water%param%SnowCoverFac2AR25(ITS:ITE,JTS:JTE) )
+       !$acc enter data create(noahmp%water%param%SnowCoverFac2AR25)
+    endif
+    if ( .not. allocated(noahmp%water%param%SnowLiqFracMax) ) then
+       allocate( noahmp%water%param%SnowLiqFracMax(ITS:ITE,JTS:JTE) )
+       !$acc enter data create(noahmp%water%param%SnowLiqFracMax)
+    endif
+    if ( .not. allocated(noahmp%water%param%SnowLiqHoldCap) ) then
+       allocate( noahmp%water%param%SnowLiqHoldCap(ITS:ITE,JTS:JTE) )
+       !$acc enter data create(noahmp%water%param%SnowLiqHoldCap)
+    endif
+    if ( .not. allocated(noahmp%water%param%SnowLiqReleaseFac) ) then
+       allocate( noahmp%water%param%SnowLiqReleaseFac(ITS:ITE,JTS:JTE) )
+       !$acc enter data create(noahmp%water%param%SnowLiqReleaseFac)
+    endif
+    if ( .not. allocated(noahmp%water%param%IrriFloodRateFac) ) then
+       allocate( noahmp%water%param%IrriFloodRateFac(ITS:ITE,JTS:JTE) )
+       !$acc enter data create(noahmp%water%param%IrriFloodRateFac)
+    endif
+    if ( .not. allocated(noahmp%water%param%IrriMicroRate) ) then
+       allocate( noahmp%water%param%IrriMicroRate(ITS:ITE,JTS:JTE) )
+       !$acc enter data create(noahmp%water%param%IrriMicroRate)
+    endif
+    if ( .not. allocated(noahmp%water%param%SoilInfilMaxCoeff) ) then
+       allocate( noahmp%water%param%SoilInfilMaxCoeff(ITS:ITE,JTS:JTE) )
+       !$acc enter data create(noahmp%water%param%SoilInfilMaxCoeff)
+    endif
+    if ( .not. allocated(noahmp%water%param%SoilImpervFracCoeff) ) then
+       allocate( noahmp%water%param%SoilImpervFracCoeff(ITS:ITE,JTS:JTE) )
+       !$acc enter data create(noahmp%water%param%SoilImpervFracCoeff)
+    endif
+    if ( .not. allocated(noahmp%water%param%InfilFacVic) ) then
+       allocate( noahmp%water%param%InfilFacVic(ITS:ITE,JTS:JTE) )
+       !$acc enter data create(noahmp%water%param%InfilFacVic)
+    endif
+    if ( .not. allocated(noahmp%water%param%TensionWatDistrInfl) ) then
+       allocate( noahmp%water%param%TensionWatDistrInfl(ITS:ITE,JTS:JTE) )
+       !$acc enter data create(noahmp%water%param%TensionWatDistrInfl)
+    endif
+    if ( .not. allocated(noahmp%water%param%TensionWatDistrShp) ) then
+       allocate( noahmp%water%param%TensionWatDistrShp(ITS:ITE,JTS:JTE) )
+       !$acc enter data create(noahmp%water%param%TensionWatDistrShp)
+    endif
+    if ( .not. allocated(noahmp%water%param%FreeWatDistrShp) ) then
+       allocate( noahmp%water%param%FreeWatDistrShp(ITS:ITE,JTS:JTE) )
+       !$acc enter data create(noahmp%water%param%FreeWatDistrShp)
+    endif
+    if ( .not. allocated(noahmp%water%param%InfilHeteroDynVic) ) then
+       allocate( noahmp%water%param%InfilHeteroDynVic(ITS:ITE,JTS:JTE) )
+       !$acc enter data create(noahmp%water%param%InfilHeteroDynVic)
+    endif
+    if ( .not. allocated(noahmp%water%param%InfilCapillaryDynVic) ) then
+       allocate( noahmp%water%param%InfilCapillaryDynVic(ITS:ITE,JTS:JTE) )
+       !$acc enter data create(noahmp%water%param%InfilCapillaryDynVic)
+    endif
+    if ( .not. allocated(noahmp%water%param%InfilFacDynVic) ) then
+       allocate( noahmp%water%param%InfilFacDynVic(ITS:ITE,JTS:JTE) )
+       !$acc enter data create(noahmp%water%param%InfilFacDynVic)
+    endif
+    if ( .not. allocated(noahmp%water%param%SoilDrainSlope) ) then
+       allocate( noahmp%water%param%SoilDrainSlope(ITS:ITE,JTS:JTE) )
+       !$acc enter data create(noahmp%water%param%SoilDrainSlope)
+    endif
+    if ( .not. allocated(noahmp%water%param%TileDrainCoeffSp) ) then
+       allocate( noahmp%water%param%TileDrainCoeffSp(ITS:ITE,JTS:JTE) )
+       !$acc enter data create(noahmp%water%param%TileDrainCoeffSp)
+    endif
+    if ( .not. allocated(noahmp%water%param%DrainFacSoilWat) ) then
+       allocate( noahmp%water%param%DrainFacSoilWat(ITS:ITE,JTS:JTE) )
+       !$acc enter data create(noahmp%water%param%DrainFacSoilWat)
+    endif
+    if ( .not. allocated(noahmp%water%param%TileDrainCoeff) ) then
+       allocate( noahmp%water%param%TileDrainCoeff(ITS:ITE,JTS:JTE) )
+       !$acc enter data create(noahmp%water%param%TileDrainCoeff)
+    endif
+    if ( .not. allocated(noahmp%water%param%DrainDepthToImperv) ) then
+       allocate( noahmp%water%param%DrainDepthToImperv(ITS:ITE,JTS:JTE) )
+       !$acc enter data create(noahmp%water%param%DrainDepthToImperv)
+    endif
+    if ( .not. allocated(noahmp%water%param%LateralWatCondFac) ) then
+       allocate( noahmp%water%param%LateralWatCondFac(ITS:ITE,JTS:JTE) )
+       !$acc enter data create(noahmp%water%param%LateralWatCondFac)
+    endif
+    if ( .not. allocated(noahmp%water%param%TileDrainDepth) ) then
+       allocate( noahmp%water%param%TileDrainDepth(ITS:ITE,JTS:JTE) )
+       !$acc enter data create(noahmp%water%param%TileDrainDepth)
+    endif
+    if ( .not. allocated(noahmp%water%param%DrainTubeDist) ) then
+       allocate( noahmp%water%param%DrainTubeDist(ITS:ITE,JTS:JTE) )
+       !$acc enter data create(noahmp%water%param%DrainTubeDist)
+    endif
+    if ( .not. allocated(noahmp%water%param%DrainTubeRadius) ) then
+       allocate( noahmp%water%param%DrainTubeRadius(ITS:ITE,JTS:JTE) )
+       !$acc enter data create(noahmp%water%param%DrainTubeRadius)
+    endif
+    if ( .not. allocated(noahmp%water%param%DrainWatDepToImperv) ) then
+       allocate( noahmp%water%param%DrainWatDepToImperv(ITS:ITE,JTS:JTE) )
+       !$acc enter data create(noahmp%water%param%DrainWatDepToImperv)
+    endif
+    if ( .not. allocated(noahmp%water%param%RunoffDecayFac) ) then
+       allocate( noahmp%water%param%RunoffDecayFac(ITS:ITE,JTS:JTE) )
+       !$acc enter data create(noahmp%water%param%RunoffDecayFac)
+    endif
+    if ( .not. allocated(noahmp%water%param%BaseflowCoeff) ) then
+       allocate( noahmp%water%param%BaseflowCoeff(ITS:ITE,JTS:JTE) )
+       !$acc enter data create(noahmp%water%param%BaseflowCoeff)
+    endif
+    if ( .not. allocated(noahmp%water%param%GridTopoIndex) ) then
+       allocate( noahmp%water%param%GridTopoIndex(ITS:ITE,JTS:JTE) )
+       !$acc enter data create(noahmp%water%param%GridTopoIndex)
+    endif
+    if ( .not. allocated(noahmp%water%param%SoilSfcSatFracMax) ) then
+       allocate( noahmp%water%param%SoilSfcSatFracMax(ITS:ITE,JTS:JTE) )
+       !$acc enter data create(noahmp%water%param%SoilSfcSatFracMax)
+    endif
+    if ( .not. allocated(noahmp%water%param%SpecYieldGw) ) then
+       allocate( noahmp%water%param%SpecYieldGw(ITS:ITE,JTS:JTE) )
+       !$acc enter data create(noahmp%water%param%SpecYieldGw)
+    endif
+    if ( .not. allocated(noahmp%water%param%MicroPoreContent) ) then
+       allocate( noahmp%water%param%MicroPoreContent(ITS:ITE,JTS:JTE) )
+       !$acc enter data create(noahmp%water%param%MicroPoreContent)
+    endif
+    if ( .not. allocated(noahmp%water%param%WaterStorageLakeMax) ) then
+       allocate( noahmp%water%param%WaterStorageLakeMax(ITS:ITE,JTS:JTE) )
+       !$acc enter data create(noahmp%water%param%WaterStorageLakeMax)
+    endif
+    if ( .not. allocated(noahmp%water%param%SnoWatEqvMaxGlacier) ) then
+       allocate( noahmp%water%param%SnoWatEqvMaxGlacier(ITS:ITE,JTS:JTE) )
+       !$acc enter data create(noahmp%water%param%SnoWatEqvMaxGlacier)
+    endif
+    if ( .not. allocated(noahmp%water%param%SoilConductivityRef) ) then
+       allocate( noahmp%water%param%SoilConductivityRef(ITS:ITE,JTS:JTE) )
+       !$acc enter data create(noahmp%water%param%SoilConductivityRef)
+    endif
+    if ( .not. allocated(noahmp%water%param%SoilInfilFacRef) ) then
+       allocate( noahmp%water%param%SoilInfilFacRef(ITS:ITE,JTS:JTE) )
+       !$acc enter data create(noahmp%water%param%SoilInfilFacRef)
+    endif
+    if ( .not. allocated(noahmp%water%param%GroundFrzCoeff) ) then
+       allocate( noahmp%water%param%GroundFrzCoeff(ITS:ITE,JTS:JTE) )
+       !$acc enter data create(noahmp%water%param%GroundFrzCoeff)
+    endif
+    if ( .not. allocated(noahmp%water%param%IrriTriggerLaiMin) ) then
+       allocate( noahmp%water%param%IrriTriggerLaiMin(ITS:ITE,JTS:JTE) )
+       !$acc enter data create(noahmp%water%param%IrriTriggerLaiMin)
+    endif
+    if ( .not. allocated(noahmp%water%param%SoilWatDeficitAllow) ) then
+       allocate( noahmp%water%param%SoilWatDeficitAllow(ITS:ITE,JTS:JTE) )
+       !$acc enter data create(noahmp%water%param%SoilWatDeficitAllow)
+    endif
+    if ( .not. allocated(noahmp%water%param%IrriFloodLossFrac) ) then
+       allocate( noahmp%water%param%IrriFloodLossFrac(ITS:ITE,JTS:JTE) )
+       !$acc enter data create(noahmp%water%param%IrriFloodLossFrac)
+    endif
+    if ( .not. allocated(noahmp%water%param%IrriSprinklerRate) ) then
+       allocate( noahmp%water%param%IrriSprinklerRate(ITS:ITE,JTS:JTE) )
+       !$acc enter data create(noahmp%water%param%IrriSprinklerRate)
+    endif
+    if ( .not. allocated(noahmp%water%param%IrriFracThreshold) ) then
+       allocate( noahmp%water%param%IrriFracThreshold(ITS:ITE,JTS:JTE) )
+       !$acc enter data create(noahmp%water%param%IrriFracThreshold)
+    endif
+    if ( .not. allocated(noahmp%water%param%IrriStopPrecipThr) ) then
+       allocate( noahmp%water%param%IrriStopPrecipThr(ITS:ITE,JTS:JTE) )
+       !$acc enter data create(noahmp%water%param%IrriStopPrecipThr)
+    endif
+    if ( .not. allocated(noahmp%water%param%SnowfallDensityMax) ) then
+       allocate( noahmp%water%param%SnowfallDensityMax(ITS:ITE,JTS:JTE) )
+       !$acc enter data create(noahmp%water%param%SnowfallDensityMax)
+    endif
+    if ( .not. allocated(noahmp%water%param%SnowMassFullCoverOld) ) then
+       allocate( noahmp%water%param%SnowMassFullCoverOld(ITS:ITE,JTS:JTE) )
+       !$acc enter data create(noahmp%water%param%SnowMassFullCoverOld)
+    endif
+    if ( .not. allocated(noahmp%water%param%SoilMatPotentialWilt) ) then
+       allocate( noahmp%water%param%SoilMatPotentialWilt(ITS:ITE,JTS:JTE) )
+       !$acc enter data create(noahmp%water%param%SoilMatPotentialWilt)
+    endif
+    if ( .not. allocated(noahmp%water%param%SnowMeltFac) ) then
+       allocate( noahmp%water%param%SnowMeltFac(ITS:ITE,JTS:JTE) )
+       !$acc enter data create(noahmp%water%param%SnowMeltFac)
+    endif
+    if ( .not. allocated(noahmp%water%param%WetlandCapMax) ) then
+       allocate( noahmp%water%param%WetlandCapMax(ITS:ITE,JTS:JTE) )
+       !$acc enter data create(noahmp%water%param%WetlandCapMax)
+    endif
+    if ( .not. allocated(noahmp%water%param%SnowRadiusMin) ) then
+       allocate( noahmp%water%param%SnowRadiusMin(ITS:ITE,JTS:JTE) )
+       !$acc enter data create(noahmp%water%param%SnowRadiusMin)
+    endif
+    if ( .not. allocated(noahmp%water%param%FreshSnowRadiusMax) ) then
+       allocate( noahmp%water%param%FreshSnowRadiusMax(ITS:ITE,JTS:JTE) )
+       !$acc enter data create(noahmp%water%param%FreshSnowRadiusMax)
+    endif
+    if ( .not. allocated(noahmp%water%param%SnowRadiusRefrz) ) then
+       allocate( noahmp%water%param%SnowRadiusRefrz(ITS:ITE,JTS:JTE) )
+       !$acc enter data create(noahmp%water%param%SnowRadiusRefrz)
+    endif
+    if ( .not. allocated(noahmp%water%param%ScavEffMeltScale) ) then
+       allocate( noahmp%water%param%ScavEffMeltScale(ITS:ITE,JTS:JTE) )
+       !$acc enter data create(noahmp%water%param%ScavEffMeltScale)
+    endif
+    if ( .not. allocated(noahmp%water%param%ScavEffMeltBCphi) ) then
+       allocate( noahmp%water%param%ScavEffMeltBCphi(ITS:ITE,JTS:JTE) )
+       !$acc enter data create(noahmp%water%param%ScavEffMeltBCphi)
+    endif
+    if ( .not. allocated(noahmp%water%param%ScavEffMeltBCpho) ) then
+       allocate( noahmp%water%param%ScavEffMeltBCpho(ITS:ITE,JTS:JTE) )
+       !$acc enter data create(noahmp%water%param%ScavEffMeltBCpho)
+    endif
+    if ( .not. allocated(noahmp%water%param%ScavEffMeltOCphi) ) then
+       allocate( noahmp%water%param%ScavEffMeltOCphi(ITS:ITE,JTS:JTE) )
+       !$acc enter data create(noahmp%water%param%ScavEffMeltOCphi)
+    endif
+    if ( .not. allocated(noahmp%water%param%ScavEffMeltOCpho) ) then
+       allocate( noahmp%water%param%ScavEffMeltOCpho(ITS:ITE,JTS:JTE) )
+       !$acc enter data create(noahmp%water%param%ScavEffMeltOCpho)
+    endif
+    if ( .not. allocated(noahmp%water%param%ScavEffMeltDust1) ) then
+       allocate( noahmp%water%param%ScavEffMeltDust1(ITS:ITE,JTS:JTE) )
+       !$acc enter data create(noahmp%water%param%ScavEffMeltDust1)
+    endif
+    if ( .not. allocated(noahmp%water%param%ScavEffMeltDust2) ) then
+       allocate( noahmp%water%param%ScavEffMeltDust2(ITS:ITE,JTS:JTE) )
+       !$acc enter data create(noahmp%water%param%ScavEffMeltDust2)
+    endif
+    if ( .not. allocated(noahmp%water%param%ScavEffMeltDust3) ) then
+       allocate( noahmp%water%param%ScavEffMeltDust3(ITS:ITE,JTS:JTE) )
+       !$acc enter data create(noahmp%water%param%ScavEffMeltDust3)
+    endif
+    if ( .not. allocated(noahmp%water%param%ScavEffMeltDust4) ) then
+       allocate( noahmp%water%param%ScavEffMeltDust4(ITS:ITE,JTS:JTE) )
+       !$acc enter data create(noahmp%water%param%ScavEffMeltDust4)
+    endif
+    if ( .not. allocated(noahmp%water%param%ScavEffMeltDust5) ) then
+       allocate( noahmp%water%param%ScavEffMeltDust5(ITS:ITE,JTS:JTE) )
+       !$acc enter data create(noahmp%water%param%ScavEffMeltDust5)
+    endif
+    if ( .not. allocated(noahmp%water%param%SnowRadiusMax) ) then
+       allocate( noahmp%water%param%SnowRadiusMax(ITS:ITE,JTS:JTE) )
+       !$acc enter data create(noahmp%water%param%SnowRadiusMax)
+    endif
+    if ( .not. allocated(noahmp%water%param%SnowWetAgeC1Brun89) ) then
+       allocate( noahmp%water%param%SnowWetAgeC1Brun89(ITS:ITE,JTS:JTE) )
+       !$acc enter data create(noahmp%water%param%SnowWetAgeC1Brun89)
+    endif
+    if ( .not. allocated(noahmp%water%param%SnowWetAgeC2Brun89) ) then
+       allocate( noahmp%water%param%SnowWetAgeC2Brun89(ITS:ITE,JTS:JTE) )
+       !$acc enter data create(noahmp%water%param%SnowWetAgeC2Brun89)
+    endif
+    if ( .not. allocated(noahmp%water%param%SnowAgeScaleFac) ) then
+       allocate( noahmp%water%param%SnowAgeScaleFac(ITS:ITE,JTS:JTE) )
+       !$acc enter data create(noahmp%water%param%SnowAgeScaleFac)
+    endif
+
     end associate
 
     ! Initialize all 2D and 3D arrays in parallel loop

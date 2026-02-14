@@ -9,7 +9,7 @@ module GlacierTemperatureMainMod
   use NoahmpVarType
   use ConstantDefineMod
   use GlacierThermalDiffusionMod,  only : GlacierThermalDiffusion
-
+  use GlacierTemperatureSolverMod, only : GlacierTemperatureSolver
   implicit none
 
 contains

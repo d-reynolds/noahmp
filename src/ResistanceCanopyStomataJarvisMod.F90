@@ -53,6 +53,8 @@ contains
     do J = noahmp%config%domain%JTS, noahmp%config%domain%JTE
       do I = noahmp%config%domain%ITS, noahmp%config%domain%ITE
 
+        if ( .not. ((noahmp%energy%state%VegAreaIndEff(I,J) > 0.0 ) .and. (noahmp%energy%state%VegFrac(I,J) > 0)) ) cycle ! skip non-vegetated surface
+
     associate(                                                                           &
               PressureAirRefHeight    => noahmp%forcing%PressureAirRefHeight(I,J)        ,& ! in,  air pressure [Pa] at reference height
               SoilTranspFacAcc        => noahmp%water%state%SoilTranspFacAcc(I,J)        ,& ! in,  accumulated soil water transpiration factor (0 to 1)

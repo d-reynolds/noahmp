@@ -118,10 +118,12 @@ contains
        RadSwReflVegDif   (I,IndBand,J) = 0.0
        RadSwReflGrdDir   (I,IndBand,J) = 0.0
        RadSwReflGrdDif   (I,IndBand,J) = 0.0
-       do IndSnow = -2, 1
-         FracRadSwAbsSnowDir(I,IndSnow,IndBand,J) = 0.0
-         FracRadSwAbsSnowDif(I,IndSnow,IndBand,J) = 0.0
-       enddo
+       if ( OptSnowAlbedo == 3 ) then
+         do IndSnow = -2, 1
+            FracRadSwAbsSnowDir(I,IndSnow,IndBand,J) = 0.0
+            FracRadSwAbsSnowDif(I,IndSnow,IndBand,J) = 0.0
+         enddo
+      endif
     enddo
 
     ! solar radiation process is only done if there is light
