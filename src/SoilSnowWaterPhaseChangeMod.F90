@@ -43,6 +43,7 @@ contains
     !$acc                                                       private(EnergyRes, WaterPhaseChg, MassWatTotInit, MassWatIceInit, MassWatLiqInit, MassWatIceTmp, MassWatLiqTmp)
     do J = noahmp%config%domain%JTS, noahmp%config%domain%JTE
       do I = noahmp%config%domain%ITS, noahmp%config%domain%ITE
+         if ( noahmp%config%domain%IndicatorIceSfc(I,J) == -1 ) cycle  ! skip land ice points
 ! --------------------------------------------------------------------
     associate(                                                                       &
               OptSnowAlbedo          => noahmp%config%nmlist%OptSnowAlbedo          ,& ! in,    options for ground snow surface albedo

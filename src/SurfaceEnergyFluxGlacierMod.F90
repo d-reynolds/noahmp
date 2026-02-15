@@ -59,12 +59,57 @@ contains
                             noahmp%config%domain%JTS:noahmp%config%domain%JTE))
     allocate(HeatSensibleTmp(noahmp%config%domain%ITS:noahmp%config%domain%ITE, &
                              noahmp%config%domain%JTS:noahmp%config%domain%JTE))
-    !$acc parallel loop collapse(2) gang vector present(noahmp) create(HeatSensibleTmp, MoStabParaSgn) &
-    !$acc private(IndIter,LoopInd,TemperatureGrdChg,LwRadCoeff,ShCoeff,LhCoeff) &
-    !$acc private(GrdHeatCoeff,ExchCoeffShTmp,ExchCoeffMomTmp,MoistureFluxSfc,VapPresSatWatTmp) &
-    !$acc private(VapPresSatIceTmp,VapPresSatWatTmpD,VapPresSatIceTmpD,FluxTotCoeff,EnergyResTmp) &
-    !$acc private(TempTmp,TempUnitConv,SoilIceTmp)
-    do J = noahmp%config%domain%JTS, noahmp%config%domain%JTE
+
+    ! begin stability iteration for ground temperature and flux
+
+    !$acc data create(HeatSensibleTmp, MoStabParaSgn)
+
+    loop3: do IndIter = 1, NumIter
+
+      !$acc parallel loop collapse(2) gang vector present(noahmp,HeatSensibleTmp, MoStabParaSgn) &
+      !$acc private(IndIter,LoopInd,TemperatureGrdChg,LwRadCoeff,ShCoeff,LhCoeff) &
+      !$acc private(GrdHeatCoeff,ExchCoeffShTmp,ExchCoeffMomTmp,MoistureFluxSfc,VapPresSatWatTmp) &
+      !$acc private(VapPresSatIceTmp,VapPresSatWatTmpD,VapPresSatIceTmpD,FluxTotCoeff,EnergyResTmp) &
+      !$acc private(TempTmp,TempUnitConv,SoilIceTmp)
+      do J = noahmp%config%domain%JTS, noahmp%config%domain%JTE
+         do I = noahmp%config%domain%ITS, noahmp%config%domain%ITE
+
+         associate(                 &
+            RoughLenMomGrd          => noahmp%energy%state%RoughLenMomGrd(I,J)      ,& ! in,    roughness length, momentum, ground [m]
+            RoughLenShBareGrd       => noahmp%energy%state%RoughLenShBareGrd(I,J)   ,& ! out,   roughness length [m], sensible heat, bare ground
+            FrictionVelBare         => noahmp%energy%state%FrictionVelBare(I,J)     ,& ! inout, friction velocity [m/s], bare ground
+            MoStabParaBare          => noahmp%energy%state%MoStabParaBare(I,J)      ,& ! out,   Monin-Obukhov stability (z/L), above ZeroPlaneDisp, bare ground
+            MoStabCorrShBare2m      => noahmp%energy%state%MoStabCorrShBare2m(I,J)   & ! out,   M-O sen heat stability correction, 2m, bare ground
+            )
+
+         if (IndIter == 1) then
+
+            ! initialization (including variables that do not depend on stability iteration)
+            TemperatureGrdChg  = 0.0
+            MoStabParaBare     = 0.0
+            MoStabParaSgn(I,J)      = 0
+            MoStabCorrShBare2m = 0.0
+            HeatSensibleTmp(I,J)    = 0.0
+            MoistureFluxSfc    = 0.0
+            FrictionVelBare    = 0.1
+         endif
+
+         ! ground roughness length
+         RoughLenShBareGrd = RoughLenMomGrd
+
+         end associate
+      enddo
+   enddo
+
+       ! aerodyn resistances between heights reference height and d+z0v
+       call ResistanceBareGroundMOST(noahmp, IndIter, HeatSensibleTmp, MoStabParaSgn)
+
+   !$acc parallel loop collapse(2) gang vector present(noahmp,HeatSensibleTmp, MoStabParaSgn) &
+   !$acc private(IndIter,LoopInd,TemperatureGrdChg,LwRadCoeff,ShCoeff,LhCoeff) &
+   !$acc private(GrdHeatCoeff,ExchCoeffShTmp,ExchCoeffMomTmp,MoistureFluxSfc,VapPresSatWatTmp) &
+   !$acc private(VapPresSatIceTmp,VapPresSatWatTmpD,VapPresSatIceTmpD,FluxTotCoeff,EnergyResTmp) &
+   !$acc private(TempTmp,TempUnitConv,SoilIceTmp)
+   do J = noahmp%config%domain%JTS, noahmp%config%domain%JTE
       do I = noahmp%config%domain%ITS, noahmp%config%domain%ITE
 ! --------------------------------------------------------------------
     associate(                                                                        &
@@ -120,26 +165,8 @@ contains
              )
 ! ----------------------------------------------------------------------
 
-    ! initialization (including variables that do not depend on stability iteration)
-    TemperatureGrdChg  = 0.0
-    MoStabParaBare     = 0.0
-    MoStabParaSgn(I,J)      = 0
-    MoStabCorrShBare2m = 0.0
-    HeatSensibleTmp(I,J)    = 0.0
-    MoistureFluxSfc    = 0.0
-    FrictionVelBare    = 0.1
-    LwRadCoeff         = EmissivityGrd * ConstStefanBoltzmann
-    GrdHeatCoeff       = 2.0*ThermConductSoilSnow(I,NumSnowLayerNeg+1,J)/ThicknessSnowSoilLayer(I,NumSnowLayerNeg+1,J)
-
-    ! begin stability iteration for ground temperature and flux
-    !$acc loop seq
-    loop3: do IndIter = 1, NumIter
-
-       ! ground roughness length
-       RoughLenShBareGrd = RoughLenMomGrd
-
-       ! aerodyn resistances between heights reference height and d+z0v
-       call ResistanceBareGroundMOST(noahmp, IndIter, HeatSensibleTmp, MoStabParaSgn)
+       LwRadCoeff         = EmissivityGrd * ConstStefanBoltzmann
+       GrdHeatCoeff       = 2.0*ThermConductSoilSnow(I,NumSnowLayerNeg+1,J)/ThicknessSnowSoilLayer(I,NumSnowLayerNeg+1,J)
 
        ! conductance variables for diagnostics         
        ExchCoeffMomTmp = 1.0 / ResistanceMomBareGrd
@@ -192,7 +219,73 @@ contains
                               (PressureAirRefHeight - 0.378 * (VapPresSatGrdBare*RelHumidityGrd))
        MoistureFluxSfc      = (SpecHumiditySfc - SpecHumidityRefHeight) * LhCoeff * PsychConstGrd / ConstHeatCapacAir
 
+       end associate
+      enddo
+   enddo
+
     enddo loop3 ! end stability iteration
+
+   !$acc parallel loop collapse(2) gang vector present(noahmp,HeatSensibleTmp, MoStabParaSgn) &
+   !$acc private(IndIter,LoopInd,TemperatureGrdChg,LwRadCoeff,ShCoeff,LhCoeff) &
+   !$acc private(GrdHeatCoeff,ExchCoeffShTmp,ExchCoeffMomTmp,MoistureFluxSfc,VapPresSatWatTmp) &
+   !$acc private(VapPresSatIceTmp,VapPresSatWatTmpD,VapPresSatIceTmpD,FluxTotCoeff,EnergyResTmp) &
+   !$acc private(TempTmp,TempUnitConv,SoilIceTmp)
+   do J = noahmp%config%domain%JTS, noahmp%config%domain%JTE
+      do I = noahmp%config%domain%ITS, noahmp%config%domain%ITE
+
+! --------------------------------------------------------------------
+    associate(                                                                        &
+              NumSoilLayer            => noahmp%config%domain%NumSoilLayer           ,& ! in,    number of glacier/soil layers
+              NumSnowLayerNeg         => noahmp%config%domain%NumSnowLayerNeg(I,J)        ,& ! in,    actual number of snow layers (negative)
+              ThicknessSnowSoilLayer  => noahmp%config%domain%ThicknessSnowSoilLayer ,& ! in,    thickness of snow/soil layers [m]
+              OptSnowSoilTempTime     => noahmp%config%nmlist%OptSnowSoilTempTime    ,& ! in,    options for snow/soil temperature time scheme (only layer 1)
+              OptGlacierTreatment     => noahmp%config%nmlist%OptGlacierTreatment    ,& ! in,    options for glacier treatment 
+              RadLwDownRefHeight      => noahmp%forcing%RadLwDownRefHeight(I,J)           ,& ! in,    downward longwave radiation [W/m2] at reference height
+              WindEastwardRefHeight   => noahmp%forcing%WindEastwardRefHeight(I,J)        ,& ! in,    wind speed [m/s] in eastward direction at reference height
+              WindNorthwardRefHeight  => noahmp%forcing%WindNorthwardRefHeight(I,J)       ,& ! in,    wind speed [m/s] in northward direction at reference height
+              TemperatureAirRefHeight => noahmp%forcing%TemperatureAirRefHeight(I,J)      ,& ! in,    air temperature [K] at reference height
+              PressureAirRefHeight    => noahmp%forcing%PressureAirRefHeight(I,J)         ,& ! in,    air pressure [Pa] at reference height
+              SnowDepth               => noahmp%water%state%SnowDepth(I,J)                ,& ! in,    snow depth [m]
+              SoilMoisture            => noahmp%water%state%SoilMoisture             ,& ! in,    total glacier/soil water content [m3/m3]
+              SoilLiqWater            => noahmp%water%state%SoilLiqWater             ,& ! in,    glacier/soil water content [m3/m3]
+              RadSwAbsGrd             => noahmp%energy%flux%RadSwAbsGrd(I,J)              ,& ! in,    solar radiation absorbed by ground [W/m2]
+              HeatPrecipAdvBareGrd    => noahmp%energy%flux%HeatPrecipAdvBareGrd(I,J)     ,& ! in,    precipitation advected heat - bare ground net [W/m2]
+              WindSpdRefHeight        => noahmp%energy%state%WindSpdRefHeight(I,J)        ,& ! in,    wind speed [m/s] at reference height
+              PressureVaporRefHeight  => noahmp%energy%state%PressureVaporRefHeight(I,J)  ,& ! in,    vapor pressure air [Pa] at reference height
+              SpecHumidityRefHeight   => noahmp%forcing%SpecHumidityRefHeight(I,J)        ,& ! in,    specific humidity [kg/kg] at reference height
+              DensityAirRefHeight     => noahmp%energy%state%DensityAirRefHeight(I,J)     ,& ! in,    density air [kg/m3]
+              RelHumidityGrd          => noahmp%energy%state%RelHumidityGrd(I,J)          ,& ! in,    raltive humidity in surface soil/snow air space
+              EmissivityGrd           => noahmp%energy%state%EmissivityGrd(I,J)           ,& ! in,    ground emissivity
+              TemperatureSoilSnow     => noahmp%energy%state%TemperatureSoilSnow     ,& ! in,    snow and soil layer temperature [K]
+              ThermConductSoilSnow    => noahmp%energy%state%ThermConductSoilSnow    ,& ! in,    thermal conductivity [W/m/K] for all soil & snow
+              ResistanceGrdEvap       => noahmp%energy%state%ResistanceGrdEvap(I,J)       ,& ! in,    ground surface resistance [s/m] to evaporation
+              RoughLenMomGrd          => noahmp%energy%state%RoughLenMomGrd(I,J)          ,& ! in,    roughness length, momentum, ground [m]
+              LatHeatVapGrd           => noahmp%energy%state%LatHeatVapGrd(I,J)           ,& ! in,    latent heat of vaporization/subli [J/kg], ground
+              PsychConstGrd           => noahmp%energy%state%PsychConstGrd(I,J)           ,& ! in,    psychrometric constant [Pa/K], ground
+              SpecHumiditySfc         => noahmp%energy%state%SpecHumiditySfc(I,J)         ,& ! inout, specific humidity at surface
+              TemperatureGrdBare      => noahmp%energy%state%TemperatureGrdBare(I,J)      ,& ! inout, bare ground temperature [K]
+              ExchCoeffMomBare        => noahmp%energy%state%ExchCoeffMomBare(I,J)        ,& ! inout, momentum exchange coeff [m/s], above ZeroPlaneDisp, bare ground
+              ExchCoeffShBare         => noahmp%energy%state%ExchCoeffShBare(I,J)         ,& ! inout, heat exchange coeff [m/s], above ZeroPlaneDisp, bare ground
+              WindStressEwBare        => noahmp%energy%state%WindStressEwBare(I,J)        ,& ! out,   wind stress: east-west [N/m2] bare ground
+              WindStressNsBare        => noahmp%energy%state%WindStressNsBare(I,J)        ,& ! out,   wind stress: north-south [N/m2] bare ground
+              TemperatureAir2mBare    => noahmp%energy%state%TemperatureAir2mBare(I,J)    ,& ! out,   2 m height air temperature [K] bare ground
+              SpecHumidity2mBare      => noahmp%energy%state%SpecHumidity2mBare(I,J)      ,& ! out,   bare ground 2-m specific humidity [kg/kg]
+              ExchCoeffSh2mBare       => noahmp%energy%state%ExchCoeffSh2mBare(I,J)       ,& ! out,   bare ground 2-m sensible heat exchange coefficient [m/s]
+              FrictionVelBare         => noahmp%energy%state%FrictionVelBare(I,J)         ,& ! out,   friction velocity [m/s], vegetated
+              RoughLenShBareGrd       => noahmp%energy%state%RoughLenShBareGrd(I,J)       ,& ! out,   roughness length [m], sensible heat, bare ground
+              ResistanceLhBareGrd     => noahmp%energy%state%ResistanceLhBareGrd(I,J)     ,& ! out,   aerodynamic resistance for water vapor [s/m], bare ground
+              ResistanceShBareGrd     => noahmp%energy%state%ResistanceShBareGrd(I,J)     ,& ! out,   aerodynamic resistance for sensible heat [s/m], bare ground
+              ResistanceMomBareGrd    => noahmp%energy%state%ResistanceMomBareGrd(I,J)    ,& ! out,   aerodynamic resistance for momentum [s/m], bare ground
+              VapPresSatGrdBare       => noahmp%energy%state%VapPresSatGrdBare(I,J)       ,& ! out,   bare ground saturation vapor pressure at TemperatureGrd [Pa]
+              VapPresSatGrdBareTempD  => noahmp%energy%state%VapPresSatGrdBareTempD(I,J)  ,& ! out,   bare ground d(VapPresSatGrdBare)/dt at TemperatureGrd [Pa/K]
+              MoStabParaBare          => noahmp%energy%state%MoStabParaBare(I,J)          ,& ! out,   Monin-Obukhov stability (z/L), above ZeroPlaneDisp, bare ground
+              MoStabCorrShBare2m      => noahmp%energy%state%MoStabCorrShBare2m(I,J)      ,& ! out,   M-O sen heat stability correction, 2m, bare ground
+              RadLwNetBareGrd         => noahmp%energy%flux%RadLwNetBareGrd(I,J)          ,& ! out,   net longwave rad [W/m2] bare ground (+ to atm)
+              HeatSensibleBareGrd     => noahmp%energy%flux%HeatSensibleBareGrd(I,J)      ,& ! out,   sensible heat flux [W/m2] bare ground (+ to atm)
+              HeatLatentBareGrd       => noahmp%energy%flux%HeatLatentBareGrd(I,J)        ,& ! out,   latent heat flux [W/m2] bare ground (+ to atm)
+              HeatGroundBareGrd       => noahmp%energy%flux%HeatGroundBareGrd(I,J)         & ! out,   bare ground heat flux [W/m2] (+ to soil/snow)
+             )
+! ----------------------------------------------------------------------
 
     ! if snow on ground and TemperatureGrdBare > freezing point: reset TemperatureGrdBare = freezing point. reevaluate ground fluxes.
     !$acc loop seq

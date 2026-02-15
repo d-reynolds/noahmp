@@ -145,22 +145,22 @@ contains
           if ( (J > NumSnowLayerNeg+1) .and. (NumSnowLayerNeg < -1) ) then
             !$acc loop seq 
             do I = J, NumSnowLayerNeg+2, -1
-                TemperatureSoilSnow(II,I,JJ)    = TemperatureSoilSnow(I-II,1,JJ)
-                SnowLiqWater(II,I,JJ)           = SnowLiqWater(I-II,1,JJ)
-                SnowIce(II,I,JJ)                = SnowIce(I-II,1,JJ)
-                ThicknessSnowSoilLayer(II,I,JJ) = ThicknessSnowSoilLayer(I-II,1,JJ)
+                TemperatureSoilSnow(II,I,JJ)    = TemperatureSoilSnow(II,I-1,JJ)
+                SnowLiqWater(II,I,JJ)           = SnowLiqWater(II,I-1,JJ)
+                SnowIce(II,I,JJ)                = SnowIce(II,I-1,JJ)
+                ThicknessSnowSoilLayer(II,I,JJ) = ThicknessSnowSoilLayer(II,I-1,JJ)
 
                 if ( OptSnowAlbedo == 3 ) then
-                   MassBChydropho(II,I,JJ)      = MassBChydropho(I-II,1,JJ)
-                   MassBChydrophi(II,I,JJ)      = MassBChydrophi(I-II,1,JJ)
-                   MassOChydropho(II,I,JJ)      = MassOChydropho(I-II,1,JJ)
-                   MassOChydrophi(II,I,JJ)      = MassOChydrophi(I-II,1,JJ)
-                   MassDust1(II,I,JJ)           = MassDust1(I-II,1,JJ)
-                   MassDust2(II,I,JJ)           = MassDust2(I-II,1,JJ)
-                   MassDust3(II,I,JJ)           = MassDust3(I-II,1,JJ)
-                   MassDust4(II,I,JJ)           = MassDust4(I-II,1,JJ)
-                   MassDust5(II,I,JJ)           = MassDust5(I-II,1,JJ)
-                   SnowRadius(II,I,JJ)          = SnowRadius(I-II,1,JJ)
+                   MassBChydropho(II,I,JJ)      = MassBChydropho(II,I-1,JJ)
+                   MassBChydrophi(II,I,JJ)      = MassBChydrophi(II,I-1,JJ)
+                   MassOChydropho(II,I,JJ)      = MassOChydropho(II,I-1,JJ)
+                   MassOChydrophi(II,I,JJ)      = MassOChydrophi(II,I-1,JJ)
+                   MassDust1(II,I,JJ)           = MassDust1(II,I-1,JJ)
+                   MassDust2(II,I,JJ)           = MassDust2(II,I-1,JJ)
+                   MassDust3(II,I,JJ)           = MassDust3(II,I-1,JJ)
+                   MassDust4(II,I,JJ)           = MassDust4(II,I-1,JJ)
+                   MassDust5(II,I,JJ)           = MassDust5(II,I-1,JJ)
+                   SnowRadius(II,I,JJ)          = SnowRadius(II,I-1,JJ)
                 endif
 
              enddo
@@ -213,8 +213,8 @@ contains
                 IndNeighbor = I - 1
              else
                 IndNeighbor = I + 1
-                if ( (ThicknessSnowSoilLayer(I-II,1,JJ)+ThicknessSnowSoilLayer(II,I,JJ)) < &
-                     (ThicknessSnowSoilLayer(I+II,1,JJ)+ThicknessSnowSoilLayer(II,I,JJ)) ) IndNeighbor = I-1
+                if ( (ThicknessSnowSoilLayer(II,I-1,JJ)+ThicknessSnowSoilLayer(II,I,JJ)) < &
+                     (ThicknessSnowSoilLayer(II,I+1,JJ)+ThicknessSnowSoilLayer(II,I,JJ)) ) IndNeighbor = I-1
              endif
              ! Node l and j are combined and stored as node j.
              if ( IndNeighbor > I ) then

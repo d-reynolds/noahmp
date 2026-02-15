@@ -40,6 +40,7 @@ contains
     !$acc private(MatRightTmp, MatLeft3Tmp, LoopInd, WatDefiTmp)
     do J = noahmp%config%domain%JTS, noahmp%config%domain%JTE
       do I = noahmp%config%domain%ITS, noahmp%config%domain%ITE
+         if ( noahmp%config%domain%IndicatorIceSfc(I,J) == -1 ) cycle  ! skip soil process for ice surface points
 ! --------------------------------------------------------------------
     associate(                                                                       &
               NumSoilLayer           => noahmp%config%domain%NumSoilLayer           ,& ! in,    number of soil layers

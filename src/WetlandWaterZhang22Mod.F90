@@ -35,6 +35,8 @@ contains
     !$acc parallel loop collapse(2) gang vector present(noahmp)
     do J = noahmp%config%domain%JTS, noahmp%config%domain%JTE
       do I = noahmp%config%domain%ITS, noahmp%config%domain%ITE
+
+         if ( noahmp%config%domain%IndicatorIceSfc(I,J) == -1 ) cycle  ! skip wetland process for ice surface points
 ! --------------------------------------------------------------------
     associate(                                                                &
               TemperatureSfc      => noahmp%energy%state%TemperatureSfc(I,J)      ,& ! in,    surface air temperature [K]

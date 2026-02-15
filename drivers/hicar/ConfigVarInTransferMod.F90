@@ -179,11 +179,9 @@ contains
     endif
 
     ! config domain variable
-    noahmp%config%domain%SurfaceType(I,J)                 = 1
     noahmp%config%domain%NumSwRadBand                = NoahmpIO%NUMRAD
     noahmp%config%domain%SoilColor(I,J)                   = 4
     noahmp%config%domain%NumCropGrowStage            = 8
-    noahmp%config%domain%FlagSoilProcess             = NoahmpIO%calculate_soil
     noahmp%config%domain%NumSoilTimeStep             = NoahmpIO%soil_update_steps
     noahmp%config%domain%NumSnowLayerMax             = NoahmpIO%NSNOW
     noahmp%config%domain%NumSnowLayerNeg(I,J)             = NoahmpIO%ISNOWXY(I,J)
@@ -208,7 +206,10 @@ contains
     noahmp%config%domain%IndexEBLForest              = NoahmpIO%EBLFOREST_TABLE
     noahmp%config%domain%RunoffSlopeType             = NoahmpIO%SLOPETYP
     noahmp%config%domain%DepthSoilTempBottom         = NoahmpIO%ZBOT_TABLE
-
+    noahmp%config%domain%SurfaceType(I,J)                 = 1
+    if ( (NoahmpIO%IVGTYP(I,J) == NoahmpIO%ISWATER_TABLE)) then
+       noahmp%config%domain%SurfaceType(I,J) = 2
+    endif
     if ( noahmp%config%nmlist%OptSnowAlbedo == 3 ) then ! SNICAR variables
        noahmp%config%domain%NumTempSnwAgeSnicar      = NoahmpIO%idx_T_max
        noahmp%config%domain%NumTempGradSnwAgeSnicar  = NoahmpIO%idx_Tgrd_max

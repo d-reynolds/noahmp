@@ -50,6 +50,7 @@ contains
     real(kind=kind_noahmp)                :: EnergyResTmp         ! temporary energy residual
     real(kind=kind_noahmp), allocatable, dimension(:,:) :: HeatSensibleTmp      ! temporary sensible heat flux [W/m2]
     real(kind=kind_noahmp)                :: TempTmp              ! temporary temperature
+    real(kind=kind_noahmp)                :: SoilIceTmp           ! temporary variable for soil ice content
     real(kind=kind_noahmp)                :: TempUnitConv         ! Kelvin to degree Celsius with limit -50 to +50
 ! local statement function
     TempUnitConv(TempTmp) = min(50.0, max(-50.0, (TempTmp-ConstFreezePoint)))
@@ -115,6 +116,9 @@ contains
 
            associate(                                                                        &
                      NumSnowLayerNeg         => noahmp%config%domain%NumSnowLayerNeg(I,J)   ,& ! in,    actual number of snow layers (negative)
+                     OptGlacierTreatment     => noahmp%config%nmlist%OptGlacierTreatment    ,& ! in,    options for glacier treatment 
+                     IndicatorIceSfc         => noahmp%config%domain%IndicatorIceSfc(I,J)           ,& ! in,    flag to identify ice surface
+                     SnowDepth               => noahmp%water%state%SnowDepth(I,J)                ,& ! in,    snow depth [m]
                      ThicknessSnowSoilLayer  => noahmp%config%domain%ThicknessSnowSoilLayer ,& ! in,    thickness of snow/soil layers [m]
                      RadLwDownRefHeight      => noahmp%forcing%RadLwDownRefHeight(I,J)      ,& ! in,    downward longwave radiation [W/m2] at reference height
                      TemperatureAirRefHeight => noahmp%forcing%TemperatureAirRefHeight(I,J) ,& ! in,    air temperature [K] at reference height
@@ -165,6 +169,10 @@ contains
            ! ground fluxes and temperature change
            ShCoeff             = DensityAirRefHeight * ConstHeatCapacAir / ResistanceShBareGrd
            LhCoeff             = DensityAirRefHeight * ConstHeatCapacAir / PsychConstGrd / (ResistanceGrdEvap+ResistanceLhBareGrd)
+           if ( .not.((SnowDepth > 0.0) .or. (OptGlacierTreatment == 1)) .and. (IndicatorIceSfc == -1) ) then
+              LhCoeff = 0.0   ! don't allow any sublimation of glacier in OptGlacierTreatment=2
+           endif
+
            RadLwNetBareGrd     = LwRadCoeff * TemperatureGrdBare**4 - EmissivityGrd * RadLwDownRefHeight
            HeatSensibleBareGrd = ShCoeff * (TemperatureGrdBare - TemperatureAirRefHeight)
            HeatLatentBareGrd   = LhCoeff * (VapPresSatGrdBare*RelHumidityGrd - PressureVaporRefHeight)
@@ -209,8 +217,11 @@ contains
 
         associate(                                                                        &
                   NumSnowLayerNeg         => noahmp%config%domain%NumSnowLayerNeg(I,J)   ,& ! in,    actual number of snow layers (negative)
+                  NumSoilLayer            => noahmp%config%domain%NumSoilLayer           ,& ! in,    number of soil layers
                   ThicknessSnowSoilLayer  => noahmp%config%domain%ThicknessSnowSoilLayer ,& ! in,    thickness of snow/soil layers [m]
                   FlagUrban               => noahmp%config%domain%FlagUrban(I,J)         ,& ! in,    logical flag for urban grid
+                  IndicatorIceSfc         => noahmp%config%domain%IndicatorIceSfc(I,J)           ,& ! in,    flag to identify ice surface
+                  OptGlacierTreatment     => noahmp%config%nmlist%OptGlacierTreatment    ,& ! in,    options for glacier treatment 
                   OptSurfaceDrag          => noahmp%config%nmlist%OptSurfaceDrag         ,& ! in,    options for surface layer drag/exchange coefficient
                   OptSnowSoilTempTime     => noahmp%config%nmlist%OptSnowSoilTempTime    ,& ! in,    options for snow/soil temperature time scheme (only layer 1)
                   RadLwDownRefHeight      => noahmp%forcing%RadLwDownRefHeight(I,J)      ,& ! in,    downward longwave radiation [W/m2] at reference height
@@ -224,6 +235,8 @@ contains
                   RelHumidityGrd          => noahmp%energy%state%RelHumidityGrd(I,J)     ,& ! in,    raltive humidity in surface soil/snow air space
                   EmissivityGrd           => noahmp%energy%state%EmissivityGrd(I,J)      ,& ! in,    ground emissivity
                   ThermConductSoilSnow    => noahmp%energy%state%ThermConductSoilSnow    ,& ! in,    thermal conductivity [W/m/K] for all soil & snow
+                  SoilMoisture            => noahmp%water%state%SoilMoisture ,& ! in,    soil moisture for all soil layers [m3/m3]
+                  SoilLiqWater            => noahmp%water%state%SoilLiqWater ,& ! in,    soil liquid water content for all soil layers [m3/m3]
                   ResistanceGrdEvap       => noahmp%energy%state%ResistanceGrdEvap(I,J)  ,& ! in,    ground surface resistance [s/m] to evaporation
                   PressureVaporRefHeight  => noahmp%energy%state%PressureVaporRefHeight(I,J),& ! in,    vapor pressure air [Pa] at reference height
                   PsychConstGrd           => noahmp%energy%state%PsychConstGrd(I,J)      ,& ! in,    psychrometric constant [Pa/K], ground
@@ -234,6 +247,7 @@ contains
                   ResistanceLhBareGrd     => noahmp%energy%state%ResistanceLhBareGrd(I,J),& ! in,    aerodynamic resistance for water vapor [s/m], bare ground
                   ResistanceShBareGrd     => noahmp%energy%state%ResistanceShBareGrd(I,J),& ! in,    aerodynamic resistance for sensible heat [s/m], bare ground
                   SpecHumiditySfc         => noahmp%energy%state%SpecHumiditySfc(I,J)    ,& ! inout, specific humidity [kg/kg] at bare surface
+                  SpecHumidityRefHeight   => noahmp%forcing%SpecHumidityRefHeight(I,J)   ,& ! in,    specific humidity [kg/kg] at reference height
                   TemperatureGrdBare      => noahmp%energy%state%TemperatureGrdBare(I,J) ,& ! inout, bare ground temperature (K)
                   ExchCoeffMomBare        => noahmp%energy%state%ExchCoeffMomBare(I,J)   ,& ! inout, momentum exchange coeff [m/s], above ZeroPlaneDisp, bare ground
                   ExchCoeffShBare         => noahmp%energy%state%ExchCoeffShBare(I,J)    ,& ! inout, heat exchange coeff [m/s], above ZeroPlaneDisp, bare ground
@@ -257,9 +271,13 @@ contains
         GrdHeatCoeff = 2.0*ThermConductSoilSnow(I,NumSnowLayerNeg+1,J)/ThicknessSnowSoilLayer(I,NumSnowLayerNeg+1,J)
         ShCoeff      = DensityAirRefHeight * ConstHeatCapacAir / ResistanceShBareGrd
         LhCoeff      = DensityAirRefHeight * ConstHeatCapacAir / PsychConstGrd / (ResistanceGrdEvap+ResistanceLhBareGrd)
+        if ( .not.((SnowDepth > 0.0) .or. (OptGlacierTreatment == 1)) .and. (IndicatorIceSfc == -1) ) then
+           LhCoeff = 0.0   ! don't allow any sublimation of glacier in OptGlacierTreatment=2
+        endif
 
         ! if snow on ground and TemperatureGrdBare > freezing point: reset TemperatureGrdBare = freezing point. reevaluate ground fluxes.
         if ( (OptSnowSoilTempTime == 1) .or. (OptSnowSoilTempTime == 3) ) then
+         if (IndicatorIceSfc == 0) then
            if ( (SnowDepth > 0.05) .and. (TemperatureGrdBare > ConstFreezePoint) ) then
               if ( OptSnowSoilTempTime == 1 ) &
                  TemperatureGrdBare = ConstFreezePoint
@@ -272,6 +290,28 @@ contains
               HeatGroundBareGrd   = RadSwAbsGrd + HeatPrecipAdvBareGrd - &
                                     (RadLwNetBareGrd + HeatSensibleBareGrd + HeatLatentBareGrd)
            endif
+         else if (IndicatorIceSfc == -1) then ! if a glacier
+            SoilIceTmp = 0.0
+            !$acc loop seq
+            do IndIter = 1, NumSoilLayer
+               SoilIceTmp = max(SoilIceTmp, SoilMoisture(I,IndIter,J) - SoilLiqWater(I,IndIter,J))
+            enddo
+            if ( (SoilIceTmp > 0.0 .or. SnowDepth > 0.05) .and. &
+                  (TemperatureGrdBare > ConstFreezePoint) .and. (OptGlacierTreatment == 1) ) then
+               TemperatureGrdBare  = ConstFreezePoint
+               TempTmp                 = min(50.0, max(-50.0, (TemperatureGrdBare-ConstFreezePoint)))
+               call VaporPressureSaturation(TempTmp, VapPresSatWatTmp, VapPresSatIceTmp, VapPresSatWatTmpD, VapPresSatIceTmpD)
+               VapPresSatGrdBare   = VapPresSatIceTmp
+               SpecHumiditySfc     = 0.622 * (VapPresSatGrdBare*RelHumidityGrd) / &
+                                    (PressureAirRefHeight - 0.378 * (VapPresSatGrdBare*RelHumidityGrd))
+               MoistureFluxSfc     = (SpecHumiditySfc - SpecHumidityRefHeight) * LhCoeff * PsychConstGrd / ConstHeatCapacAir
+               RadLwNetBareGrd     = LwRadCoeff * TemperatureGrdBare**4 - EmissivityGrd * RadLwDownRefHeight
+               HeatSensibleBareGrd = ShCoeff * (TemperatureGrdBare - TemperatureAirRefHeight)
+               HeatLatentBareGrd   = LhCoeff * (VapPresSatGrdBare*RelHumidityGrd - PressureVaporRefHeight)
+               HeatGroundBareGrd   = RadSwAbsGrd + HeatPrecipAdvBareGrd - &
+                                    (RadLwNetBareGrd + HeatSensibleBareGrd + HeatLatentBareGrd)
+            endif
+         endif
         endif
 
         ! wind stresses

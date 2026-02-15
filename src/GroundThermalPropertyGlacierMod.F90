@@ -41,6 +41,8 @@ contains
     do J = noahmp%config%domain%JTS, noahmp%config%domain%JTE
       do I = noahmp%config%domain%ITS, noahmp%config%domain%ITE
 
+        if (noahmp%config%domain%IndicatorIceSfc(I,J) /= -1) cycle
+
     associate(                                                                             &
               NumSoilLayer           => noahmp%config%domain%NumSoilLayer                  ,& ! in,  number of soil layers
               MainTimeStep           => noahmp%config%domain%MainTimeStep                  ,& ! in,  main noahmp timestep [s]

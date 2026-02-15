@@ -47,11 +47,14 @@ contains
                   ThroughfallRain         => noahmp%water%flux%ThroughfallRain(I,J)       ,& ! in,  throughfall for rain [mm/s]
                   DripCanopySnow          => noahmp%water%flux%DripCanopySnow(I,J)        ,& ! in,  drip (unloading) rate for intercepted snow [mm/s]
                   ThroughfallSnow         => noahmp%water%flux%ThroughfallSnow(I,J)       ,& ! in,  throughfall of snowfall [mm/s]
+                  SnowfallGround          => noahmp%water%flux%SnowfallGround(I,J)       ,& ! out, snowfall at ground surface [mm/s]
+                  RainfallGround          => noahmp%water%flux%RainfallGround(I,J)       ,& ! out, rainfall at ground surface [mm/s]
                   HeatPrecipAdvCanopy     => noahmp%energy%flux%HeatPrecipAdvCanopy(I,J)  ,& ! out, precipitation advected heat - vegetation net [W/m2]
                   HeatPrecipAdvVegGrd     => noahmp%energy%flux%HeatPrecipAdvVegGrd(I,J)  ,& ! out, precipitation advected heat - under canopy net [W/m2]
                   HeatPrecipAdvBareGrd    => noahmp%energy%flux%HeatPrecipAdvBareGrd(I,J)  & ! out, precipitation advected heat - bare ground net [W/m2]
                  )
 ! ----------------------------------------------------------------------
+  if (noahmp%config%domain%IndicatorIceSfc(I,J) == 0) then
 
     ! initialization
     HeatPrcpAirToCan     = 0.0
@@ -99,6 +102,29 @@ contains
     HeatPrecipAdvBareGrd = max(HeatPrecipAdvBareGrd, -20.0)
     HeatPrecipAdvBareGrd = min(HeatPrecipAdvBareGrd,  20.0)
 
+  else if (noahmp%config%domain%IndicatorIceSfc(I,J) == -1) then
+
+    ! initialization for glacier points
+    HeatPrcpAirToGrd     = 0.0
+    HeatPrecipAdvBareGrd = 0.0
+    RainfallGround       = RainfallRefHeight
+    SnowfallGround       = SnowfallRefHeight
+
+    ! Heat advection for liquid rainfall
+    HeatPrcpAirToGrd     = RainfallGround * (ConstHeatCapacWater/1000.0) * (TemperatureAirRefHeight - TemperatureGrd)
+
+    ! Heat advection for snowfall
+    HeatPrcpAirToGrd     = HeatPrcpAirToGrd + &
+                           SnowfallGround * (ConstHeatCapacIce/1000.0) * (TemperatureAirRefHeight - TemperatureGrd)
+
+    ! net heat advection
+    HeatPrecipAdvBareGrd = HeatPrcpAirToGrd
+
+    ! Put some artificial limits here for stability
+    HeatPrecipAdvBareGrd = max(HeatPrecipAdvBareGrd, -20.0)
+    HeatPrecipAdvBareGrd = min(HeatPrecipAdvBareGrd,  20.0)
+
+  endif
         end associate
 
       end do

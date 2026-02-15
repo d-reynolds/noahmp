@@ -30,6 +30,8 @@ contains
     do J = noahmp%config%domain%JTS, noahmp%config%domain%JTE
       do I = noahmp%config%domain%ITS, noahmp%config%domain%ITE
 
+        if (NoahmpIO%XLAND(I,J) - 1.5 >= 0.0) cycle ! Do out write output for open water points
+
     NoahmpIO%FORCTLSM  (I,J) = noahmp%forcing%TemperatureAirRefHeight(I,J)
     NoahmpIO%FORCQLSM  (I,J) = noahmp%forcing%SpecHumidityRefHeight(I,J)
     NoahmpIO%FORCPLSM  (I,J) = noahmp%forcing%PressureAirRefHeight(I,J)

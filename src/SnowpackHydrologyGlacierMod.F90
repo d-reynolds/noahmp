@@ -37,6 +37,8 @@ contains
     !$acc private(LoopInd,InflowSnowLayer,SnowIceTmp,SnowWaterRatio,SnowWaterTmp)
     do J = noahmp%config%domain%JTS, noahmp%config%domain%JTE
       do I = noahmp%config%domain%ITS, noahmp%config%domain%ITE
+
+        if (noahmp%config%domain%IndicatorIceSfc(I,J) /= -1) cycle
 ! --------------------------------------------------------------------
     associate(                                                                       &
               OptGlacierTreatment    => noahmp%config%nmlist%OptGlacierTreatment    ,& ! in,    option for glacier treatment

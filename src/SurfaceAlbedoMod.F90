@@ -119,7 +119,7 @@ contains
        RadSwReflGrdDir   (I,IndBand,J) = 0.0
        RadSwReflGrdDif   (I,IndBand,J) = 0.0
        if ( OptSnowAlbedo == 3 ) then
-         do IndSnow = -2, 1
+         do IndSnow = -noahmp%config%domain%NumSnowLayerMax+1,1
             FracRadSwAbsSnowDir(I,IndSnow,IndBand,J) = 0.0
             FracRadSwAbsSnowDif(I,IndSnow,IndBand,J) = 0.0
          enddo
@@ -127,7 +127,7 @@ contains
     enddo
 
     ! solar radiation process is only done if there is light
-    if ( CosSolarZenithAngle > 0 ) then
+    if ( CosSolarZenithAngle > 0.0 ) then
 
        ! weight reflectance/transmittance by LeafAreaIndex and StemAreaIndex
        LeafWgt = LeafAreaIndEff / max(VegAreaIndEff, MinThr)
@@ -190,7 +190,7 @@ contains
              )
 
     ! solar radiation process is only done if there is light
-    if ( CosSolarZenithAngle > 0 ) then
+    if ( CosSolarZenithAngle > 0.0 ) then
        ! sunlit fraction of canopy. set CanopySunlitFrac = 0 if CanopySunlitFrac < 0.01.
        LightExtDir      = VegAreaProjDir / CosSolarZenithAngle * sqrt(1.0-ReflectanceVeg(I,1,J)-TransmittanceVeg(I,1,J))
        CanopySunlitFrac = (1.0 - exp(-LightExtDir*VegAreaIndEff)) / max(LightExtDir*VegAreaIndEff, MinThr)

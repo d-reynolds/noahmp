@@ -35,6 +35,8 @@ contains
     !$acc parallel loop collapse(2) present(noahmp, NoahmpIO) private(NumSnowLayerMax, NumSoilLayer)
     do J = noahmp%config%domain%JTS, noahmp%config%domain%JTE
       do I = noahmp%config%domain%ITS, noahmp%config%domain%ITE
+
+        if (NoahmpIO%XLAND(I,J) - 1.5 >= 0.0) cycle ! Do out write output for open water points
     ! config domain variables
     NoahmpIO%ISNOWXY(I,J)  = noahmp%config%domain%NumSnowLayerNeg(I,J)
     NoahmpIO%ZSNSOXY(I,-NumSnowLayerMax+1:NumSoilLayer,J) = &

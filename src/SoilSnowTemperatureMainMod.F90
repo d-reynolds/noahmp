@@ -35,7 +35,7 @@ contains
     real(kind=kind_noahmp), allocatable, dimension(:,:,:) :: MatLeft2     ! left-hand side term
     real(kind=kind_noahmp), allocatable, dimension(:,:,:) :: MatLeft3     ! left-hand side term
     integer                                          :: I, J         ! grid indices
-
+    real(kind=kind_noahmp)                           :: RadSwAbsSum  ! temporary variable for sum of absorbed solar radiation by snow and soil layers
     !$acc parallel loop collapse(2) gang vector present(noahmp)
     do J = noahmp%config%domain%JTS, noahmp%config%domain%JTE
       do I = noahmp%config%domain%ITS, noahmp%config%domain%ITE
@@ -57,12 +57,18 @@ contains
 
     ! compute solar penetration through snowpack and soil
     !$acc loop seq
-    do IndLoop = -NumSnowLayerNeg+1, NumSoilLayer
+    do IndLoop = -NumSnowLayerMax+1, NumSoilLayer
       RadSwPenetrateGrd(I,IndLoop,J) = 0.0
     enddo
 
     if (OptSnowAlbedo == 3 .and. NumSnowLayerNeg < 0) then
-       if (sum(RadSwAbsSnowSoilLayer) > 0.0) then
+      ! Check if sum > 0 (replacing sum() intrinsic)
+      RadSwAbsSum = 0.0
+      !$acc loop seq
+      do IndLoop = lbound(RadSwAbsSnowSoilLayer,2), ubound(RadSwAbsSnowSoilLayer,2)
+         RadSwAbsSum = RadSwAbsSum + RadSwAbsSnowSoilLayer(I,IndLoop,J)
+      enddo
+          if (RadSwAbsSum > 0.0) then
           !$acc loop seq
           do IndLoop = NumSnowLayerNeg+1, 1, 1
              if (IndLoop == NumSnowLayerNeg+1) then

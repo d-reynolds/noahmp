@@ -53,6 +53,11 @@ module EnergyMainMod
   use SurfaceEnergyFluxBareGroundMod, only : SurfaceEnergyFluxBareGround
   use SoilSnowTemperatureMainMod,     only : SoilSnowTemperatureMain
   use SoilSnowWaterPhaseChangeMod,    only : SoilSnowWaterPhaseChange
+  use GlacierPhaseChangeMod,             only : GlacierPhaseChange
+  use SnowCoverGlacierMod,               only : SnowCoverGlacier
+  use GroundRoughnessPropertyGlacierMod, only : GroundRoughnessPropertyGlacier
+  use GroundThermalPropertyGlacierMod,   only : GroundThermalPropertyGlacier
+  use GroundAlbedoGlacierMod,            only : GroundAlbedoGlacier
 
   implicit none
 
@@ -150,14 +155,23 @@ contains
     if ( noahmp%config%nmlist%OptSnowCoverGround == 1 ) call SnowCoverGroundNiu07(noahmp)
     if ( noahmp%config%nmlist%OptSnowCoverGround == 2 ) call SnowCoverGroundAR25(noahmp)
 
+    ! glaicer snow cover fraction
+    call SnowCoverGlacier(noahmp)
+
     ! ground and surface roughness length and reference height
     call GroundRoughnessProperty(noahmp, FlagVegSfc)
+    ! ground and surface roughness length and reference height
+    call GroundRoughnessPropertyGlacier(noahmp)
 
     ! Thermal properties of soil, snow, lake, and frozen soil
     call GroundThermalProperty(noahmp)
+    ! Thermal properties of snow and glacier ice
+    call GroundThermalPropertyGlacier(noahmp)
 
     ! Surface shortwave albedo: ground and canopy radiative transfer
     call SurfaceAlbedo(noahmp)
+    ! Glacier surface shortwave abeldo
+    call GroundAlbedoGlacier(noahmp)
 
     ! Surface shortwave radiation: absorbed & reflected by the ground and canopy
     call SurfaceRadiation(noahmp)
@@ -421,6 +435,7 @@ contains
               TemperatureGrd          => noahmp%energy%state%TemperatureGrd(I,J)          ,& ! inout, ground temperature [K]
               TemperatureCanopy       => noahmp%energy%state%TemperatureCanopy(I,J)       ,& ! inout, vegetation temperature [K]
               SnowDepth               => noahmp%water%state%SnowDepth(I,J)                ,& ! inout, snow depth [m]
+              IndicatorIceSfc         => noahmp%config%domain%IndicatorIceSfc(I,J)           ,& ! in,    flag to identify ice surface
               RadSwReflSfc        => noahmp%energy%flux%RadSwReflSfc(I,J)           & ! out,   total reflected solar radiation [W/m2]
              )
 
@@ -433,6 +448,7 @@ contains
              TemperatureGrd  = VegFrac * TemperatureGrdVeg + (1.0 - VegFrac) * TemperatureGrdBare
              TemperatureSfc  = VegFrac * TemperatureCanopy + (1.0 - VegFrac) * TemperatureGrdBare
           else
+             if (IndicatorIceSfc == -1) TemperatureGrdBare = ConstFreezePoint
              TemperatureGrd  = TemperatureGrdBare
              TemperatureSfc  = TemperatureGrdBare
           endif
@@ -447,6 +463,8 @@ contains
 
     ! Phase change and Energy released or consumed by snow & frozen soil
     call SoilSnowWaterPhaseChange(noahmp)
+    ! Phase change and Energy released or consumed by snow & glacier ice
+    call GlacierPhaseChange(noahmp)
 
     !$acc parallel loop collapse(2) gang vector present(noahmp)
     do J = noahmp%config%domain%JTS, noahmp%config%domain%JTE

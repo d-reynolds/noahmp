@@ -30,6 +30,7 @@ contains
     do J = noahmp%config%domain%JTS, noahmp%config%domain%JTE
       do I = noahmp%config%domain%ITS, noahmp%config%domain%ITE
 ! ---------------------------------------------------------------------
+        if (NoahmpIO%XLAND(I,J) - 1.5 >= 0.0) cycle ! Do out write output for open water points
 
     ! biochem state variables
     NoahmpIO%LFMASSXY(I,J) = noahmp%biochem%state%LeafMass(I,J)

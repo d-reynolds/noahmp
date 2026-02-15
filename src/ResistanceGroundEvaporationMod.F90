@@ -100,6 +100,11 @@ contains
            ResistanceGrdEvap = 1.0e6
         endif
 
+        if (noahmp%config%domain%IndicatorIceSfc(I,J) == -1) then
+            ResistanceGrdEvap = 1.0
+            RelHumidityGrd    = 1.0
+        endif
+
         end associate
 
       end do

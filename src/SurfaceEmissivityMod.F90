@@ -48,20 +48,27 @@ contains
              )
 ! ----------------------------------------------------------------------
 
-    ! vegetation emissivity
-    EmissivityVeg = 1.0 - exp(-(LeafAreaIndEff + StemAreaIndEff) / 1.0)
+    if ( IndicatorIceSfc == 0 .or. IndicatorIceSfc == 1 ) then
+      ! vegetation emissivity
+      EmissivityVeg = 1.0 - exp(-(LeafAreaIndEff + StemAreaIndEff) / 1.0)
 
-    ! ground emissivity
-    if ( IndicatorIceSfc == 1 ) then
-       EmissivityGrd = EmissivityIceSfc * (1.0-SnowCoverFrac) + EmissivitySnow * SnowCoverFrac
-    else
-       EmissivityGrd = EmissivitySoilLake(I,SurfaceType,J) * (1.0-SnowCoverFrac) + EmissivitySnow * SnowCoverFrac
+      ! ground emissivity
+      if ( IndicatorIceSfc == 1 ) then
+        EmissivityGrd = EmissivityIceSfc * (1.0-SnowCoverFrac) + EmissivitySnow * SnowCoverFrac
+      else
+        EmissivityGrd = EmissivitySoilLake(I,SurfaceType,J) * (1.0-SnowCoverFrac) + EmissivitySnow * SnowCoverFrac
+      endif
+
+      ! net surface emissivity
+      EmissivitySfc = VegFrac * (EmissivityGrd*(1-EmissivityVeg) + EmissivityVeg + &
+                      EmissivityVeg*(1-EmissivityVeg)*(1-EmissivityGrd)) + (1-VegFrac) * EmissivityGrd
+    else if ( IndicatorIceSfc == -1 ) then ! glacier ice point
+      ! ground emissivity
+      EmissivityGrd = EmissivityIceSfc * (1.0 - SnowCoverFrac) + EmissivitySnow * SnowCoverFrac
+
+      ! surface emissivity
+      EmissivitySfc = EmissivityGrd
     endif
-
-    ! net surface emissivity
-    EmissivitySfc = VegFrac * (EmissivityGrd*(1-EmissivityVeg) + EmissivityVeg + &
-                    EmissivityVeg*(1-EmissivityVeg)*(1-EmissivityGrd)) + (1-VegFrac) * EmissivityGrd
-
     end associate
 
       end do

@@ -45,6 +45,8 @@ contains
     !$acc parallel loop collapse(2) gang vector present(noahmp, MatLeft1, MatLeft2, MatLeft3, MatRight) private(DepthSnowSoilTmp, SoilMoistTmpToWT, SoilMoistBotTmp, DepthSnowSoilInv, SoilThickTmp, SoilWaterGrad, WaterExcess, SoilMoistureTmp, LoopInd)
     do J = noahmp%config%domain%JTS, noahmp%config%domain%JTE
       do I = noahmp%config%domain%ITS, noahmp%config%domain%ITE
+         if ( noahmp%config%domain%IndicatorIceSfc(I,J) == -1 ) cycle  ! skip soil process for ice surface points
+
 ! --------------------------------------------------------------------
     associate(                                                                             &
               NumSoilLayer              => noahmp%config%domain%NumSoilLayer              ,& ! in,  number of soil layers

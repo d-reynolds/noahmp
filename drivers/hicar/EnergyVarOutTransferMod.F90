@@ -35,6 +35,9 @@ contains
     !$acc parallel loop collapse(2) present(noahmp, NoahmpIO)
       do J = noahmp%config%domain%JTS, noahmp%config%domain%JTE
          do I = noahmp%config%domain%ITS, noahmp%config%domain%ITE
+
+            if (NoahmpIO%XLAND(I,J) - 1.5 >= 0.0) cycle ! Do out write output for open water points
+
 !-----------------------------------------------------------------------
     associate(                                                         &
               NumSoilLayer    => noahmp%config%domain%NumSoilLayer    ,&

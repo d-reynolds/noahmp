@@ -12,6 +12,7 @@ module SnowWaterMainMod
   use SnowLayerCombineMod,       only : SnowLayerCombine
   use SnowLayerDivideMod,        only : SnowLayerDivide
   use SnowpackHydrologyMod,      only : SnowpackHydrology
+  use SnowpackHydrologyGlacierMod, only : SnowpackHydrologyGlacier
   use SnowAerosolSnicarMod,      only : SnowAerosolSnicar
 
   implicit none
@@ -77,6 +78,7 @@ contains
 
     ! snow hydrology for all snow cases
     call SnowpackHydrology(noahmp)
+    call SnowpackHydrologyGlacier(noahmp)
 
     !$acc parallel loop collapse(2) gang vector present(noahmp) private(I,LoopInd,J)
     do J = noahmp%config%domain%JTS, noahmp%config%domain%JTE

@@ -56,6 +56,49 @@ target_include_directories(noahmp PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR}
 )
 
+if (NETCDF_FOUND)
+    # Check for parallel NetCDF support
+    execute_process(COMMAND nc-config --has-parallel
+                    OUTPUT_VARIABLE NETCDF_HAS_PARALLEL
+                    OUTPUT_STRIP_TRAILING_WHITESPACE
+                    ERROR_QUIET)
+    
+    if(NETCDF_HAS_PARALLEL STREQUAL "yes")
+        message(STATUS "NetCDF built with parallel support")
+        add_definitions(-DNETCDF_PARALLEL)
+    else()
+        message(STATUS "NetCDF built WITHOUT parallel support")
+    endif()
+    
+	find_program(NF_CONFIG nf-config)
+	if(NF_CONFIG)
+		execute_process(COMMAND ${NF_CONFIG} --flibs 
+						OUTPUT_VARIABLE NETCDF_LIBRARIES 
+						OUTPUT_STRIP_TRAILING_WHITESPACE
+						ERROR_QUIET)
+		separate_arguments(NETCDF_LIBRARIES)
+
+		# Clean up any duplicate libraries and references to -lnetcdf
+		list(REMOVE_DUPLICATES NETCDF_LIBRARIES)
+		# clean references to base netcdf-c library
+		# list(REMOVE_ITEM NETCDF_LIBRARIES -lnetcdf)
+
+		message(STATUS "NetCDF libraries (with dependencies): ${NETCDF_LIBRARIES}")
+	else()
+		message(WARNING "nf-config not found, falling back to manual dependency resolution")
+		find_package(HDF5 COMPONENTS C HL)
+		if(HDF5_FOUND)
+			target_link_libraries(noahmp PUBLIC ${HDF5_LIBRARIES})
+		endif()
+	endif()
+    
+endif()
+
+#set debug flags
+set(noahmp_compiler_flags -O3 -fopenmp -ffast-math -ffree-line-length-none -ftree-vectorize -fimplicit-none -funroll-loops -march=native -fno-protect-parens)
+target_compile_options(noahmp PUBLIC ${noahmp_compiler_flags})
+
+
 # Add NetCDF include directories (equivalent to NETCDFMOD)
 if(DEFINED NETCDF_INCLUDES)
     target_include_directories(noahmp PUBLIC ${NETCDF_INCLUDES})

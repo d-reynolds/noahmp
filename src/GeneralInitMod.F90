@@ -44,6 +44,7 @@ contains
                   TemperatureRootZone    => noahmp%energy%state%TemperatureRootZone(I,J) & ! out, root-zone averaged temperature [K]
                  )
 ! ----------------------------------------------------------------------
+  if (noahmp%config%domain%IndicatorIceSfc(I,J) == 0) then
 
     ! initialize snow/soil layer thickness
     !$acc loop seq
@@ -76,6 +77,17 @@ contains
        if ( (VegType == 11) )                       FlagWetland  = .true.
     endif
 
+  else if (noahmp%config%domain%IndicatorIceSfc(I,J) == -1) then
+    ! initialize snow/soil layer thickness for glaciers
+    !$acc loop seq
+    do LoopInd = NumSnowLayerNeg+1, NumSoilLayer
+       if ( LoopInd == (NumSnowLayerNeg+1) ) then
+          noahmp%config%domain%ThicknessSnowSoilLayer(I,LoopInd,J) = - noahmp%config%domain%DepthSnowSoilLayer(I,LoopInd,J)
+       else
+          noahmp%config%domain%ThicknessSnowSoilLayer(I,LoopInd,J) = noahmp%config%domain%DepthSnowSoilLayer(I,LoopInd-1,J) - noahmp%config%domain%DepthSnowSoilLayer(I,LoopInd,J)
+       endif
+    enddo
+  endif
         end associate
 
       end do

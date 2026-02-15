@@ -32,6 +32,8 @@ contains
     do J = noahmp%config%domain%JTS, noahmp%config%domain%JTE
       do I = noahmp%config%domain%ITS, noahmp%config%domain%ITE
 
+        if (noahmp%config%domain%IndicatorIceSfc(I,J) /= -1) cycle
+
       ! solar radiation process is only done if there is light
       if ( noahmp%config%domain%CosSolarZenithAngle(I,J) <= 0 ) cycle
 
@@ -42,7 +44,9 @@ contains
               AlbedoSnowDir => noahmp%energy%state%AlbedoSnowDir         ,& ! in,  snow albedo for direct(1=vis, 2=nir)
               AlbedoSnowDif => noahmp%energy%state%AlbedoSnowDif         ,& ! in,  snow albedo for diffuse(1=vis, 2=nir)
               AlbedoGrdDir  => noahmp%energy%state%AlbedoGrdDir          ,& ! out, ground albedo (direct beam: vis, nir)
-              AlbedoGrdDif  => noahmp%energy%state%AlbedoGrdDif           & ! out, ground albedo (diffuse: vis, nir)
+              AlbedoGrdDif  => noahmp%energy%state%AlbedoGrdDif          ,& ! out, ground albedo (diffuse: vis, nir)
+              AlbedoSfcDir  => noahmp%energy%state%AlbedoSfcDir          ,& ! out, surface albedo (direct beam: vis, nir)
+              AlbedoSfcDif  => noahmp%energy%state%AlbedoSfcDif           & ! out, surface albedo (diffuse: vis, nir)
              )
 ! ----------------------------------------------------------------------
 
@@ -51,6 +55,8 @@ contains
 
        AlbedoGrdDir(I,IndSwBnd,J) = AlbedoLandIce(I,IndSwBnd,J)*(1.0-SnowCoverFrac) + AlbedoSnowDir(I,IndSwBnd,J)*SnowCoverFrac
        AlbedoGrdDif(I,IndSwBnd,J) = AlbedoLandIce(I,IndSwBnd,J)*(1.0-SnowCoverFrac) + AlbedoSnowDif(I,IndSwBnd,J)*SnowCoverFrac
+       AlbedoSfcDir(I,IndSwBnd,J) = AlbedoGrdDir(I,IndSwBnd,J)
+       AlbedoSfcDif(I,IndSwBnd,J) = AlbedoGrdDif(I,IndSwBnd,J)
 
     enddo
 

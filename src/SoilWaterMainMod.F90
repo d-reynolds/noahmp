@@ -114,6 +114,7 @@ contains
     !$acc private(LoopInd1, SoilSatExcAcc)
     do J = noahmp%config%domain%JTS, noahmp%config%domain%JTE
       do I = noahmp%config%domain%ITS, noahmp%config%domain%ITE
+         if ( noahmp%config%domain%IndicatorIceSfc(I,J) == -1 ) cycle  ! skip soil process for ice surface points
 
         associate(                                                                         &
                   ThicknessSnowSoilLayer => noahmp%config%domain%ThicknessSnowSoilLayer   ,& ! in,    thickness of snow/soil layers [m]
@@ -249,6 +250,7 @@ contains
     !$acc parallel loop collapse(2) gang vector present(noahmp, SoilSatExcAcc2D, DrainSoilBotAcc2D, RunoffSurfaceAcc2D)
     do J = noahmp%config%domain%JTS, noahmp%config%domain%JTE
       do I = noahmp%config%domain%ITS, noahmp%config%domain%ITE
+         if ( noahmp%config%domain%IndicatorIceSfc(I,J) == -1 ) cycle  ! skip soil process for ice surface points
         noahmp%water%flux%DrainSoilBot(I,J) = DrainSoilBotAcc2D(I,J) / NumIterSoilWat
         noahmp%water%flux%RunoffSurface(I,J) = RunoffSurfaceAcc2D(I,J) / NumIterSoilWat
         noahmp%water%flux%RunoffSurface(I,J) = noahmp%water%flux%RunoffSurface(I,J) * 1000.0 + &
@@ -270,6 +272,7 @@ contains
     !$acc private(LoopInd1, LoopInd2, SoilWatConductAcc, WaterRemove, SoilWatRem, SoilWaterMin, SoilLiqTmp)
     do J = noahmp%config%domain%JTS, noahmp%config%domain%JTE
       do I = noahmp%config%domain%ITS, noahmp%config%domain%ITE
+         if ( noahmp%config%domain%IndicatorIceSfc(I,J) == -1 ) cycle  ! skip soil process for ice surface points
 
         associate(                                                                         &
                   ThicknessSnowSoilLayer => noahmp%config%domain%ThicknessSnowSoilLayer   ,& ! in,    thickness of snow/soil layers [m]
@@ -359,6 +362,7 @@ contains
     !$acc parallel loop collapse(2) gang vector present(noahmp) private(LoopInd2)
     do J = noahmp%config%domain%JTS, noahmp%config%domain%JTE
       do I = noahmp%config%domain%ITS, noahmp%config%domain%ITE
+         if ( noahmp%config%domain%IndicatorIceSfc(I,J) == -1 ) cycle  ! skip soil process for ice surface points
 
         associate(                                                                         &
                   SoilIce                => noahmp%water%state%SoilIce                    ,& ! in,    soil ice content [m3/m3]
@@ -388,6 +392,7 @@ contains
     !$acc parallel loop collapse(2) gang vector present(noahmp)
     do J = noahmp%config%domain%JTS, noahmp%config%domain%JTE
       do I = noahmp%config%domain%ITS, noahmp%config%domain%ITE
+         if ( noahmp%config%domain%IndicatorIceSfc(I,J) == -1 ) cycle  ! skip soil process for ice surface points
         noahmp%water%flux%RunoffSurface(I,J)    = noahmp%water%flux%RunoffSurface(I,J)    * SoilTimeStep
         noahmp%water%flux%RunoffSubsurface(I,J) = noahmp%water%flux%RunoffSubsurface(I,J) * SoilTimeStep
         noahmp%water%flux%TileDrain(I,J)        = noahmp%water%flux%TileDrain(I,J)        * SoilTimeStep

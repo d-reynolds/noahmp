@@ -48,13 +48,17 @@ contains
 ! ----------------------------------------------------------------------
 
     ! compute total water storage before NoahMP processes
-    if ( SurfaceType == 1 ) then  ! soil
+    if ( (noahmp%config%domain%IndicatorIceSfc(I,J) == 0) .and. (SurfaceType == 1) ) then  ! soil
        WaterStorageTotBeg = CanopyLiqWater + CanopyIce + SnowWaterEquiv + WaterStorageAquifer + WaterStorageWetland
        !$acc loop seq
        do LoopInd = 1, NumSoilLayer
           WaterStorageTotBeg = WaterStorageTotBeg + SoilMoisture(I,LoopInd,J) * &
                                                      ThicknessSnowSoilLayer(I,LoopInd,J) * 1000.0
        enddo
+    else if (noahmp%config%domain%IndicatorIceSfc(I,J) == -1) then ! ice point
+          ! compute total glacier water storage before NoahMP processes
+          ! need more work on including glacier ice mass underneath snow
+          WaterStorageTotBeg = SnowWaterEquiv
     endif
 
         end associate
@@ -134,7 +138,7 @@ contains
 
     ! only water balance check for every soil timestep
     ! Error in water balance should be < 0.1 mm
-    if ( SurfaceType == 1 ) then   ! soil
+    if ( (noahmp%config%domain%IndicatorIceSfc(I,J) == 0) .and. (SurfaceType == 1) ) then   ! soil
        WaterStorageTotEnd = CanopyLiqWater + CanopyIce + SnowWaterEquiv + WaterStorageAquifer + WaterStorageWetland
       !$acc loop seq
        do LoopInd = 1, NumSoilLayer
@@ -175,8 +179,33 @@ contains
 #endif
        endif ! FlagSoilProcess
 
-    else ! water point
-       WaterBalanceError = 0.0
+    else if (noahmp%config%domain%IndicatorIceSfc(I,J) == -1) then ! ice point
+      ! Error in water balance should be < 0.1 mm
+      ! compute total glacier water storage before NoahMP processes
+      ! need more work on including glacier ice mass underneath snow
+      WaterStorageTotEnd = SnowWaterEquiv
+      WaterBalanceError  = WaterStorageTotEnd - WaterStorageTotBeg - &
+                           (PrecipTotRefHeight - EvapGroundNet - RunoffSurface - RunoffSubsurface) * MainTimeStep
+
+#if !defined(WRF_HYDRO) && !defined(_OPENACC)
+      if ( abs(WaterBalanceError) > 0.1 ) then
+         if ( WaterBalanceError > 0) then
+            write(*,*) "The model is gaining water (WaterBalanceError is positive)"
+         else
+            write(*,*) "The model is losing water (WaterBalanceError is negative)"
+         endif
+         write(*,*) "WaterBalanceError = ",WaterBalanceError, "kg m{-2} timestep{-1}"
+         write(*, &
+            '("  GridIndexI   GridIndexJ     WaterStorageTotEnd  WaterStorageTotBeg  PrecipTotRefHeight  &
+                  EvapGroundNet  RunoffSurface  RunoffSubsurface")')
+         write(*,'(i6,1x,i6,1x,2f15.3,9f11.5)') I, J, WaterStorageTotEnd, WaterStorageTotBeg, &
+                                                PrecipTotRefHeight*MainTimeStep, EvapGroundNet*MainTimeStep,    &
+                                                RunoffSurface*MainTimeStep, RunoffSubsurface*MainTimeStep
+         stop "Error: Water budget problem in NoahMP LSM"
+      endif
+#endif
+    else if (SurfaceType == 2) then ! water point
+         WaterBalanceError = 0.0
     endif
 
         end associate
@@ -244,6 +273,7 @@ contains
     ! error in shortwave radiation balance should be <0.01 W/m2
     RadSwBalanceError = RadSwDownRefHeight - (RadSwAbsSfc + RadSwReflSfc)
 
+  if (noahmp%config%domain%IndicatorIceSfc(I,J) == 0) then
 #ifndef _OPENACC
     ! Note: Diagnostic writes disabled for GPU execution
     if ( abs(RadSwBalanceError) > 0.01 ) then
@@ -303,7 +333,48 @@ contains
        stop "Error: Energy budget problem in NoahMP LSM"
     endif
 #endif
+  else if (noahmp%config%domain%IndicatorIceSfc(I,J) == -1) then ! ice point
+    ! print out diagnostics when error is large
+#ifdef _OPENACC
+    ! Skip error checking on GPU
+#else
+    if ( abs(RadSwBalanceError) > 0.01 ) then
+       write(*,*) "GridIndexI, GridIndexJ = ", I, J
+       write(*,*) "RadSwBalanceError      = ", RadSwBalanceError
+       write(*,*) "RadSwDownRefHeight     = ", RadSwDownRefHeight
+       write(*,*) "RadSwReflSfc           = ", RadSwReflSfc
+       write(*,*) "RadSwAbsGrd            = ", RadSwAbsGrd
+       write(*,*) "RadSwAbsSfc            = ", RadSwAbsSfc
+       stop "Error: Solar radiation budget problem in NoahMP LSM"
+    endif
 
+    ! SNICAR
+    if ( OptSnowAlbedo == 3 ) then
+       if ( abs(RadSwAbsGrd-sum(RadSwAbsSnowSoilLayer(I,:,J)))>0.001 ) then ! original check is 0.0001, precision issue
+          write(*,*) "RadSwAbsGrd gridmean                            = ", RadSwAbsGrd
+          write(*,*) "sum(RadSwAbsSnowSoilLayer) gridmean             = ", sum(RadSwAbsSnowSoilLayer(I,:,J))
+          write(*,*) "RadSwAbsSnowSoilLayer gridmean                  = ", RadSwAbsSnowSoilLayer(I,:,J)
+          write(*,*) "RadSwAbsGrd-sum(RadSwAbsSnowSoilLayer) gridmean = ", RadSwAbsGrd-sum(RadSwAbsSnowSoilLayer(I,:,J))
+          stop "Error: SNICAR snow albedo radiation budget problem in NoahMP LSM"
+       endif
+    endif
+
+    ! error in surface energy balance should be <0.01 W/m2
+    EnergyBalanceError = RadSwAbsGrd + HeatPrecipAdvSfc - (RadLwNetSfc + HeatSensibleSfc + HeatLatentGrd + HeatGroundTot)
+    ! print out diagnostics when error is large
+    if ( abs(EnergyBalanceError) > 0.01 ) then
+       write(*,*) 'EnergyBalanceError = ', EnergyBalanceError, ' at GridIndexI,GridIndexJ: ', I, J
+       write(*,'(a17,F10.4)' ) "Net longwave:       ", RadLwNetSfc
+       write(*,'(a17,F10.4)' ) "Total sensible:     ", HeatSensibleSfc
+       write(*,'(a17,F10.4)' ) "Ground evap:        ", HeatLatentGrd
+       write(*,'(a17,F10.4)' ) "Total ground:       ", HeatGroundTot
+       write(*,'(a17,4F10.4)') "Precip advected:    ", HeatPrecipAdvSfc
+       write(*,'(a17,F10.4)' ) "absorbed shortwave: ", RadSwAbsGrd
+       stop "Error: Surface energy budget problem in NoahMP LSM"
+    endif
+#endif
+
+  endif
         end associate
 
       end do

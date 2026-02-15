@@ -31,6 +31,7 @@ contains
     do J = noahmp%config%domain%JTS, noahmp%config%domain%JTE
       do I = noahmp%config%domain%ITS, noahmp%config%domain%ITE
 
+        if (noahmp%config%domain%IndicatorIceSfc(I,J) /= -1) cycle
     associate(                                                        &
               SnowWaterEquiv => noahmp%water%state%SnowWaterEquiv(I,J),& ! in,  snow water equivalent [mm]
               SnowCoverFrac  => noahmp%water%state%SnowCoverFrac(I,J)  & ! out, snow cover fraction

@@ -175,7 +175,7 @@ contains
       JLOOP2 : do J = NoahmpIO%JTS, NoahmpIO%JTE
        ILOOP2 : do I = NoahmpIO%ITS, NoahmpIO%ITE
           if (.not.( NoahmpIO%XICE(I,J) >= NoahmpIO%XICE_THRESHOLD )) then  ! Sea-ice point
-             if ( (NoahmpIO%XLAND(I,J)-1.5) >= 0.0 ) cycle ILOOP2     ! Skip any open water points
+            !  if ( (NoahmpIO%XLAND(I,J)-1.5) >= 0.0 ) cycle ILOOP2     ! Skip any open water points
 
              ! glacier ice
              if (noahmp%config%domain%VegType(I,J) == noahmp%config%domain%IndexIcePoint ) then

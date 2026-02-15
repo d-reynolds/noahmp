@@ -44,26 +44,31 @@ contains
                  )
 ! ----------------------------------------------------------------------
 
-    ! for canopy  ! Barlage: add distinction between ground and vegetation in v3.6
-    if ( TemperatureCanopy > ConstFreezePoint ) then
-       LatHeatVapCanopy = ConstLatHeatEvap
-       FlagFrozenCanopy = .false.
-    else
-       LatHeatVapCanopy = ConstLatHeatSublim
-       FlagFrozenCanopy = .true.
-    endif
-    PsychConstCanopy    = ConstHeatCapacAir * PressureAirRefHeight / (0.622*LatHeatVapCanopy)
+    if (noahmp%config%domain%IndicatorIceSfc(I,J) == 0) then
 
-    ! for ground
-    if ( TemperatureGrd > ConstFreezePoint ) then
-       LatHeatVapGrd    = ConstLatHeatEvap
-       FlagFrozenGround = .false.
-    else
-       LatHeatVapGrd    = ConstLatHeatSublim
-       FlagFrozenGround = .true.
-    endif
-    PsychConstGrd       = ConstHeatCapacAir * PressureAirRefHeight / (0.622*LatHeatVapGrd)
+      ! for canopy  ! Barlage: add distinction between ground and vegetation in v3.6
+      if ( TemperatureCanopy > ConstFreezePoint ) then
+        LatHeatVapCanopy = ConstLatHeatEvap
+        FlagFrozenCanopy = .false.
+      else
+        LatHeatVapCanopy = ConstLatHeatSublim
+        FlagFrozenCanopy = .true.
+      endif
+      PsychConstCanopy    = ConstHeatCapacAir * PressureAirRefHeight / (0.622*LatHeatVapCanopy)
 
+      ! for ground
+      if ( TemperatureGrd > ConstFreezePoint ) then
+        LatHeatVapGrd    = ConstLatHeatEvap
+        FlagFrozenGround = .false.
+      else
+        LatHeatVapGrd    = ConstLatHeatSublim
+        FlagFrozenGround = .true.
+      endif
+      PsychConstGrd       = ConstHeatCapacAir * PressureAirRefHeight / (0.622*LatHeatVapGrd)
+    else if (noahmp%config%domain%IndicatorIceSfc(I,J) == -1) then ! glacier ice surface
+      LatHeatVapGrd = ConstLatHeatSublim
+      PsychConstGrd = ConstHeatCapacAir * PressureAirRefHeight / (0.622 * LatHeatVapGrd)
+    endif
         end associate
 
       end do
