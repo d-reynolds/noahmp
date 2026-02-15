@@ -26,7 +26,8 @@ contains
 ! local variable
     integer                          :: I, J      ! grid indices
     integer                          :: LoopInd   ! loop index
-
+    character(len=256)               :: LandUseDataName_USGS_Const = "USGS" 
+    character(len=256)               :: LandUseDataName_MODIS_Const = "MODIFIED_IGBP_MODIS_NOAH"
 ! --------------------------------------------------------------------
     !$acc parallel loop collapse(2) gang vector present(noahmp) private(LoopInd)
     do J = noahmp%config%domain%JTS, noahmp%config%domain%JTE
@@ -69,10 +70,10 @@ contains
     ! initialize special land type flags
     FlagCropland = .false.
     FlagWetland  = .false.
-    if ( trim(LandUseDataName) == "USGS" ) then
+    if ( LandUseDataName == LandUseDataName_USGS_Const) then
        if ( (VegType >= 3 ) .and. (VegType <= 6 ) ) FlagCropland = .true.
        if ( (VegType >= 17) .and. (VegType <= 18) ) FlagWetland  = .true.
-    elseif ( trim(LandUseDataName) == "MODIFIED_IGBP_MODIS_NOAH") then
+    elseif ( LandUseDataName == LandUseDataName_MODIS_Const) then
        if ( (VegType == 12) .or. (VegType == 14) )  FlagCropland = .true.
        if ( (VegType == 11) )                       FlagWetland  = .true.
     endif

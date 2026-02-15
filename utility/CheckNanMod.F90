@@ -9,7 +9,7 @@ module CheckNanMod
 contains
 
   subroutine CheckRealNaN(NumIn, OutVal)
-
+    !$acc routine seq
 ! ------------------------ Code history -----------------------------------
 ! Original Noah-MP subroutine: embedded in NOAHMP_SFLX
 ! Original code: P. Valayamkunnath (2021)

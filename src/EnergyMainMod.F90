@@ -422,7 +422,7 @@ contains
        call SoilSnowTemperatureMain(noahmp)
     endif ! FlagSoilProcess
 
-    !$acc parallel loop collapse(2) gang vector present(noahmpm, FlagVegSfc)
+    !$acc parallel loop collapse(2) gang vector present(noahmp, FlagVegSfc)
     do J = noahmp%config%domain%JTS, noahmp%config%domain%JTE
       do I = noahmp%config%domain%ITS, noahmp%config%domain%ITE
 

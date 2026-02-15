@@ -518,14 +518,14 @@ contains
 
     ! 2D/3D variables
     !$acc parallel loop gang vector collapse(2) present( &
-    !$acc & NoahmpIO, SOILCOMP, SOILCL1, SOILCL2, SOILCL3, SOILCL4, &
-    !$acc & IVGTYP, ISLTYP, VEGFRA, VEGMAX, TMN, XLAND, XICE, &
-    !$acc & CROPCAT, PLANTING, HARVEST, SEASON_GDD, XLAT, XLONG, COSZIN, &
-    !$acc & DZ8W, T3D, QV3D, U_PHY, V_PHY, &
-    !$acc & SWDOWN, SWDDIR, SWDDIF, GLW, P8W3D, PRECIP_IN, SR, &
-    !$acc & IRFRACT, SIFRACT, MIFRACT, FIFRACT, &
-    !$acc & MP_RAINC, MP_RAINNC, MP_SHCV, MP_SNOW, MP_GRAUP, MP_HAIL, &
-    !$acc & TSK, HFX, QFX, LH, GRDFLX, 
+    !$acc NoahmpIO, SOILCOMP, SOILCL1, SOILCL2, SOILCL3, SOILCL4, &
+    !$acc IVGTYP, ISLTYP, VEGFRA, VEGMAX, TMN, XLAND, XICE, &
+    !$acc CROPCAT, PLANTING, HARVEST, SEASON_GDD, XLAT, XLONG, COSZIN, &
+    !$acc DZ8W, T3D, QV3D, U_PHY, V_PHY, &
+    !$acc SWDOWN, SWDDIR, SWDDIF, GLW, P8W3D, PRECIP_IN, SR, &
+    !$acc IRFRACT, SIFRACT, MIFRACT, FIFRACT, &
+    !$acc MP_RAINC, MP_RAINNC, MP_SHCV, MP_SNOW, MP_GRAUP, MP_HAIL, &
+    !$acc TSK, HFX, QFX, LH, GRDFLX)
     do J = jts, jte
     do I = its, ite
 

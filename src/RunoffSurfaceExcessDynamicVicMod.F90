@@ -11,7 +11,7 @@ module RunoffSurfaceExcessDynamicVicMod
 contains
 
   subroutine RunoffSatExcessDynamicVic(noahmp, WaterDepthInit, WaterDepthMax, DepthYTmp, InfilFacDynVic, RunoffSatExcess)
-  !$acc loop seq
+    !$acc routine seq
 ! ------------------------ Code history --------------------------------------------------
 ! Original Noah-MP subroutine: RR1 for saturation excess runoff
 ! Original code: Prasanth Valayamkunnath <prasanth@ucar.edu>
@@ -48,7 +48,7 @@ contains
 
   subroutine RunoffInfilExcessDynamicVic(DepthYTmp, DepthYInit, RunoffSatExcess, InfilRateMax, &
                                          InfilRateSfc, TimeStep, WaterInSoilSfc, InfilExpB, RunoffInfilExcess)
-  !$acc loop seq
+    !$acc routine seq
 ! ------------------------ Code history --------------------------------------------------
 ! Original Noah-MP subroutine: RRunoffInfilExcess for infiltration excess runoff
 ! Original code: Prasanth Valayamkunnath <prasanth@ucar.edu>

@@ -70,7 +70,7 @@ contains
       !$acc private(IndIter,LoopInd,TemperatureGrdChg,LwRadCoeff,ShCoeff,LhCoeff) &
       !$acc private(GrdHeatCoeff,ExchCoeffShTmp,ExchCoeffMomTmp,MoistureFluxSfc,VapPresSatWatTmp) &
       !$acc private(VapPresSatIceTmp,VapPresSatWatTmpD,VapPresSatIceTmpD,FluxTotCoeff,EnergyResTmp) &
-      !$acc private(TempTmp,TempUnitConv,SoilIceTmp)
+      !$acc private(TempTmp,SoilIceTmp)
       do J = noahmp%config%domain%JTS, noahmp%config%domain%JTE
          do I = noahmp%config%domain%ITS, noahmp%config%domain%ITE
 
@@ -108,7 +108,7 @@ contains
    !$acc private(IndIter,LoopInd,TemperatureGrdChg,LwRadCoeff,ShCoeff,LhCoeff) &
    !$acc private(GrdHeatCoeff,ExchCoeffShTmp,ExchCoeffMomTmp,MoistureFluxSfc,VapPresSatWatTmp) &
    !$acc private(VapPresSatIceTmp,VapPresSatWatTmpD,VapPresSatIceTmpD,FluxTotCoeff,EnergyResTmp) &
-   !$acc private(TempTmp,TempUnitConv,SoilIceTmp)
+   !$acc private(TempTmp,SoilIceTmp)
    do J = noahmp%config%domain%JTS, noahmp%config%domain%JTE
       do I = noahmp%config%domain%ITS, noahmp%config%domain%ITE
 ! --------------------------------------------------------------------
@@ -229,7 +229,7 @@ contains
    !$acc private(IndIter,LoopInd,TemperatureGrdChg,LwRadCoeff,ShCoeff,LhCoeff) &
    !$acc private(GrdHeatCoeff,ExchCoeffShTmp,ExchCoeffMomTmp,MoistureFluxSfc,VapPresSatWatTmp) &
    !$acc private(VapPresSatIceTmp,VapPresSatWatTmpD,VapPresSatIceTmpD,FluxTotCoeff,EnergyResTmp) &
-   !$acc private(TempTmp,TempUnitConv,SoilIceTmp)
+   !$acc private(TempTmp,SoilIceTmp)
    do J = noahmp%config%domain%JTS, noahmp%config%domain%JTE
       do I = noahmp%config%domain%ITS, noahmp%config%domain%ITE
 
@@ -336,7 +336,7 @@ contains
       end do
     end do
     !$acc end parallel loop
-
+    !$acc end data
 
   end subroutine SurfaceEnergyFluxGlacier
 

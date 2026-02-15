@@ -94,7 +94,7 @@ contains
        WoodMass              = 0.0
        CarbonMassDeepSoil    = 0.0
        CarbonMassShallowSoil = 0.0
-       return
+       cycle
     endif
 
     ! start biogeochemistry process

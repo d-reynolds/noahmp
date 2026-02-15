@@ -57,9 +57,9 @@ contains
     real(kind=kind_noahmp)           :: SnowRadiusTmp(1:noahmp%config%domain%NumSnowLayerMax)       ! effective grain radius [microns, m-6]
     integer                          :: I, J                                 ! grid indices
 
-    !$acc parallel loop collapse(2) gang vector present(noahmp) private(LoopInd, NumSnowLayerTmp, SnowThickCombTmp, SnowIceExtra, SnowLiqExtra, SnowFracExtra, SnowTempGrad, &
-   ! MassBChydrophoExtra, MassBChydrophiExtra, MassOChydrophoExtra, MassOChydrophiExtra, MassDust1Extra, MassDust2Extra, MassDust3Extra, MassDust4Extra, MassDust5Extra, &
-   ! SnowThickTmp, SnowIceTmp, SnowLiqTmp, TemperatureSnowTmp, MassBChydrophoTmp, MassBChydrophiTmp, MassOChydrophoTmp, MassOChydrophiTmp, MassDust1Tmp, MassDust2Tmp, MassDust3Tmp, MassDust4Tmp, MassDust5Tmp, SnowRadiusTmp, I, J)
+    !$acc parallel loop collapse(2) gang vector present(noahmp) private(LoopInd, NumSnowLayerTmp, SnowThickCombTmp, SnowIceExtra, SnowLiqExtra, SnowFracExtra, SnowTempGrad) &
+    !$acc private(MassBChydrophoExtra, MassBChydrophiExtra, MassOChydrophoExtra, MassOChydrophiExtra, MassDust1Extra, MassDust2Extra, MassDust3Extra, MassDust4Extra, MassDust5Extra) &
+    !$acc private(SnowThickTmp, SnowIceTmp, SnowLiqTmp, TemperatureSnowTmp, MassBChydrophoTmp, MassBChydrophiTmp, MassOChydrophoTmp, MassOChydrophiTmp, MassDust1Tmp, MassDust2Tmp, MassDust3Tmp, MassDust4Tmp, MassDust5Tmp, SnowRadiusTmp, I, J)
     do J = noahmp%config%domain%JTS, noahmp%config%domain%JTE
       do I = noahmp%config%domain%ITS, noahmp%config%domain%ITE
 ! --------------------------------------------------------------------
