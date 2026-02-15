@@ -94,10 +94,6 @@ if (NETCDF_FOUND)
     
 endif()
 
-#set debug flags
-set(noahmp_compiler_flags -O3 -fopenmp -ffast-math -ffree-line-length-none -ftree-vectorize -fimplicit-none -funroll-loops -march=native -fno-protect-parens)
-target_compile_options(noahmp PUBLIC ${noahmp_compiler_flags})
-
 
 # Add NetCDF include directories (equivalent to NETCDFMOD)
 if(DEFINED NETCDF_INCLUDES)
