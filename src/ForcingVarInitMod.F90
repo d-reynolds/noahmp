@@ -163,7 +163,7 @@ contains
 
     end associate
 
-    !$acc parallel loop collapse(2) gang vector present(noahmp)
+    !$acc parallel loop collapse(2) gang vector present(noahmp%forcing)
     do J = noahmp%config%domain%JTS, noahmp%config%domain%JTE
       do I = noahmp%config%domain%ITS, noahmp%config%domain%ITE
 

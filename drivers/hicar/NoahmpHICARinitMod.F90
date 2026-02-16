@@ -28,7 +28,7 @@ contains
                    massconcocphixy, massconcocphoxy, massconcdust1xy, massconcdust2xy,  &
                    massconcdust3xy, massconcdust4xy, massconcdust5xy,                   &
                    ALBSOILDIRXY, ALBSOILDIFXY,                                          &
-                   NSOIL,   restart,                                                    &
+                   NSOIL,   NSNOW, restart,                                                    &
                    allowed_to_read , IOPT_RUNSUB, IOPT_CROP, IOPT_IRR, IOPT_IRRM,       &
                    SF_URBAN_PHYSICS, IOPT_SOIL, IOPT_ALB, IOPT_WETLAND,                 &
                    SNICAR_SNOWOPTICS_OPT, SNICAR_DUSTOPTICS_OPT, SNICAR_SOLARSPEC_OPT,  & ! optional SNICAR option
@@ -56,7 +56,7 @@ contains
     INTEGER, INTENT(IN)                                        :: ids,ide, jds,jde, kds,kde,  &
                                                                   ims,ime, jms,jme, kms,kme,  &
                                                                   its,ite, jts,jte, kts,kte
-    INTEGER, INTENT(IN)                                        :: NSOIL, IOPT_RUNSUB, IOPT_CROP, &
+    INTEGER, INTENT(IN)                                        :: NSOIL, NSNOW, IOPT_RUNSUB, IOPT_CROP, &
                                                                   IOPT_IRR, IOPT_IRRM, IOPT_SOIL,&
                                                                   IOPT_ALB, IOPT_WETLAND
     LOGICAL, INTENT(IN)                                        :: restart, allowed_to_read
@@ -84,10 +84,10 @@ contains
     INTEGER, DIMENSION(ims:ime,jms:jme), INTENT(INOUT)         :: isnowxy             ! actual no. of snow layers
     REAL,    DIMENSION(ims:ime,1:NSOIL,jms:jme), INTENT(INOUT) :: SMOIS, SH2O, TSLB
     REAL,    DIMENSION(ims:ime, jms:jme), INTENT(INOUT)        :: SNOW, SNOWH, CANWAT
-    REAL,    DIMENSION(ims:ime,-2:NSOIL,jms:jme),INTENT(INOUT) :: zsnsoxy             ! snow layer depth [m]
-    REAL,    DIMENSION(ims:ime,-2:0,jms:jme), INTENT(INOUT)    :: tsnoxy              ! snow temperature [K]
-    REAL,    DIMENSION(ims:ime,-2:0,jms:jme), INTENT(INOUT)    :: snicexy             ! snow layer ice [mm]
-    REAL,    DIMENSION(ims:ime,-2:0,jms:jme), INTENT(INOUT)    :: snliqxy             ! snow layer liquid water [mm]
+    REAL,    DIMENSION(ims:ime,1:(NSNOW+NSOIL),jms:jme),INTENT(INOUT) :: zsnsoxy             ! snow layer depth [m]
+    REAL,    DIMENSION(ims:ime,1:NSNOW,jms:jme), INTENT(INOUT)    :: tsnoxy              ! snow temperature [K]
+    REAL,    DIMENSION(ims:ime,1:NSNOW,jms:jme), INTENT(INOUT)    :: snicexy             ! snow layer ice [mm]
+    REAL,    DIMENSION(ims:ime,1:NSNOW,jms:jme), INTENT(INOUT)    :: snliqxy             ! snow layer liquid water [mm]
     REAL,    DIMENSION(ims:ime,jms:jme), INTENT(INOUT)         :: tvxy                ! vegetation canopy temperature
     REAL,    DIMENSION(ims:ime,jms:jme), INTENT(INOUT)         :: tgxy                ! ground surface temperature
     REAL,    DIMENSION(ims:ime,jms:jme), INTENT(INOUT)         :: canicexy            ! canopy-intercepted ice (mm)
@@ -130,26 +130,26 @@ contains
     REAL,    DIMENSION(ims:ime,jms:jme), INTENT(INOUT)         :: t2mbxy              ! 2m temperature bare ground part (k)
     REAL,    DIMENSION(ims:ime,jms:jme), INTENT(INOUT)         :: fsatxy              ! saturation fraction of grid (-)
     REAL,    DIMENSION(ims:ime,jms:jme), INTENT(INOUT)         :: wsurfxy             ! wetland water storage (mm)
-    REAL,    DIMENSION(ims:ime,-2:0,jms:jme), INTENT(INOUT)    :: snrdsxy             ! SNICAR snow radius
-    REAL,    DIMENSION(ims:ime,-2:0,jms:jme), INTENT(INOUT)    :: snfrxy              ! SNICAR snow freezing rate
-    REAL,    DIMENSION(ims:ime,-2:0,jms:jme), INTENT(INOUT)    :: bcphixy             ! SNICAR BCPHI mass in snow
-    REAL,    DIMENSION(ims:ime,-2:0,jms:jme), INTENT(INOUT)    :: bcphoxy             ! SNICAR BCPHO mass in snow
-    REAL,    DIMENSION(ims:ime,-2:0,jms:jme), INTENT(INOUT)    :: ocphixy             ! SNICAR OCPHI mass in snow
-    REAL,    DIMENSION(ims:ime,-2:0,jms:jme), INTENT(INOUT)    :: ocphoxy             ! SNICAR OCPHO mass in snow
-    REAL,    DIMENSION(ims:ime,-2:0,jms:jme), INTENT(INOUT)    :: dust1xy             ! SNICAR DUST1 mass in snow
-    REAL,    DIMENSION(ims:ime,-2:0,jms:jme), INTENT(INOUT)    :: dust2xy             ! SNICAR DUST2 mass in snow
-    REAL,    DIMENSION(ims:ime,-2:0,jms:jme), INTENT(INOUT)    :: dust3xy             ! SNICAR DUST3 mass in snow
-    REAL,    DIMENSION(ims:ime,-2:0,jms:jme), INTENT(INOUT)    :: dust4xy             ! SNICAR DUST4 mass in snow
-    REAL,    DIMENSION(ims:ime,-2:0,jms:jme), INTENT(INOUT)    :: dust5xy             ! SNICAR DUST5 mass in snow
-    REAL,    DIMENSION(ims:ime,-2:0,jms:jme), INTENT(INOUT)    :: massconcbcphixy     ! SNICAR BCPHI mass conc in snow
-    REAL,    DIMENSION(ims:ime,-2:0,jms:jme), INTENT(INOUT)    :: massconcbcphoxy     ! SNICAR BCPHO mass conc in snow
-    REAL,    DIMENSION(ims:ime,-2:0,jms:jme), INTENT(INOUT)    :: massconcocphixy     ! SNICAR OCPHI mass conc in snow
-    REAL,    DIMENSION(ims:ime,-2:0,jms:jme), INTENT(INOUT)    :: massconcocphoxy     ! SNICAR OCPHO mass conc in snow
-    REAL,    DIMENSION(ims:ime,-2:0,jms:jme), INTENT(INOUT)    :: massconcdust1xy     ! SNICAR DUST1 mass conc in snow
-    REAL,    DIMENSION(ims:ime,-2:0,jms:jme), INTENT(INOUT)    :: massconcdust2xy     ! SNICAR DUST2 mass conc in snow
-    REAL,    DIMENSION(ims:ime,-2:0,jms:jme), INTENT(INOUT)    :: massconcdust3xy     ! SNICAR DUST3 mass conc in snow
-    REAL,    DIMENSION(ims:ime,-2:0,jms:jme), INTENT(INOUT)    :: massconcdust4xy     ! SNICAR DUST4 mass conc in snow
-    REAL,    DIMENSION(ims:ime,-2:0,jms:jme), INTENT(INOUT)    :: massconcdust5xy     ! SNICAR DUST5 mass conc in snow
+    REAL,    DIMENSION(ims:ime,1:NSNOW,jms:jme), INTENT(INOUT)    :: snrdsxy             ! SNICAR snow radius
+    REAL,    DIMENSION(ims:ime,1:NSNOW,jms:jme), INTENT(INOUT)    :: snfrxy              ! SNICAR snow freezing rate
+    REAL,    DIMENSION(ims:ime,1:NSNOW,jms:jme), INTENT(INOUT)    :: bcphixy             ! SNICAR BCPHI mass in snow
+    REAL,    DIMENSION(ims:ime,1:NSNOW,jms:jme), INTENT(INOUT)    :: bcphoxy             ! SNICAR BCPHO mass in snow
+    REAL,    DIMENSION(ims:ime,1:NSNOW,jms:jme), INTENT(INOUT)    :: ocphixy             ! SNICAR OCPHI mass in snow
+    REAL,    DIMENSION(ims:ime,1:NSNOW,jms:jme), INTENT(INOUT)    :: ocphoxy             ! SNICAR OCPHO mass in snow
+    REAL,    DIMENSION(ims:ime,1:NSNOW,jms:jme), INTENT(INOUT)    :: dust1xy             ! SNICAR DUST1 mass in snow
+    REAL,    DIMENSION(ims:ime,1:NSNOW,jms:jme), INTENT(INOUT)    :: dust2xy             ! SNICAR DUST2 mass in snow
+    REAL,    DIMENSION(ims:ime,1:NSNOW,jms:jme), INTENT(INOUT)    :: dust3xy             ! SNICAR DUST3 mass in snow
+    REAL,    DIMENSION(ims:ime,1:NSNOW,jms:jme), INTENT(INOUT)    :: dust4xy             ! SNICAR DUST4 mass in snow
+    REAL,    DIMENSION(ims:ime,1:NSNOW,jms:jme), INTENT(INOUT)    :: dust5xy             ! SNICAR DUST5 mass in snow
+    REAL,    DIMENSION(ims:ime,1:NSNOW,jms:jme), INTENT(INOUT)    :: massconcbcphixy     ! SNICAR BCPHI mass conc in snow
+    REAL,    DIMENSION(ims:ime,1:NSNOW,jms:jme), INTENT(INOUT)    :: massconcbcphoxy     ! SNICAR BCPHO mass conc in snow
+    REAL,    DIMENSION(ims:ime,1:NSNOW,jms:jme), INTENT(INOUT)    :: massconcocphixy     ! SNICAR OCPHI mass conc in snow
+    REAL,    DIMENSION(ims:ime,1:NSNOW,jms:jme), INTENT(INOUT)    :: massconcocphoxy     ! SNICAR OCPHO mass conc in snow
+    REAL,    DIMENSION(ims:ime,1:NSNOW,jms:jme), INTENT(INOUT)    :: massconcdust1xy     ! SNICAR DUST1 mass conc in snow
+    REAL,    DIMENSION(ims:ime,1:NSNOW,jms:jme), INTENT(INOUT)    :: massconcdust2xy     ! SNICAR DUST2 mass conc in snow
+    REAL,    DIMENSION(ims:ime,1:NSNOW,jms:jme), INTENT(INOUT)    :: massconcdust3xy     ! SNICAR DUST3 mass conc in snow
+    REAL,    DIMENSION(ims:ime,1:NSNOW,jms:jme), INTENT(INOUT)    :: massconcdust4xy     ! SNICAR DUST4 mass conc in snow
+    REAL,    DIMENSION(ims:ime,1:NSNOW,jms:jme), INTENT(INOUT)    :: massconcdust5xy     ! SNICAR DUST5 mass conc in snow
     REAL,    DIMENSION(ims:ime,1:2,jms:jme),  INTENT(INOUT)    :: ALBSOILDIRXY        ! soil albedo direct
     REAL,    DIMENSION(ims:ime,1:2,jms:jme),  INTENT(INOUT)    :: ALBSOILDIFXY        ! soil albedo diffuse
     REAL,    DIMENSION(ims:ime,jms:jme),         INTENT(INOUT), OPTIONAL :: qtdrain      ! tile drainage (mm)
@@ -238,18 +238,20 @@ contains
     if(present(DX)) NoahmpIO%DX                 = DX
     if(present(DY)) NoahmpIO%DY                 = DY
 
+    !$acc enter data copyin(noahmpIO)
+
     ! 2D/3D variables
     !$acc parallel loop gang vector collapse(2) present(NoahmpIO, &
-    !$acc IVGTYP, ISLTYP, XLAT, TSK, XICE, CROPTYPE, FDEPTHXY, MSFTX, MSFTY, HT, RECHCLIM, &
+    !$acc IVGTYP, ISLTYP, XLAT, TSK, XICE, CROPTYPE, &
     !$acc SMOIS, SH2O, TSLB, SNOW, SNOWH, CANWAT, CANICEXY, CANLIQXY, TMN, ISNOWXY, ZSNSOXY, TSNOXY, &
     !$acc SNICEXY, SNLIQXY, TVXY, TGXY, EAHXY, TAHXY, CMXY, CHXY, FWETXY, SNEQVOXY, ALBOLDXY, &
     !$acc QSNOWXY, QRAINXY, WSLAKEXY, ZWTXY, WAXY, WTXY, LFMASSXY, RTMASSXY, STMASSXY, WOODXY, GRAINXY, &
-    !$acc GDDXY, STBLCPXY, FASTCPXY, LAI, XSAIXY, QTDRAIN, IRNUMSI, IRNUMMI, IRNUMFI, IRWATSI, &
+    !$acc GDDXY, STBLCPXY, FASTCPXY, LAI, XSAIXY, IRNUMSI, IRNUMMI, IRNUMFI, IRWATSI, &
+    !$acc IRWATMI, IRWATFI, IRELOSS, IRSIVOL, IRMIVOL, IRFIVOL, IRRSPLH, &
     !$acc T2MVXY, T2MBXY, FSATXY, WSURFXY, SNRDSXY, SNFRXY, BCPHIXY, BCPHOXY, OCPHIXY, OCPHOXY, &
     !$acc DUST1XY, DUST2XY, DUST3XY, DUST4XY, DUST5XY, MASSCONCBCPHIXY, MASSCONCBCPHOXY, &
     !$acc MASSCONCOCPHIXY, MASSCONCOCPHOXY, MASSCONCDUST1XY, MASSCONCDUST2XY, MASSCONCDUST3XY, &
-    !$acc MASSCONCDUST4XY, MASSCONCDUST5XY, ALBSOILDIRXY, ALBSOILDIFXY, &
-    !$acc DEEPRECHXY, RECHXY, AREAXY, RIVERBEDXY, EQZWT, RIVERCONDXY, PEXPXY)
+    !$acc MASSCONCDUST4XY, MASSCONCDUST5XY, ALBSOILDIRXY, ALBSOILDIFXY)
     do J = jts, jtf
     do I = its, itf
     
@@ -260,11 +262,6 @@ contains
     NoahmpIO%TSK(I,J)                  = TSK(I,J)
     NoahmpIO%XICE(I,J)                 = XICE(I,J)
     NoahmpIO%CROPTYPE(I,:,J)           = CROPTYPE(I,:,J)
-    if(present(FDEPTHXY)) NoahmpIO%FDEPTHXY(I,J)             = FDEPTHXY(I,J)
-    if(present(MSFTX)) NoahmpIO%MSFTX(I,J)                = MSFTX(I,J)
-    if(present(MSFTY)) NoahmpIO%MSFTY(I,J)                = MSFTY(I,J)
-    if(present(HT)) NoahmpIO%TERRAIN(I,J)              = HT(I,J)
-    if(present(RECHCLIM)) NoahmpIO%RECHCLIM(I,J)             = RECHCLIM(I,J)
     ! in/out variables
     NoahmpIO%SMOIS(I,:,J)              = SMOIS(I,:,J)
     NoahmpIO%SH2O(I,:,J)               = SH2O(I,:,J)
@@ -276,10 +273,10 @@ contains
     NoahmpIO%CANLIQXY(I,J)             = CANLIQXY(I,J)
     NoahmpIO%TMN(I,J)                  = TMN(I,J)
     NoahmpIO%ISNOWXY(I,J)              = ISNOWXY(I,J)
-    NoahmpIO%ZSNSOXY(I,:,J)            = ZSNSOXY(I,:,J) 
-    NoahmpIO%TSNOXY(I,:,J)             = TSNOXY(I,:,J)
-    NoahmpIO%SNICEXY(I,:,J)            = SNICEXY(I,:,J)
-    NoahmpIO%SNLIQXY(I,:,J)            = SNLIQXY(I,:,J)
+    NoahmpIO%ZSNSOXY(I,:,J)            = ZSNSOXY(I,1:7,J) 
+    NoahmpIO%TSNOXY(I,:,J)             = TSNOXY(I,1:3,J)
+    NoahmpIO%SNICEXY(I,:,J)            = SNICEXY(I,1:3,J)
+    NoahmpIO%SNLIQXY(I,:,J)            = SNLIQXY(I,1:3,J)
     NoahmpIO%TVXY(I,J)                 = TVXY(I,J)
     NoahmpIO%TGXY(I,J)                 = TGXY(I,J)
     NoahmpIO%EAHXY(I,J)                = EAHXY(I,J)
@@ -305,7 +302,6 @@ contains
     NoahmpIO%FASTCPXY(I,J)             = FASTCPXY(I,J)
     NoahmpIO%LAI(I,J)                  = LAI(I,J)
     NoahmpIO%XSAIXY(I,J)               = XSAIXY(I,J)
-    if(present(QTDRAIN)) NoahmpIO%QTDRAIN(I,J)              = QTDRAIN(I,J)
     NoahmpIO%IRNUMSI(I,J)              = IRNUMSI(I,J)
     NoahmpIO%IRNUMMI(I,J)              = IRNUMMI(I,J)
     NoahmpIO%IRNUMFI(I,J)              = IRNUMFI(I,J)
@@ -319,18 +315,6 @@ contains
     NoahmpIO%IRRSPLH(I,J)              = IRRSPLH(I,J)
     NoahmpIO%T2MVXY(I,J)               = T2MVXY(I,J)
     NoahmpIO%T2MBXY(I,J)               = T2MBXY(I,J)
-    if(present(SMCWTDXY)) NoahmpIO%SMCWTDXY(I,J)             = SMCWTDXY(I,J)
-    if(present(DEEPRECHXY)) NoahmpIO%DEEPRECHXY(I,J)           = DEEPRECHXY(I,J)
-    if(present(RECHXY)) NoahmpIO%RECHXY(I,J)               = RECHXY(I,J)
-    if(present(QRFSXY)) NoahmpIO%QRFSXY(I,J)               = QRFSXY(I,J)
-    if(present(QSPRINGSXY)) NoahmpIO%QSPRINGSXY(I,J)           = QSPRINGSXY(I,J)
-    if(present(QSLATXY)) NoahmpIO%QSLATXY(I,J)              = QSLATXY(I,J)
-    if(present(AREAXY)) NoahmpIO%AREAXY(I,J)               = AREAXY(I,J)
-    if(present(RIVERBEDXY)) NoahmpIO%RIVERBEDXY(I,J)           = RIVERBEDXY(I,J)
-    if(present(EQZWT)) NoahmpIO%EQZWT(I,J)                = EQZWT(I,J)
-    if(present(RIVERCONDXY)) NoahmpIO%RIVERCONDXY(I,J)          = RIVERCONDXY(I,J)
-    if(present(PEXPXY)) NoahmpIO%PEXPXY(I,J)               = PEXPXY(I,J)
-    if(present(SMOISEQ)) NoahmpIO%SMOISEQ(I,:,J)            = SMOISEQ(I,:,J)
     NoahmpIO%ALBSOILDIRXY(I,:,J)       = ALBSOILDIRXY(I,:,J)
     NoahmpIO%ALBSOILDIFXY(I,:,J)       = ALBSOILDIFXY(I,:,J)
     if ( NoahmpIO%IOPT_WETLAND > 0 ) then
@@ -338,30 +322,141 @@ contains
        NoahmpIO%WSURFXY(I,J)           = WSURFXY(I,J)
     endif
     if ( NoahmpIO%IOPT_ALB == 3 ) then
-       NoahmpIO%SNRDSXY(I,:,J)         = SNRDSXY(I,:,J)
-       NoahmpIO%SNFRXY(I,:,J)          = SNFRXY(I,:,J)
-       NoahmpIO%BCPHIXY(I,:,J)         = BCPHIXY(I,:,J)
-       NoahmpIO%BCPHOXY(I,:,J)         = BCPHOXY(I,:,J)
-       NoahmpIO%OCPHIXY(I,:,J)         = OCPHIXY(I,:,J)
-       NoahmpIO%OCPHOXY(I,:,J)         = OCPHOXY(I,:,J)
-       NoahmpIO%DUST1XY(I,:,J)         = DUST1XY(I,:,J)
-       NoahmpIO%DUST2XY(I,:,J)         = DUST2XY(I,:,J)
-       NoahmpIO%DUST3XY(I,:,J)         = DUST3XY(I,:,J)
-       NoahmpIO%DUST4XY(I,:,J)         = DUST4XY(I,:,J)
-       NoahmpIO%DUST5XY(I,:,J)         = DUST5XY(I,:,J)
-       NoahmpIO%MassConcBCPHIXY(I,:,J) = MassConcBCPHIXY(I,:,J)
-       NoahmpIO%MassConcBCPHOXY(I,:,J) = MassConcBCPHOXY(I,:,J)
-       NoahmpIO%MassConcOCPHIXY(I,:,J) = MassConcOCPHIXY(I,:,J)
-       NoahmpIO%MassConcOCPHOXY(I,:,J) = MassConcOCPHOXY(I,:,J)
-       NoahmpIO%MassConcDUST1XY(I,:,J) = MassConcDUST1XY(I,:,J)
-       NoahmpIO%MassConcDUST2XY(I,:,J) = MassConcDUST2XY(I,:,J)
-       NoahmpIO%MassConcDUST3XY(I,:,J) = MassConcDUST3XY(I,:,J)
-       NoahmpIO%MassConcDUST4XY(I,:,J) = MassConcDUST4XY(I,:,J)
-       NoahmpIO%MassConcDUST5XY(I,:,J) = MassConcDUST5XY(I,:,J)
+       NoahmpIO%SNRDSXY( I,1:3,J)         = SNRDSXY(I,1:3,J)
+       NoahmpIO%SNFRXY(I,1:3,J)          = SNFRXY(I,1:3,J)
+       NoahmpIO%BCPHIXY(I,1:3,J)         = BCPHIXY(I,1:3,J)
+       NoahmpIO%BCPHOXY(I,1:3,J)         = BCPHOXY(I,1:3,J)
+       NoahmpIO%OCPHIXY(I,1:3,J)         = OCPHIXY(I,1:3,J)
+       NoahmpIO%OCPHOXY(I,1:3,J)         = OCPHOXY(I,1:3,J)
+       NoahmpIO%DUST1XY(I,1:3,J)         = DUST1XY(I,1:3,J)
+       NoahmpIO%DUST2XY(I,1:3,J)         = DUST2XY(I,1:3,J)
+       NoahmpIO%DUST3XY(I,1:3,J)         = DUST3XY(I,1:3,J)
+       NoahmpIO%DUST4XY(I,1:3,J)         = DUST4XY(I,1:3,J)
+       NoahmpIO%DUST5XY(I,1:3,J)         = DUST5XY(I,1:3,J)
+       NoahmpIO%MassConcBCPHIXY(I,1:3,J) = MassConcBCPHIXY(I,1:3,J)
+       NoahmpIO%MassConcBCPHOXY(I,1:3,J) = MassConcBCPHOXY(I,1:3,J)
+       NoahmpIO%MassConcOCPHIXY(I,1:3,J) = MassConcOCPHIXY(I,1:3,J)
+       NoahmpIO%MassConcOCPHOXY(I,1:3,J) = MassConcOCPHOXY(I,1:3,J)
+       NoahmpIO%MassConcDUST1XY(I,1:3,J) = MassConcDUST1XY(I,1:3,J)
+       NoahmpIO%MassConcDUST2XY(I,1:3,J) = MassConcDUST2XY(I,1:3,J)
+       NoahmpIO%MassConcDUST3XY(I,1:3,J) = MassConcDUST3XY(I,1:3,J)
+       NoahmpIO%MassConcDUST4XY(I,1:3,J) = MassConcDUST4XY(I,1:3,J)
+       NoahmpIO%MassConcDUST5XY(I,1:3,J) = MassConcDUST5XY(I,1:3,J)
     endif
 
     enddo ! I
     enddo ! J
+
+    ! Optional argument copies - must be outside GPU parallel region
+    ! because if(present(...)) cannot safely execute on the GPU
+    if(present(FDEPTHXY)) then
+      !$acc parallel loop gang vector collapse(2) present(NoahmpIO, FDEPTHXY)
+      do J = jts, jtf; do I = its, itf
+        NoahmpIO%FDEPTHXY(I,J) = FDEPTHXY(I,J)
+      enddo; enddo
+    endif
+    if(present(MSFTX)) then
+      !$acc parallel loop gang vector collapse(2) present(NoahmpIO, MSFTX)
+      do J = jts, jtf; do I = its, itf
+        NoahmpIO%MSFTX(I,J) = MSFTX(I,J)
+      enddo; enddo
+    endif
+    if(present(MSFTY)) then
+      !$acc parallel loop gang vector collapse(2) present(NoahmpIO, MSFTY)
+      do J = jts, jtf; do I = its, itf
+        NoahmpIO%MSFTY(I,J) = MSFTY(I,J)
+      enddo; enddo
+    endif
+    if(present(HT)) then
+      !$acc parallel loop gang vector collapse(2) present(NoahmpIO, HT)
+      do J = jts, jtf; do I = its, itf
+        NoahmpIO%TERRAIN(I,J) = HT(I,J)
+      enddo; enddo
+    endif
+    if(present(RECHCLIM)) then
+      !$acc parallel loop gang vector collapse(2) present(NoahmpIO, RECHCLIM)
+      do J = jts, jtf; do I = its, itf
+        NoahmpIO%RECHCLIM(I,J) = RECHCLIM(I,J)
+      enddo; enddo
+    endif
+    if(present(QTDRAIN)) then
+      !$acc parallel loop gang vector collapse(2) present(NoahmpIO, QTDRAIN)
+      do J = jts, jtf; do I = its, itf
+        NoahmpIO%QTDRAIN(I,J) = QTDRAIN(I,J)
+      enddo; enddo
+    endif
+    if(present(SMCWTDXY)) then
+      !$acc parallel loop gang vector collapse(2) present(NoahmpIO, SMCWTDXY)
+      do J = jts, jtf; do I = its, itf
+        NoahmpIO%SMCWTDXY(I,J) = SMCWTDXY(I,J)
+      enddo; enddo
+    endif
+    if(present(DEEPRECHXY)) then
+      !$acc parallel loop gang vector collapse(2) present(NoahmpIO, DEEPRECHXY)
+      do J = jts, jtf; do I = its, itf
+        NoahmpIO%DEEPRECHXY(I,J) = DEEPRECHXY(I,J)
+      enddo; enddo
+    endif
+    if(present(RECHXY)) then
+      !$acc parallel loop gang vector collapse(2) present(NoahmpIO, RECHXY)
+      do J = jts, jtf; do I = its, itf
+        NoahmpIO%RECHXY(I,J) = RECHXY(I,J)
+      enddo; enddo
+    endif
+    if(present(QRFSXY)) then
+      !$acc parallel loop gang vector collapse(2) present(NoahmpIO, QRFSXY)
+      do J = jts, jtf; do I = its, itf
+        NoahmpIO%QRFSXY(I,J) = QRFSXY(I,J)
+      enddo; enddo
+    endif
+    if(present(QSPRINGSXY)) then
+      !$acc parallel loop gang vector collapse(2) present(NoahmpIO, QSPRINGSXY)
+      do J = jts, jtf; do I = its, itf
+        NoahmpIO%QSPRINGSXY(I,J) = QSPRINGSXY(I,J)
+      enddo; enddo
+    endif
+    if(present(QSLATXY)) then
+      !$acc parallel loop gang vector collapse(2) present(NoahmpIO, QSLATXY)
+      do J = jts, jtf; do I = its, itf
+        NoahmpIO%QSLATXY(I,J) = QSLATXY(I,J)
+      enddo; enddo
+    endif
+    if(present(AREAXY)) then
+      !$acc parallel loop gang vector collapse(2) present(NoahmpIO, AREAXY)
+      do J = jts, jtf; do I = its, itf
+        NoahmpIO%AREAXY(I,J) = AREAXY(I,J)
+      enddo; enddo
+    endif
+    if(present(RIVERBEDXY)) then
+      !$acc parallel loop gang vector collapse(2) present(NoahmpIO, RIVERBEDXY)
+      do J = jts, jtf; do I = its, itf
+        NoahmpIO%RIVERBEDXY(I,J) = RIVERBEDXY(I,J)
+      enddo; enddo
+    endif
+    if(present(EQZWT)) then
+      !$acc parallel loop gang vector collapse(2) present(NoahmpIO, EQZWT)
+      do J = jts, jtf; do I = its, itf
+        NoahmpIO%EQZWT(I,J) = EQZWT(I,J)
+      enddo; enddo
+    endif
+    if(present(RIVERCONDXY)) then
+      !$acc parallel loop gang vector collapse(2) present(NoahmpIO, RIVERCONDXY)
+      do J = jts, jtf; do I = its, itf
+        NoahmpIO%RIVERCONDXY(I,J) = RIVERCONDXY(I,J)
+      enddo; enddo
+    endif
+    if(present(PEXPXY)) then
+      !$acc parallel loop gang vector collapse(2) present(NoahmpIO, PEXPXY)
+      do J = jts, jtf; do I = its, itf
+        NoahmpIO%PEXPXY(I,J) = PEXPXY(I,J)
+      enddo; enddo
+    endif
+    if(present(SMOISEQ)) then
+      !$acc parallel loop gang vector collapse(2) present(NoahmpIO, SMOISEQ)
+      do J = jts, jtf; do I = its, itf
+        NoahmpIO%SMOISEQ(I,:,J) = SMOISEQ(I,:,J)
+      enddo; enddo
+    endif
 
     !--------- WRF -> NoahmpIO variables mapping ends
 
@@ -374,11 +469,10 @@ contains
     !$acc& SMOIS, SH2O, TSLB, SNOW, SNOWH, CANWAT, CANICEXY, CANLIQXY, TMN, ISNOWXY, ZSNSOXY, TSNOXY, &
     !$acc& SNICEXY, SNLIQXY, TVXY, TGXY, EAHXY, TAHXY, CMXY, CHXY, FWETXY, SNEQVOXY, ALBOLDXY, &
     !$acc& QSNOWXY, QRAINXY, WSLAKEXY, ZWTXY, WAXY, WTXY, LFMASSXY, RTMASSXY, STMASSXY, WOODXY, GRAINXY, &
-    !$acc& GDDXY, STBLCPXY, FASTCPXY, LAI, XSAIXY, QTDRAIN, IRNUMSI, IRNUMMI, IRNUMFI, IRWATSI, &
-    !$acc& T2MVXY, T2MBXY, SMCWTDXY, DEEPRECHXY, RECHXY, &
-    !$acc& AREAXY, RIVERBEDXY, EQZWT, RIVERCONDXY, PEXPXY, &
-    !$acc& SMOISEQ, ALBSOILDIRXY, ALBSOILDIFXY, &
-    !$acc& FSATXY,  WSURFXY, SNRDSXY, SNFRXY, BCPHIXY, BCPHOXY, OCPHIXY, OCPHOXY, &
+    !$acc& GDDXY, STBLCPXY, FASTCPXY, LAI, XSAIXY, IRNUMSI, IRNUMMI, IRNUMFI, IRWATSI, &
+    !$acc& IRWATMI, IRWATFI, IRELOSS, IRSIVOL, IRMIVOL, IRFIVOL, IRRSPLH, &
+    !$acc& T2MVXY, T2MBXY, ALBSOILDIRXY, ALBSOILDIFXY, &
+    !$acc& FSATXY, WSURFXY, SNRDSXY, SNFRXY, BCPHIXY, BCPHOXY, OCPHIXY, OCPHOXY, &
     !$acc& DUST1XY, DUST2XY, DUST3XY, DUST4XY, DUST5XY, MASSCONCBCPHIXY, MASSCONCBCPHOXY, &
     !$acc& MASSCONCOCPHIXY, MASSCONCOCPHOXY, MASSCONCDUST1XY, MASSCONCDUST2XY, MASSCONCDUST3XY, &
     !$acc& MASSCONCDUST4XY, MASSCONCDUST5XY, CROPCAT)
@@ -396,10 +490,10 @@ contains
     CANLIQXY(I,J)       = NoahmpIO%CANLIQXY(I,J)
     TMN(I,J)            = NoahmpIO%TMN(I,J)
     ISNOWXY(I,J)        = NoahmpIO%ISNOWXY(I,J)
-    ZSNSOXY(I,:,J)      = NoahmpIO%ZSNSOXY(I,:,J)
-    TSNOXY(I,:,J)       = NoahmpIO%TSNOXY(I,:,J)
-    SNICEXY(I,:,J)      = NoahmpIO%SNICEXY(I,:,J)
-    SNLIQXY(I,:,J)      = NoahmpIO%SNLIQXY(I,:,J)
+    ZSNSOXY(I,1:7,J)      = NoahmpIO%ZSNSOXY(I,1:7,J)
+    TSNOXY(I,1:3,J)       = NoahmpIO%TSNOXY(I,1:3,J)
+    SNICEXY(I,1:3,J)      = NoahmpIO%SNICEXY(I,1:3,J)
+    SNLIQXY(I,1:3,J)      = NoahmpIO%SNLIQXY(I,1:3,J)
     TVXY(I,J)           = NoahmpIO%TVXY(I,J)
     TGXY(I,J)           = NoahmpIO%TGXY(I,J)
     EAHXY(I,J)          = NoahmpIO%EAHXY(I,J)
@@ -425,7 +519,6 @@ contains
     FASTCPXY(I,J)       = NoahmpIO%FASTCPXY(I,J)
     LAI(I,J)            = NoahmpIO%LAI(I,J)
     XSAIXY(I,J)         = NoahmpIO%XSAIXY(I,J)
-    if(present(QTDRAIN)) QTDRAIN(I,J)        = NoahmpIO%QTDRAIN(I,J)
     IRNUMSI(I,J)        = NoahmpIO%IRNUMSI(I,J)
     IRNUMMI(I,J)        = NoahmpIO%IRNUMMI(I,J)
     IRNUMFI(I,J)        = NoahmpIO%IRNUMFI(I,J)
@@ -439,18 +532,6 @@ contains
     IRRSPLH(I,J)        = NoahmpIO%IRRSPLH(I,J)
     T2MVXY(I,J)         = NoahmpIO%T2MVXY(I,J)
     T2MBXY(I,J)         = NoahmpIO%T2MBXY(I,J)
-    if(present(SMCWTDXY)) SMCWTDXY(I,J)       = NoahmpIO%SMCWTDXY(I,J)
-    if(present(DEEPRECHXY)) DEEPRECHXY(I,J)     = NoahmpIO%DEEPRECHXY(I,J)
-    if(present(RECHXY)) RECHXY(I,J)         = NoahmpIO%RECHXY(I,J)
-    if(present(QRFSXY)) QRFSXY(I,J)         = NoahmpIO%QRFSXY(I,J)
-    if(present(QSPRINGSXY)) QSPRINGSXY(I,J)     = NoahmpIO%QSPRINGSXY(I,J)
-    if(present(QSLATXY)) QSLATXY(I,J)        = NoahmpIO%QSLATXY(I,J)
-    if(present(AREAXY)) AREAXY(I,J)         = NoahmpIO%AREAXY(I,J)
-    if(present(RIVERBEDXY)) RIVERBEDXY(I,J)     = NoahmpIO%RIVERBEDXY(I,J)
-    if(present(EQZWT)) EQZWT(I,J)          = NoahmpIO%EQZWT(I,J)
-    if(present(RIVERCONDXY)) RIVERCONDXY(I,J)    = NoahmpIO%RIVERCONDXY(I,J)
-    if(present(PEXPXY)) PEXPXY(I,J)         = NoahmpIO%PEXPXY(I,J)
-    if(present(SMOISEQ)) SMOISEQ(I,:,J)      = NoahmpIO%SMOISEQ(I,:,J)
     ALBSOILDIRXY(I,:,J) = NoahmpIO%ALBSOILDIRXY(I,:,J)
     ALBSOILDIFXY(I,:,J) = NoahmpIO%ALBSOILDIFXY(I,:,J)
     if ( NoahmpIO%IOPT_WETLAND > 0 ) then
@@ -458,26 +539,26 @@ contains
        WSURFXY(I,J)     = NoahmpIO%WSURFXY(I,J)
     endif
     if ( NoahmpIO%IOPT_ALB == 3 ) then
-       SNRDSXY(I,:,J)         = NoahmpIO%SNRDSXY(I,:,J)
-       SNFRXY(I,:,J)          = NoahmpIO%SNFRXY(I,:,J)
-       BCPHIXY(I,:,J)         = NoahmpIO%BCPHIXY(I,:,J)
-       BCPHOXY(I,:,J)         = NoahmpIO%BCPHOXY(I,:,J)
-       OCPHIXY(I,:,J)         = NoahmpIO%OCPHIXY(I,:,J)
-       OCPHOXY(I,:,J)         = NoahmpIO%OCPHOXY(I,:,J)
-       DUST1XY(I,:,J)         = NoahmpIO%DUST1XY(I,:,J)
-       DUST2XY(I,:,J)         = NoahmpIO%DUST2XY(I,:,J)
-       DUST3XY(I,:,J)         = NoahmpIO%DUST3XY(I,:,J)
-       DUST4XY(I,:,J)         = NoahmpIO%DUST4XY(I,:,J)
-       DUST5XY(I,:,J)         = NoahmpIO%DUST5XY(I,:,J)
-       MassConcBCPHIXY(I,:,J) = NoahmpIO%MassConcBCPHIXY(I,:,J)
-       MassConcBCPHOXY(I,:,J) = NoahmpIO%MassConcBCPHOXY(I,:,J)
-       MassConcOCPHIXY(I,:,J) = NoahmpIO%MassConcOCPHIXY(I,:,J)
-       MassConcOCPHOXY(I,:,J) = NoahmpIO%MassConcOCPHOXY(I,:,J)
-       MassConcDUST1XY(I,:,J) = NoahmpIO%MassConcDUST1XY(I,:,J)
-       MassConcDUST2XY(I,:,J) = NoahmpIO%MassConcDUST2XY(I,:,J)
-       MassConcDUST3XY(I,:,J) = NoahmpIO%MassConcDUST3XY(I,:,J)
-       MassConcDUST4XY(I,:,J) = NoahmpIO%MassConcDUST4XY(I,:,J)
-       MassConcDUST5XY(I,:,J) = NoahmpIO%MassConcDUST5XY(I,:,J)
+       SNRDSXY(I,1:3,J)         = NoahmpIO%SNRDSXY(I,1:3,J)
+       SNFRXY(I,1:3,J)          = NoahmpIO%SNFRXY(I,1:3,J)
+       BCPHIXY(I,1:3,J)         = NoahmpIO%BCPHIXY(I,1:3,J)
+       BCPHOXY(I,1:3,J)         = NoahmpIO%BCPHOXY(I,1:3,J)
+       OCPHIXY(I,1:3,J)         = NoahmpIO%OCPHIXY(I,1:3,J)
+       OCPHOXY(I,1:3,J)         = NoahmpIO%OCPHOXY(I,1:3,J)
+       DUST1XY(I,1:3,J)         = NoahmpIO%DUST1XY(I,1:3,J)
+       DUST2XY(I,1:3,J)         = NoahmpIO%DUST2XY(I,1:3,J)
+       DUST3XY(I,1:3,J)         = NoahmpIO%DUST3XY(I,1:3,J)
+       DUST4XY(I,1:3,J)         = NoahmpIO%DUST4XY(I,1:3,J)
+       DUST5XY(I,1:3,J)         = NoahmpIO%DUST5XY(I,1:3,J)
+       MassConcBCPHIXY(I,1:3,J) = NoahmpIO%MassConcBCPHIXY(I,1:3,J)
+       MassConcBCPHOXY(I,1:3,J) = NoahmpIO%MassConcBCPHOXY(I,1:3,J)
+       MassConcOCPHIXY(I,1:3,J) = NoahmpIO%MassConcOCPHIXY(I,1:3,J)
+       MassConcOCPHOXY(I,1:3,J) = NoahmpIO%MassConcOCPHOXY(I,1:3,J)
+       MassConcDUST1XY(I,1:3,J) = NoahmpIO%MassConcDUST1XY(I,1:3,J)
+       MassConcDUST2XY(I,1:3,J) = NoahmpIO%MassConcDUST2XY(I,1:3,J)
+       MassConcDUST3XY(I,1:3,J) = NoahmpIO%MassConcDUST3XY(I,1:3,J)
+       MassConcDUST4XY(I,1:3,J) = NoahmpIO%MassConcDUST4XY(I,1:3,J)
+       MassConcDUST5XY(I,1:3,J) = NoahmpIO%MassConcDUST5XY(I,1:3,J)
     endif
 
     ! out variables only
@@ -485,6 +566,86 @@ contains
 
     enddo ! I
     enddo ! J
+
+    ! Optional argument copies back - must be outside GPU parallel region
+    if(present(QTDRAIN)) then
+      !$acc parallel loop gang vector collapse(2) present(NoahmpIO, QTDRAIN)
+      do J = jts, jtf; do I = its, itf
+        QTDRAIN(I,J) = NoahmpIO%QTDRAIN(I,J)
+      enddo; enddo
+    endif
+    if(present(SMCWTDXY)) then
+      !$acc parallel loop gang vector collapse(2) present(NoahmpIO, SMCWTDXY)
+      do J = jts, jtf; do I = its, itf
+        SMCWTDXY(I,J) = NoahmpIO%SMCWTDXY(I,J)
+      enddo; enddo
+    endif
+    if(present(DEEPRECHXY)) then
+      !$acc parallel loop gang vector collapse(2) present(NoahmpIO, DEEPRECHXY)
+      do J = jts, jtf; do I = its, itf
+        DEEPRECHXY(I,J) = NoahmpIO%DEEPRECHXY(I,J)
+      enddo; enddo
+    endif
+    if(present(RECHXY)) then
+      !$acc parallel loop gang vector collapse(2) present(NoahmpIO, RECHXY)
+      do J = jts, jtf; do I = its, itf
+        RECHXY(I,J) = NoahmpIO%RECHXY(I,J)
+      enddo; enddo
+    endif
+    if(present(QRFSXY)) then
+      !$acc parallel loop gang vector collapse(2) present(NoahmpIO, QRFSXY)
+      do J = jts, jtf; do I = its, itf
+        QRFSXY(I,J) = NoahmpIO%QRFSXY(I,J)
+      enddo; enddo
+    endif
+    if(present(QSPRINGSXY)) then
+      !$acc parallel loop gang vector collapse(2) present(NoahmpIO, QSPRINGSXY)
+      do J = jts, jtf; do I = its, itf
+        QSPRINGSXY(I,J) = NoahmpIO%QSPRINGSXY(I,J)
+      enddo; enddo
+    endif
+    if(present(QSLATXY)) then
+      !$acc parallel loop gang vector collapse(2) present(NoahmpIO, QSLATXY)
+      do J = jts, jtf; do I = its, itf
+        QSLATXY(I,J) = NoahmpIO%QSLATXY(I,J)
+      enddo; enddo
+    endif
+    if(present(AREAXY)) then
+      !$acc parallel loop gang vector collapse(2) present(NoahmpIO, AREAXY)
+      do J = jts, jtf; do I = its, itf
+        AREAXY(I,J) = NoahmpIO%AREAXY(I,J)
+      enddo; enddo
+    endif
+    if(present(RIVERBEDXY)) then
+      !$acc parallel loop gang vector collapse(2) present(NoahmpIO, RIVERBEDXY)
+      do J = jts, jtf; do I = its, itf
+        RIVERBEDXY(I,J) = NoahmpIO%RIVERBEDXY(I,J)
+      enddo; enddo
+    endif
+    if(present(EQZWT)) then
+      !$acc parallel loop gang vector collapse(2) present(NoahmpIO, EQZWT)
+      do J = jts, jtf; do I = its, itf
+        EQZWT(I,J) = NoahmpIO%EQZWT(I,J)
+      enddo; enddo
+    endif
+    if(present(RIVERCONDXY)) then
+      !$acc parallel loop gang vector collapse(2) present(NoahmpIO, RIVERCONDXY)
+      do J = jts, jtf; do I = its, itf
+        RIVERCONDXY(I,J) = NoahmpIO%RIVERCONDXY(I,J)
+      enddo; enddo
+    endif
+    if(present(PEXPXY)) then
+      !$acc parallel loop gang vector collapse(2) present(NoahmpIO, PEXPXY)
+      do J = jts, jtf; do I = its, itf
+        PEXPXY(I,J) = NoahmpIO%PEXPXY(I,J)
+      enddo; enddo
+    endif
+    if(present(SMOISEQ)) then
+      !$acc parallel loop gang vector collapse(2) present(NoahmpIO, SMOISEQ)
+      do J = jts, jtf; do I = its, itf
+        SMOISEQ(I,:,J) = NoahmpIO%SMOISEQ(I,:,J)
+      enddo; enddo
+    endif
 
     if(present(STEPWTD)) STEPWTD      = NoahmpIO%STEPWTD
 

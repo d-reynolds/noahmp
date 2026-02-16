@@ -10,7 +10,7 @@ module NoahmpReadTableMod
 
   use Machine
   use NoahmpIOVarType, only : NoahmpIO_type
-
+  use LanduseConvertMod, only : LanduseConvertToString
   implicit none
 
 contains
@@ -708,7 +708,7 @@ contains
 
     !---------------- NoahmpTable.TBL vegetation parameters
 
-    DATASET_IDENTIFIER = NoahmpIO%LLANDUSE
+    DATASET_IDENTIFIER = LanduseConvertToString(NoahmpIO%LLANDUSE)
 
     inquire( file='NoahmpTable.TBL', exist=file_named )
     if ( file_named ) then

@@ -559,7 +559,7 @@ contains
     end associate
 
     ! Initialize 2D state, flux, and parameter arrays (including 3D crop arrays)
-    !$acc parallel loop collapse(2) gang vector present(noahmp) private(LoopInd)
+    !$acc parallel loop collapse(2) gang vector present(noahmp%biochem) private(LoopInd)
     do J = noahmp%config%domain%JTS, noahmp%config%domain%JTE
       do I = noahmp%config%domain%ITS, noahmp%config%domain%ITE
 

@@ -94,6 +94,10 @@ if (NETCDF_FOUND)
     
 endif()
 
+# if using the nvfortran compiler, append -gpu=deepcopy to the compiler flags
+if(CMAKE_Fortran_COMPILER_ID MATCHES "NVHPC|PGI")
+    target_compile_options(noahmp PRIVATE -gpu=deepcopy)
+endif()
 
 # Add NetCDF include directories (equivalent to NETCDFMOD)
 if(DEFINED NETCDF_INCLUDES)
