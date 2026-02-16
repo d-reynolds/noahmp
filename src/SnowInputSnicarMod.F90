@@ -15,7 +15,7 @@ module SnowInputSnicarMod
 
 contains
 
-  subroutine SnowInputSnicar(NoahmpIO)
+  subroutine SnowInputSnicar(NoahmpIO, snicar_optic_flnm, snicar_age_flnm)
 
 ! ------------------------ Code history -----------------------------------
 ! Code: T.-S. Lin, C. He, et al. (2025, JHM)
@@ -24,6 +24,7 @@ contains
     implicit none
 
     type(NoahmpIO_type), intent(inout) :: NoahmpIO
+    character(len=*), intent(in) :: snicar_optic_flnm, snicar_age_flnm
 
 ! local variables
     character(len=30) :: name
@@ -41,8 +42,6 @@ contains
               snicar_snw_optics       => NoahmpIO%SNICAR_SNOWOPTICS_OPT    ,& ! in,  snow optics type using different refractive index databases in SNICAR
               snicar_dust_optics      => NoahmpIO%SNICAR_DUSTOPTICS_OPT    ,& ! in,  dust optics type for SNICAR snow albedo calculation
               snicar_solarspec        => NoahmpIO%SNICAR_SOLARSPEC_OPT     ,& ! in,  type of downward solar radiation spectrum for SNICAR snow albedo calculation
-              snicar_optic_flnm       => NoahmpIO%snicar_optic_flnm        ,& ! in,  filename for SNICAR optics parameters
-              snicar_age_flnm         => NoahmpIO%snicar_age_flnm          ,& ! in,  filename for snow aging parameters
               ss_alb_snw_drc          => NoahmpIO%ss_alb_snw_drc           ,& ! out, Mie single scatter albedos for direct-beam ice  
               asm_prm_snw_drc         => NoahmpIO%asm_prm_snw_drc          ,& ! out, asymmetry parameter of direct-beam ice
               ext_cff_mss_snw_drc     => NoahmpIO%ext_cff_mss_snw_drc      ,& ! out, mass extinction coefficient for direct-beam ice [m2/kg]

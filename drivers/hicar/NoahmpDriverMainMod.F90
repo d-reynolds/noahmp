@@ -158,6 +158,8 @@ contains
        enddo ILOOP  ! I loop
     enddo  JLOOP    ! J loop
 
+             !$acc update device(NoahmpIO)
+
              !------------------------------------------------------------------------------------
              !  initialize Data Types and transfer all the inputs from 2-D to 1-D column variables
              !------------------------------------------------------------------------------------

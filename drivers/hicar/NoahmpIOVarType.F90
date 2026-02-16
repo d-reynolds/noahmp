@@ -394,15 +394,15 @@ module NoahmpIOVarType
     integer                                                ::  idx_T_max         = 11        ! maxiumum temperature index used in aging lookup table [idx]
     integer                                                ::  idx_Tgrd_max      = 31        ! maxiumum temperature gradient index used in aging lookup table [idx]
     integer                                                ::  idx_rhos_max      = 8         ! maxiumum snow density index used in aging lookup table [idx]
-    character(len=256)                                     ::  forcing_name_BCPHI            ! forcing variable for hydrophilic black carbon deposition flux [kg/m2/s]
-    character(len=256)                                     ::  forcing_name_BCPHO            ! forcing variable for hydrophobic black carbon deposition flux [kg/m2/s]
-    character(len=256)                                     ::  forcing_name_OCPHI            ! forcing variable for hydrophilic organic carbon deposition flux [kg/m2/s]
-    character(len=256)                                     ::  forcing_name_OCPHO            ! forcing variable for hydrophobic organic carbon deposition flux [kg/m2/s]
-    character(len=256)                                     ::  forcing_name_DUST1            ! forcing variable for dust size bin 1 deposition flux [kg/m2/s]
-    character(len=256)                                     ::  forcing_name_DUST2            ! forcing variable for dust size bin 2 deposition flux [kg/m2/s]
-    character(len=256)                                     ::  forcing_name_DUST3            ! forcing variable for dust size bin 3 deposition flux [kg/m2/s]
-    character(len=256)                                     ::  forcing_name_DUST4            ! forcing variable for dust size bin 4 deposition flux [kg/m2/s]
-    character(len=256)                                     ::  forcing_name_DUST5            ! forcing variable for dust size bin 5 deposition flux [kg/m2/s]
+    !character(len=256)                                     ::  forcing_name_BCPHI            ! forcing variable for hydrophilic black carbon deposition flux [kg/m2/s]
+    !character(len=256)                                     ::  forcing_name_BCPHO            ! forcing variable for hydrophobic black carbon deposition flux [kg/m2/s]
+    !character(len=256)                                     ::  forcing_name_OCPHI            ! forcing variable for hydrophilic organic carbon deposition flux [kg/m2/s]
+    !character(len=256)                                     ::  forcing_name_OCPHO            ! forcing variable for hydrophobic organic carbon deposition flux [kg/m2/s]
+    !character(len=256)                                     ::  forcing_name_DUST1            ! forcing variable for dust size bin 1 deposition flux [kg/m2/s]
+    !character(len=256)                                     ::  forcing_name_DUST2            ! forcing variable for dust size bin 2 deposition flux [kg/m2/s]
+    !character(len=256)                                     ::  forcing_name_DUST3            ! forcing variable for dust size bin 3 deposition flux [kg/m2/s]
+    !character(len=256)                                     ::  forcing_name_DUST4            ! forcing variable for dust size bin 4 deposition flux [kg/m2/s]
+    !character(len=256)                                     ::  forcing_name_DUST5            ! forcing variable for dust size bin 5 deposition flux [kg/m2/s]
     real(kind=kind_noahmp), allocatable, dimension(:,:)    ::  ss_alb_snw_drc                ! Mie single scatter albedos for direct-beam ice
     real(kind=kind_noahmp), allocatable, dimension(:,:)    ::  asm_prm_snw_drc               ! asymmetry parameter of direct-beam ice  
     real(kind=kind_noahmp), allocatable, dimension(:,:)    ::  ext_cff_mss_snw_drc           ! mass extinction coefficient for direct-beam ice [m2/kg]
@@ -649,8 +649,8 @@ module NoahmpIOVarType
 ! End 2D variables not used in WRF
 !------------------------------------------------------------------------
 
-    CHARACTER(LEN=256)                                     ::  MMINSL  = 'STAS'    ! soil classification
-    CHARACTER(LEN=256)                                     ::  LLANDUSE            ! (=USGS, using USGS landuse classification)
+    ! CHARACTER(LEN=256)                                     ::  MMINSL  = 'STAS'    ! soil classification
+    integer                                     ::  LLANDUSE            ! (=USGS, using USGS landuse classification)
 
 !------------------------------------------------------------------------
 ! Timing:
@@ -683,9 +683,9 @@ module NoahmpIOVarType
 !  File naming, parallel
 !---------------------------------------------------------------------
 
-    character(len=19)                                      ::  olddate, &
-                                                               newdate, &
-                                                               startdate
+    !character(len=19)                                      ::  olddate, &
+    !                                                           newdate, &
+    !                                                           startdate
     character                                              ::  hgrid
     integer                                                ::  igrid
     logical                                                ::  lexist
@@ -697,11 +697,11 @@ module NoahmpIOVarType
     integer                                                ::  xstartpar
     integer                                                ::  ystartpar
     integer                                                ::  rank = 0
-    character(len=256)                                     ::  inflnm,  &
-                                                               outflnm, &
-                                                               inflnm_template
+    !character(len=256)                                     ::  inflnm,  &
+    !                                                           outflnm, &
+    !                                                           inflnm_template
     logical                                                ::  restart_flag
-    character(len=256)                                     ::  restart_flnm
+    !character(len=256)                                     ::  restart_flnm
     integer                                                ::  ierr
 
 !---------------------------------------------------------------------
@@ -722,7 +722,7 @@ module NoahmpIOVarType
 !  NAMELIST start
 !---------------------------------------------------------------------
 
-    character(len=256)                                     ::  indir
+    !character(len=256)                                     ::  indir
     ! nsoil defined above
     integer                                                ::  forcing_timestep
     integer                                                ::  noah_timestep      
@@ -731,8 +731,8 @@ module NoahmpIOVarType
     integer                                                ::  start_day
     integer                                                ::  start_hour
     integer                                                ::  start_min
-    character(len=256)                                     ::  outdir
-    character(len=256)                                     ::  restart_filename_requested
+    !character(len=256)                                     ::  outdir
+    !character(len=256)                                     ::  restart_filename_requested
     integer                                                ::  restart_frequency_hours
     integer                                                ::  output_timestep
     integer                                                ::  spinup_loops
@@ -763,17 +763,17 @@ module NoahmpIOVarType
     integer                                                ::  urban_map_zgrd
     integer                                                ::  max_urban_dim  ! C. He: maximum urban dimension for urban variable
 
-    character(len=256)                                     ::  forcing_name_T
-    character(len=256)                                     ::  forcing_name_Q
-    character(len=256)                                     ::  forcing_name_U
-    character(len=256)                                     ::  forcing_name_V
-    character(len=256)                                     ::  forcing_name_P
-    character(len=256)                                     ::  forcing_name_LW
-    character(len=256)                                     ::  forcing_name_SW
-    character(len=256)                                     ::  forcing_name_PR
-    character(len=256)                                     ::  forcing_name_SN
-    character(len=256)                                     ::  forcing_name_DirFrac
-    character(len=256)                                     ::  forcing_name_VisFrac
+    !character(len=256)                                     ::  forcing_name_T
+    !character(len=256)                                     ::  forcing_name_Q
+    !character(len=256)                                     ::  forcing_name_U
+    !character(len=256)                                     ::  forcing_name_V
+    !character(len=256)                                     ::  forcing_name_P
+    !character(len=256)                                     ::  forcing_name_LW
+    !character(len=256)                                     ::  forcing_name_SW
+    !character(len=256)                                     ::  forcing_name_PR
+    !character(len=256)                                     ::  forcing_name_SN
+    !character(len=256)                                     ::  forcing_name_DirFrac
+    !character(len=256)                                     ::  forcing_name_VisFrac
 
     integer                                                ::  noahmp_output       ! =0: default output; >0 include additional output
     integer                                                ::  split_output_count
@@ -781,14 +781,14 @@ module NoahmpIOVarType
     integer                                                ::  khour
     integer                                                ::  kday
     real(kind=kind_noahmp)                                 ::  zlvl 
-    character(len=256)                                     ::  hrldas_setup_file
-    character(len=256)                                     ::  spatial_filename
-    character(len=256)                                     ::  external_veg_filename_template
-    character(len=256)                                     ::  external_lai_filename_template
-    character(len=256)                                     ::  agdata_flnm
-    character(len=256)                                     ::  tdinput_flnm
-    character(len=256)                                     ::  snicar_optic_flnm  ! SNICAR filename for optics parameters
-    character(len=256)                                     ::  snicar_age_flnm    ! SNICAR filename for snow aging parameters
+    !character(len=256)                                     ::  hrldas_setup_file
+    !character(len=256)                                     ::  spatial_filename
+    !character(len=256)                                     ::  external_veg_filename_template
+    !character(len=256)                                     ::  external_lai_filename_template
+    !character(len=256)                                     ::  agdata_flnm
+    !character(len=256)                                     ::  tdinput_flnm
+    !character(len=256)                                     ::  snicar_optic_flnm  ! SNICAR filename for optics parameters
+    !character(len=256)                                     ::  snicar_age_flnm    ! SNICAR filename for snow aging parameters
     integer                                                ::  xstart
     integer                                                ::  ystart
     integer                                                ::  xend
@@ -801,7 +801,7 @@ module NoahmpIOVarType
 !----------------------------------------------------------------
 
     ! vegetation parameters
-    character(len=256)                                     :: VEG_DATASET_DESCRIPTION_TABLE
+    !character(len=256)                                     :: VEG_DATASET_DESCRIPTION_TABLE
     integer                                                :: NVEG_TABLE                ! number of vegetation types
     integer                                                :: ISURBAN_TABLE             ! urban flag
     integer                                                :: ISWATER_TABLE             ! water flag

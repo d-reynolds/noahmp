@@ -1,7 +1,6 @@
 module LanduseConvertMod
 
-  use ConfigVarType, only : domain_type
-  use NoahmpIOVarType, only : NoahmpIO_type
+  use ConstantDefineMod
 
   implicit none
 
@@ -14,7 +13,7 @@ contains
 ! -------------------------------------------------------------------------
 
     character(len=*), intent(in)  :: LU_string
-    integer,          intent(out) :: LU_code
+    integer                       :: LU_code
 
     if (trim(LU_string) == 'USGS') then
       LU_code = ConstLU_USGS

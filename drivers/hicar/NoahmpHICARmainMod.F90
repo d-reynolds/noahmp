@@ -91,6 +91,7 @@ contains
     use NoahmpReadTableMod
    !  use SnowInputSnicarMod
     use NoahmpDriverMainMod
+    use LanduseConvertMod
     ! use module_sf_urban,    only: IRI_SCHEME
 
     implicit none
@@ -496,7 +497,7 @@ contains
     NoahmpIO%IOPT_WETLAND       = IOPT_WETLAND
     NoahmpIO%SF_URBAN_PHYSICS   = SF_URBAN_PHYSICS
     NoahmpIO%IZ0TLND            = IZ0TLND
-    NoahmpIO%LLANDUSE           = LLANDUSE
+    NoahmpIO%LLANDUSE           = LanduseConvert(LLANDUSE)
     NoahmpIO%SOILTSTEP          = SOILTSTEP
     NoahmpIO%XICE_THRESHOLD     = XICE_THRES
     NoahmpIO%DZS                = DZS

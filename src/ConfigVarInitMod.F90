@@ -66,7 +66,7 @@ contains
     noahmp%config%nmlist%FlagSnicarAerosolReadTable  = .false.
 
     ! config domain scalars (set outside parallel region)
-    noahmp%config%domain%LandUseDataName             = "MODIFIED_IGBP_MODIS_NOAH"
+    noahmp%config%domain%LandUseDataName             = 2
     noahmp%config%domain%NumSoilTimeStep             = undefined_int
     noahmp%config%domain%NumSnowLayerMax             = undefined_int
     noahmp%config%domain%NumSoilLayer                = undefined_int

@@ -36,5 +36,6 @@ module ConstantDefineMod
   real(kind=kind_noahmp), public, parameter :: ConstPI                  = 3.14159265  ! pi value
   real(kind=kind_noahmp), public, parameter :: ConstDensityGraupel      = 500.0       ! graupel bulk density [kg/m3]
   real(kind=kind_noahmp), public, parameter :: ConstDensityHail         = 917.0       ! hail bulk density [kg/m3]
-
+  integer, public, parameter :: ConstLU_USGS             = 1       ! constant integer value for USGS land use dataset
+  integer, public, parameter :: ConstLU_IGBP_MODIS_NOAH  = 2       ! constant integer value for modified IGBP MODIS land use dataset for Noah-MP
 end module ConstantDefineMod

@@ -180,7 +180,7 @@ module ConfigVarType
   type :: domain_type
 
     ! ===== Domain-wide constants (scalars - same across all grid points) =====
-    character(len=256)     :: LandUseDataName             ! landuse dataset name (USGS or MODIFIED_IGBP_MODIS_NOAH)
+    integer                :: LandUseDataName             ! landuse dataset name (USGS or MODIFIED_IGBP_MODIS_NOAH)
     integer                :: ITS, ITE                    ! Tile bounds in I direction
     integer                :: JTS, JTE                    ! Tile bounds in J direction
     integer                :: NumSoilLayer                ! number of soil layers
