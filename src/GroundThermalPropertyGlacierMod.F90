@@ -37,18 +37,12 @@ contains
     ! compute glacier ice thermal properties (using Noah glacial ice approximations)
     call GlacierIceThermalProperty(noahmp)
 
-   !$acc parallel loop collapse(2) gang vector present(noahmp) private(LoopInd)
-    do J = noahmp%config%domain%JTS, noahmp%config%domain%JTE
-      do I = noahmp%config%domain%ITS, noahmp%config%domain%ITE
-
-        if (noahmp%config%domain%IndicatorIceSfc(I,J) /= -1) cycle
-
     associate(                                                                             &
               NumSoilLayer           => noahmp%config%domain%NumSoilLayer                  ,& ! in,  number of soil layers
               MainTimeStep           => noahmp%config%domain%MainTimeStep                  ,& ! in,  main noahmp timestep [s]
               ThicknessSnowSoilLayer => noahmp%config%domain%ThicknessSnowSoilLayer        ,& ! in,  thickness of snow/soil layers [m]
-              NumSnowLayerNeg        => noahmp%config%domain%NumSnowLayerNeg(I,J)          ,& ! in,  actual number of snow layers (negative)
-              SnowDepth              => noahmp%water%state%SnowDepth(I,J)                  ,& ! in,  snow depth [m]
+              NumSnowLayerNeg        => noahmp%config%domain%NumSnowLayerNeg          ,& ! in,  actual number of snow layers (negative)
+              SnowDepth              => noahmp%water%state%SnowDepth                  ,& ! in,  snow depth [m]
               ThermConductSoilSnow   => noahmp%energy%state%ThermConductSoilSnow           ,& ! out, thermal conductivity [W/m/K] for all soil & snow
               HeatCapacSoilSnow      => noahmp%energy%state%HeatCapacSoilSnow              ,& ! out, heat capacity [J/m3/K] for all soil & snow
               PhaseChgFacSoilSnow    => noahmp%energy%state%PhaseChgFacSoilSnow            ,& ! out, energy factor for soil & snow phase change
@@ -57,7 +51,13 @@ contains
               HeatCapacGlaIce        => noahmp%energy%state%HeatCapacGlaIce                ,& ! out, glacier ice layer volumetric specific heat [J/m3/K]
               ThermConductGlaIce     => noahmp%energy%state%ThermConductGlaIce              & ! out, glacier ice layer thermal conductivity [W/m/K]
              )
-! ----------------------------------------------------------------------
+
+   !$acc parallel loop collapse(2) gang vector default(present) private(LoopInd)
+    do J = noahmp%config%domain%JTS, noahmp%config%domain%JTE
+      do I = noahmp%config%domain%ITS, noahmp%config%domain%ITE
+
+        if (noahmp%config%domain%IndicatorIceSfc(I,J) /= -1) cycle
+
 
     ! initialize
     !$acc loop seq
@@ -68,7 +68,7 @@ contains
 
     ! copy snow thermal properties
     !$acc loop seq
-    do LoopInd = NumSnowLayerNeg+1, 0
+    do LoopInd = NumSnowLayerNeg(I,J)+1, 0
        ThermConductSoilSnow(I,LoopInd,J) = ThermConductSnow(I,LoopInd,J)
        HeatCapacSoilSnow(I,LoopInd,J)    = HeatCapacVolSnow(I,LoopInd,J)
     enddo
@@ -82,25 +82,27 @@ contains
 
     ! combine a temporary variable used for melting/freezing of snow and glacier ice
     !$acc loop seq
-    do LoopInd = NumSnowLayerNeg+1, NumSoilLayer
+    do LoopInd = NumSnowLayerNeg(I,J)+1, NumSoilLayer
        PhaseChgFacSoilSnow(I,LoopInd,J) = MainTimeStep / (HeatCapacSoilSnow(I,LoopInd,J)*ThicknessSnowSoilLayer(I,LoopInd,J))
     enddo
 
     ! snow/glacier ice interface
-    if ( NumSnowLayerNeg == 0 ) then
-       ThermConductSoilSnow(I,1,J) = (ThermConductSoilSnow(I,1,J)*ThicknessSnowSoilLayer(I,1,J) + 0.35*SnowDepth) / &
-                                     (SnowDepth + ThicknessSnowSoilLayer(I,1,J))
+    if ( NumSnowLayerNeg(I,J) == 0 ) then
+       ThermConductSoilSnow(I,1,J) = (ThermConductSoilSnow(I,1,J)*ThicknessSnowSoilLayer(I,1,J) + 0.35*SnowDepth(I,J)) / &
+                                     (SnowDepth(I,J) + ThicknessSnowSoilLayer(I,1,J))
     else
        ThermConductSoilSnow(I,1,J) = (ThermConductSoilSnow(I,1,J)*ThicknessSnowSoilLayer(I,1,J) + &
                                       ThermConductSoilSnow(I,0,J)*ThicknessSnowSoilLayer(I,0,J)) / &
                                      (ThicknessSnowSoilLayer(I,0,J) + ThicknessSnowSoilLayer(I,1,J))
     endif
 
-    end associate
 
       end do
     end do
    !$acc end parallel loop
+
+
+    end associate
 
   end subroutine GroundThermalPropertyGlacier
 

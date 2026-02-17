@@ -37,46 +37,16 @@ contains
     real(kind=kind_noahmp)           :: SoilMoistAvailMax  ! maximum available moisture [m]
     real(kind=kind_noahmp)           :: IrrigationWater    ! irrigation water amount [m]
 
-! --------------------------------------------------------------------
-    associate(                                                                            &
-              DepthSoilLayer          => noahmp%config%domain%DepthSoilLayer             ,& ! in,    depth [m] of layer-bottom from soil surface
-              DayJulianInYear         => noahmp%config%domain%DayJulianInYear            ,& ! in,    Julian day of the year
-              OptIrrigation           => noahmp%config%nmlist%OptIrrigation              ,& ! in,    irrigation option
-              OptIrrigationMethod     => noahmp%config%nmlist%OptIrrigationMethod        ,& ! in,    irrigation method option
-              DatePlanting            => noahmp%biochem%param%DatePlanting(I,J)          ,& ! in,    Planting day (day of year)
-              DateHarvest             => noahmp%biochem%param%DateHarvest(I,J)           ,& ! in,    Harvest date (day of year)
-              SoilMoistureWilt        => noahmp%water%param%SoilMoistureWilt             ,& ! in,    wilting point soil moisture [m3/m3]
-              SoilMoistureFieldCap    => noahmp%water%param%SoilMoistureFieldCap         ,& ! in,    reference soil moisture (field capacity) (m3/m3)
-              NumSoilLayerRoot        => noahmp%water%param%NumSoilLayerRoot(I,J)        ,& ! in,    number of soil layers with root present
-              IrriStopDayBfHarvest    => noahmp%water%param%IrriStopDayBfHarvest(I,J)    ,& ! in,    number of days before harvest date to stop irrigation
-              IrriTriggerLaiMin       => noahmp%water%param%IrriTriggerLaiMin(I,J)       ,& ! in,    minimum lai to trigger irrigation
-              SoilWatDeficitAllow     => noahmp%water%param%SoilWatDeficitAllow(I,J)     ,& ! in,    management allowable deficit (0-1)
-              IrriFloodLossFrac       => noahmp%water%param%IrriFloodLossFrac(I,J)       ,& ! in,    factor of flood irrigation loss
-              VegFrac                 => noahmp%energy%state%VegFrac(I,J)                ,& ! in,    greeness vegetation fraction
-              LeafAreaIndex           => noahmp%energy%state%LeafAreaIndex(I,J)          ,& ! in,    leaf area index [m2/m2]
-              IrrigationFracGrid      => noahmp%water%state%IrrigationFracGrid(I,J)      ,& ! in,    irrigated area fraction of a grid
-              SoilLiqWater            => noahmp%water%state%SoilLiqWater                 ,& ! in,    soil water content [m3/m3]
-              IrrigationFracMicro     => noahmp%water%state%IrrigationFracMicro(I,J)     ,& ! in,    fraction of grid under micro irrigation (0 to 1)
-              IrrigationFracFlood     => noahmp%water%state%IrrigationFracFlood(I,J)     ,& ! in,    fraction of grid under flood irrigation (0 to 1)
-              IrrigationFracSprinkler => noahmp%water%state%IrrigationFracSprinkler(I,J) ,& ! in,    sprinkler irrigation fraction (0 to 1)
-              IrrigationAmtMicro      => noahmp%water%state%IrrigationAmtMicro(I,J)      ,& ! inout, irrigation water amount [m] to be applied, Micro
-              IrrigationAmtFlood      => noahmp%water%state%IrrigationAmtFlood(I,J)      ,& ! inout, irrigation water amount [m] to be applied, Flood
-              IrrigationAmtSprinkler  => noahmp%water%state%IrrigationAmtSprinkler(I,J)  ,& ! inout, irrigation water amount [m] to be applied, Sprinkler
-              IrrigationCntSprinkler  => noahmp%water%state%IrrigationCntSprinkler(I,J)  ,& ! inout, irrigation event number, Sprinkler
-              IrrigationCntMicro      => noahmp%water%state%IrrigationCntMicro(I,J)      ,& ! inout, irrigation event number, Micro
-              IrrigationCntFlood      => noahmp%water%state%IrrigationCntFlood(I,J)       & ! inout, irrigation event number, Flood
-             )
-! ----------------------------------------------------------------------
-
     FlagIrri = .true.
 
     ! check if irrigation is can be activated or not
-    if ( OptIrrigation == 2 ) then ! activate irrigation if within crop season
-       if ( (DayJulianInYear < DatePlanting) .or. (DayJulianInYear > (DateHarvest-IrriStopDayBfHarvest)) ) &
+    if ( noahmp%config%nmlist%OptIrrigation == 2 ) then ! activate irrigation if within crop season
+       if ( (noahmp%config%domain%DayJulianInYear < noahmp%biochem%param%DatePlanting(I,J)) .or. &
+            (noahmp%config%domain%DayJulianInYear > (noahmp%biochem%param%DateHarvest(I,J)-noahmp%water%param%IrriStopDayBfHarvest(I,J))) ) &
           FlagIrri = .false.
-    elseif ( OptIrrigation == 3) then ! activate if LeafAreaIndex > threshold LeafAreaIndex
-       if ( LeafAreaIndex < IrriTriggerLaiMin) FlagIrri = .false.
-    elseif ( (OptIrrigation > 3) .or. (OptIrrigation < 1) ) then
+    elseif ( noahmp%config%nmlist%OptIrrigation == 3) then ! activate if LeafAreaIndex > threshold LeafAreaIndex
+       if ( noahmp%energy%state%LeafAreaIndex(I,J) < noahmp%water%param%IrriTriggerLaiMin(I,J)) FlagIrri = .false.
+    elseif ( (noahmp%config%nmlist%OptIrrigation > 3) .or. (noahmp%config%nmlist%OptIrrigation < 1) ) then
        FlagIrri = .false.
     endif
 
@@ -84,63 +54,77 @@ contains
        ! estimate available water and field capacity for the root zone
        SoilMoistAvail      = 0.0
        SoilMoistAvailMax   = 0.0
-       SoilMoistAvail      = (SoilLiqWater(I,1,J) - SoilMoistureWilt(I,1,J)) * (-1.0) * DepthSoilLayer(I,1,J)          ! current soil water (m) 
-       SoilMoistAvailMax   = (SoilMoistureFieldCap(I,1,J) - SoilMoistureWilt(I,1,J)) * (-1.0) * DepthSoilLayer(I,1,J)  ! available water (m)
-       do LoopInd = 2, NumSoilLayerRoot
-         SoilMoistAvail    = SoilMoistAvail + (SoilLiqWater(I,LoopInd,J) - SoilMoistureWilt(I,LoopInd,J)) * &
-                                              (DepthSoilLayer(I,LoopInd-1,J) - DepthSoilLayer(I,LoopInd,J))
-         SoilMoistAvailMax = SoilMoistAvailMax + (SoilMoistureFieldCap(I,LoopInd,J) - SoilMoistureWilt(I,LoopInd,J)) * &
-                                                 (DepthSoilLayer(I,LoopInd-1,J) - DepthSoilLayer(I,LoopInd,J))
+       SoilMoistAvail      = (noahmp%water%state%SoilLiqWater(I,1,J) - noahmp%water%param%SoilMoistureWilt(I,1,J)) * &
+                              (-1.0) * noahmp%config%domain%DepthSoilLayer(I,1,J)          ! current soil water (m)
+       SoilMoistAvailMax   = (noahmp%water%param%SoilMoistureFieldCap(I,1,J) - noahmp%water%param%SoilMoistureWilt(I,1,J)) * &
+                              (-1.0) * noahmp%config%domain%DepthSoilLayer(I,1,J)  ! available water (m)
+       do LoopInd = 2, noahmp%water%param%NumSoilLayerRoot(I,J)
+         SoilMoistAvail    = SoilMoistAvail + &
+                              (noahmp%water%state%SoilLiqWater(I,LoopInd,J) - noahmp%water%param%SoilMoistureWilt(I,LoopInd,J)) * &
+                              (noahmp%config%domain%DepthSoilLayer(I,LoopInd-1,J) - noahmp%config%domain%DepthSoilLayer(I,LoopInd,J))
+         SoilMoistAvailMax = SoilMoistAvailMax + &
+                              (noahmp%water%param%SoilMoistureFieldCap(I,LoopInd,J) - noahmp%water%param%SoilMoistureWilt(I,LoopInd,J)) * &
+                              (noahmp%config%domain%DepthSoilLayer(I,LoopInd-1,J) - noahmp%config%domain%DepthSoilLayer(I,LoopInd,J))
        enddo
 
       ! check if root zone soil moisture < SoilWatDeficitAllow (calibratable)
-      if ( (SoilMoistAvail/SoilMoistAvailMax) <= SoilWatDeficitAllow ) then
-         ! amount of water need to be added to bring soil moisture back to 
+      if ( (SoilMoistAvail/SoilMoistAvailMax) <= noahmp%water%param%SoilWatDeficitAllow(I,J) ) then
+         ! amount of water need to be added to bring soil moisture back to
          ! field capacity, i.e., irrigation water amount (m)
-         IrrigationWater = (SoilMoistAvailMax - SoilMoistAvail) * IrrigationFracGrid * VegFrac
+         IrrigationWater = (SoilMoistAvailMax - SoilMoistAvail) * noahmp%water%state%IrrigationFracGrid(I,J) * &
+                           noahmp%energy%state%VegFrac(I,J)
 
          ! sprinkler irrigation amount (m) based on 2D IrrigationFracSprinkler
-         if ( (IrrigationAmtSprinkler == 0.0) .and. (IrrigationFracSprinkler > 0.0) .and. (OptIrrigationMethod == 0) ) then
-            IrrigationAmtSprinkler = IrrigationFracSprinkler * IrrigationWater
-            IrrigationCntSprinkler = IrrigationCntSprinkler + 1
+         if ( (noahmp%water%state%IrrigationAmtSprinkler(I,J) == 0.0) .and. &
+              (noahmp%water%state%IrrigationFracSprinkler(I,J) > 0.0) .and. &
+              (noahmp%config%nmlist%OptIrrigationMethod == 0) ) then
+            noahmp%water%state%IrrigationAmtSprinkler(I,J) = noahmp%water%state%IrrigationFracSprinkler(I,J) * IrrigationWater
+            noahmp%water%state%IrrigationCntSprinkler(I,J) = noahmp%water%state%IrrigationCntSprinkler(I,J) + 1
          ! sprinkler irrigation amount (m) based on namelist choice
-         elseif ( (IrrigationAmtSprinkler == 0.0) .and. (OptIrrigationMethod == 1) ) then
-            IrrigationAmtSprinkler = IrrigationWater
-            IrrigationCntSprinkler = IrrigationCntSprinkler + 1
+         elseif ( (noahmp%water%state%IrrigationAmtSprinkler(I,J) == 0.0) .and. &
+                  (noahmp%config%nmlist%OptIrrigationMethod == 1) ) then
+            noahmp%water%state%IrrigationAmtSprinkler(I,J) = IrrigationWater
+            noahmp%water%state%IrrigationCntSprinkler(I,J) = noahmp%water%state%IrrigationCntSprinkler(I,J) + 1
          endif
 
          ! micro irrigation amount (m) based on 2D IrrigationFracMicro
-         if ( (IrrigationAmtMicro == 0.0) .and. (IrrigationFracMicro > 0.0) .and. (OptIrrigationMethod == 0) ) then
-            IrrigationAmtMicro = IrrigationFracMicro * IrrigationWater
-            IrrigationCntMicro = IrrigationCntMicro + 1
+         if ( (noahmp%water%state%IrrigationAmtMicro(I,J) == 0.0) .and. &
+              (noahmp%water%state%IrrigationFracMicro(I,J) > 0.0) .and. &
+              (noahmp%config%nmlist%OptIrrigationMethod == 0) ) then
+            noahmp%water%state%IrrigationAmtMicro(I,J) = noahmp%water%state%IrrigationFracMicro(I,J) * IrrigationWater
+            noahmp%water%state%IrrigationCntMicro(I,J) = noahmp%water%state%IrrigationCntMicro(I,J) + 1
          ! micro irrigation amount (m) based on namelist choice
-         elseif ( (IrrigationAmtMicro == 0.0) .and. (OptIrrigationMethod == 2) ) then
-            IrrigationAmtMicro = IrrigationWater
-            IrrigationCntMicro = IrrigationCntMicro + 1
+         elseif ( (noahmp%water%state%IrrigationAmtMicro(I,J) == 0.0) .and. &
+                  (noahmp%config%nmlist%OptIrrigationMethod == 2) ) then
+            noahmp%water%state%IrrigationAmtMicro(I,J) = IrrigationWater
+            noahmp%water%state%IrrigationCntMicro(I,J) = noahmp%water%state%IrrigationCntMicro(I,J) + 1
          endif
 
-         ! flood irrigation amount (m): Assumed to saturate top two layers and 
+         ! flood irrigation amount (m): Assumed to saturate top two layers and
          ! third layer to FC. As water moves from one end of the field to
-         ! another, surface layers will be saturated. 
+         ! another, surface layers will be saturated.
          ! flood irrigation amount (m) based on 2D IrrigationFracFlood
-         if ( (IrrigationAmtFlood == 0.0) .and. (IrrigationFracFlood > 0.0) .and. (OptIrrigationMethod == 0) ) then
-            IrrigationAmtFlood = IrrigationFracFlood * IrrigationWater * (1.0/(1.0 - IrriFloodLossFrac))
-            IrrigationCntFlood = IrrigationCntFlood + 1
+         if ( (noahmp%water%state%IrrigationAmtFlood(I,J) == 0.0) .and. &
+              (noahmp%water%state%IrrigationFracFlood(I,J) > 0.0) .and. &
+              (noahmp%config%nmlist%OptIrrigationMethod == 0) ) then
+            noahmp%water%state%IrrigationAmtFlood(I,J) = noahmp%water%state%IrrigationFracFlood(I,J) * IrrigationWater * &
+                                                         (1.0/(1.0 - noahmp%water%param%IrriFloodLossFrac(I,J)))
+            noahmp%water%state%IrrigationCntFlood(I,J) = noahmp%water%state%IrrigationCntFlood(I,J) + 1
          !flood irrigation amount (m) based on namelist choice
-         elseif ( (IrrigationAmtFlood == 0.0) .and. (OptIrrigationMethod == 3) ) then
-            IrrigationAmtFlood = IrrigationWater * (1.0/(1.0 - IrriFloodLossFrac))
-            IrrigationCntFlood = IrrigationCntFlood + 1
+         elseif ( (noahmp%water%state%IrrigationAmtFlood(I,J) == 0.0) .and. &
+                  (noahmp%config%nmlist%OptIrrigationMethod == 3) ) then
+            noahmp%water%state%IrrigationAmtFlood(I,J) = IrrigationWater * &
+                                                         (1.0/(1.0 - noahmp%water%param%IrriFloodLossFrac(I,J)))
+            noahmp%water%state%IrrigationCntFlood(I,J) = noahmp%water%state%IrrigationCntFlood(I,J) + 1
          endif
       else
-         IrrigationWater        = 0.0
-         IrrigationAmtSprinkler = 0.0
-         IrrigationAmtMicro     = 0.0
-         IrrigationAmtFlood     = 0.0
+         IrrigationWater                                = 0.0
+         noahmp%water%state%IrrigationAmtSprinkler(I,J) = 0.0
+         noahmp%water%state%IrrigationAmtMicro(I,J)     = 0.0
+         noahmp%water%state%IrrigationAmtFlood(I,J)     = 0.0
       endif
 
     endif
-
-    end associate
 
   end subroutine IrrigationTrigger
 

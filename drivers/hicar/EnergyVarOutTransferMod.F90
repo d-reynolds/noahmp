@@ -32,24 +32,24 @@ contains
     real(kind=kind_noahmp)           :: ResistanceLeafBoundary    ! leaf boundary layer resistance [s/m]
     real(kind=kind_noahmp)           :: ThicknessSnowSoilLayer    ! temporary snow/soil layer thickness [m]
 
-    !$acc parallel loop collapse(2) present(noahmp, NoahmpIO)
+    associate(                                                         &
+              NumSoilLayer    => noahmp%config%domain%NumSoilLayer    ,&
+              NumSnowLayerMax => noahmp%config%domain%NumSnowLayerMax ,&
+              NumSnowLayerNeg => noahmp%config%domain%NumSnowLayerNeg ,&
+              NumSwRadBand    => noahmp%config%domain%NumSwRadBand    ,&
+              IndicatorIceSfc => noahmp%config%domain%IndicatorIceSfc  &
+             )
+
+    !$acc parallel loop collapse(2) default(present) private(LeafAreaIndShade, LeafAreaIndSunlit, LoopInd, &
+    !$acc ResistanceLeafBoundary, ThicknessSnowSoilLayer)
       do J = noahmp%config%domain%JTS, noahmp%config%domain%JTE
          do I = noahmp%config%domain%ITS, noahmp%config%domain%ITE
 
             if (NoahmpIO%XLAND(I,J) - 1.5 >= 0.0) cycle ! Do out write output for open water points
 
-!-----------------------------------------------------------------------
-    associate(                                                         &
-              NumSoilLayer    => noahmp%config%domain%NumSoilLayer    ,&
-              NumSnowLayerMax => noahmp%config%domain%NumSnowLayerMax ,&
-              NumSnowLayerNeg => noahmp%config%domain%NumSnowLayerNeg(I,J) ,&
-              NumSwRadBand    => noahmp%config%domain%NumSwRadBand    ,&
-              IndicatorIceSfc => noahmp%config%domain%IndicatorIceSfc(I,J)  &
-             )
-!-----------------------------------------------------------------------
 
     ! special treatment for glacier point output
-    if ( IndicatorIceSfc == -1 ) then ! land ice point
+    if ( IndicatorIceSfc(I,J) == -1 ) then ! land ice point
        noahmp%energy%state%VegFrac(I,J)             = 0.0
        noahmp%energy%state%RoughLenMomSfcToAtm(I,J) = 0.002
        noahmp%energy%flux%RadSwAbsVeg(I,J)          = 0.0
@@ -75,7 +75,7 @@ contains
        NoahmpIO%LH(I,J)                        = noahmp%energy%flux%HeatLatentGrd(I,J)
     endif
 
-    if ( IndicatorIceSfc == 0 ) then ! land soil point
+    if ( IndicatorIceSfc(I,J) == 0 ) then ! land soil point
        NoahmpIO%LH(I,J) = noahmp%energy%flux%HeatLatentGrd(I,J) + noahmp%energy%flux%HeatLatentCanopy(I,J) + &
                           noahmp%energy%flux%HeatLatentTransp(I,J) + noahmp%energy%flux%HeatLatentIrriEvap(I,J) 
     endif
@@ -175,8 +175,8 @@ contains
     NoahmpIO%SNOWENERGY(I,J) = 0.0
     NoahmpIO%SOILENERGY(I,J) = 0.0
     !$acc loop seq
-    do LoopInd = NumSnowLayerNeg+1, NumSoilLayer
-       if ( LoopInd == NumSnowLayerNeg+1 ) then
+    do LoopInd = NumSnowLayerNeg(I,J)+1, NumSoilLayer
+       if ( LoopInd == NumSnowLayerNeg(I,J)+1 ) then
           ThicknessSnowSoilLayer = -noahmp%config%domain%DepthSnowSoilLayer(I,LoopInd,J)
        else
           ThicknessSnowSoilLayer = noahmp%config%domain%DepthSnowSoilLayer(I,LoopInd-1,J) - &
@@ -193,11 +193,13 @@ contains
        endif
     enddo
 
-    end associate
 
       end do
       end do
       !$acc end parallel loop
+
+    end associate
+
   end subroutine EnergyVarOutTransfer
 
 end module EnergyVarOutTransferMod

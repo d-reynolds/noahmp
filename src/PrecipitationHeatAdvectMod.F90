@@ -31,105 +31,107 @@ contains
     real(kind=kind_noahmp)           :: HeatPrcpAirToGrd    ! precipitation advected heat - air to ground [W/m2]
 
 ! --------------------------------------------------------------------
-    !$acc parallel loop collapse(2) gang vector present(noahmp) &
+        associate(                                                                          &
+                  TemperatureAirRefHeight => noahmp%forcing%TemperatureAirRefHeight  ,& ! in,  air temperature [K] at reference height
+                  TemperatureCanopy       => noahmp%energy%state%TemperatureCanopy   ,& ! in,  vegetation temperature [K]
+                  TemperatureGrd          => noahmp%energy%state%TemperatureGrd      ,& ! in,  ground temperature [K]
+                  VegFrac                 => noahmp%energy%state%VegFrac             ,& ! in,  greeness vegetation fraction
+                  RainfallRefHeight       => noahmp%water%flux%RainfallRefHeight     ,& ! in,  total liquid rainfall [mm/s] before interception
+                  SnowfallRefHeight       => noahmp%water%flux%SnowfallRefHeight     ,& ! in,  total snowfall [mm/s] before interception
+                  DripCanopyRain          => noahmp%water%flux%DripCanopyRain        ,& ! in,  drip rate for intercepted rain [mm/s]
+                  ThroughfallRain         => noahmp%water%flux%ThroughfallRain       ,& ! in,  throughfall for rain [mm/s]
+                  DripCanopySnow          => noahmp%water%flux%DripCanopySnow        ,& ! in,  drip (unloading) rate for intercepted snow [mm/s]
+                  ThroughfallSnow         => noahmp%water%flux%ThroughfallSnow       ,& ! in,  throughfall of snowfall [mm/s]
+                  SnowfallGround          => noahmp%water%flux%SnowfallGround       ,& ! out, snowfall at ground surface [mm/s]
+                  RainfallGround          => noahmp%water%flux%RainfallGround       ,& ! out, rainfall at ground surface [mm/s]
+                  HeatPrecipAdvCanopy     => noahmp%energy%flux%HeatPrecipAdvCanopy  ,& ! out, precipitation advected heat - vegetation net [W/m2]
+                  HeatPrecipAdvVegGrd     => noahmp%energy%flux%HeatPrecipAdvVegGrd  ,& ! out, precipitation advected heat - under canopy net [W/m2]
+                  HeatPrecipAdvBareGrd    => noahmp%energy%flux%HeatPrecipAdvBareGrd  & ! out, precipitation advected heat - bare ground net [W/m2]
+                 )
+
+    !$acc parallel loop collapse(2) gang vector default(present) &
     !$acc private(HeatPrcpAirToCan, HeatPrcpCanToGrd, HeatPrcpAirToGrd)
     do J = noahmp%config%domain%JTS, noahmp%config%domain%JTE
       do I = noahmp%config%domain%ITS, noahmp%config%domain%ITE
 
-        associate(                                                                          &
-                  TemperatureAirRefHeight => noahmp%forcing%TemperatureAirRefHeight(I,J)  ,& ! in,  air temperature [K] at reference height
-                  TemperatureCanopy       => noahmp%energy%state%TemperatureCanopy(I,J)   ,& ! in,  vegetation temperature [K]
-                  TemperatureGrd          => noahmp%energy%state%TemperatureGrd(I,J)      ,& ! in,  ground temperature [K]
-                  VegFrac                 => noahmp%energy%state%VegFrac(I,J)             ,& ! in,  greeness vegetation fraction
-                  RainfallRefHeight       => noahmp%water%flux%RainfallRefHeight(I,J)     ,& ! in,  total liquid rainfall [mm/s] before interception
-                  SnowfallRefHeight       => noahmp%water%flux%SnowfallRefHeight(I,J)     ,& ! in,  total snowfall [mm/s] before interception
-                  DripCanopyRain          => noahmp%water%flux%DripCanopyRain(I,J)        ,& ! in,  drip rate for intercepted rain [mm/s]
-                  ThroughfallRain         => noahmp%water%flux%ThroughfallRain(I,J)       ,& ! in,  throughfall for rain [mm/s]
-                  DripCanopySnow          => noahmp%water%flux%DripCanopySnow(I,J)        ,& ! in,  drip (unloading) rate for intercepted snow [mm/s]
-                  ThroughfallSnow         => noahmp%water%flux%ThroughfallSnow(I,J)       ,& ! in,  throughfall of snowfall [mm/s]
-                  SnowfallGround          => noahmp%water%flux%SnowfallGround(I,J)       ,& ! out, snowfall at ground surface [mm/s]
-                  RainfallGround          => noahmp%water%flux%RainfallGround(I,J)       ,& ! out, rainfall at ground surface [mm/s]
-                  HeatPrecipAdvCanopy     => noahmp%energy%flux%HeatPrecipAdvCanopy(I,J)  ,& ! out, precipitation advected heat - vegetation net [W/m2]
-                  HeatPrecipAdvVegGrd     => noahmp%energy%flux%HeatPrecipAdvVegGrd(I,J)  ,& ! out, precipitation advected heat - under canopy net [W/m2]
-                  HeatPrecipAdvBareGrd    => noahmp%energy%flux%HeatPrecipAdvBareGrd(I,J)  & ! out, precipitation advected heat - bare ground net [W/m2]
-                 )
-! ----------------------------------------------------------------------
   if (noahmp%config%domain%IndicatorIceSfc(I,J) == 0) then
 
     ! initialization
     HeatPrcpAirToCan     = 0.0
     HeatPrcpCanToGrd     = 0.0
     HeatPrcpAirToGrd     = 0.0
-    HeatPrecipAdvCanopy  = 0.0
-    HeatPrecipAdvVegGrd  = 0.0
-    HeatPrecipAdvBareGrd = 0.0
+    HeatPrecipAdvCanopy(I,J)  = 0.0
+    HeatPrecipAdvVegGrd(I,J)  = 0.0
+    HeatPrecipAdvBareGrd(I,J) = 0.0
 
     ! Heat advection for liquid rainfall
-    HeatPrcpAirToCan = VegFrac * RainfallRefHeight * (ConstHeatCapacWater/1000.0) * (TemperatureAirRefHeight-TemperatureCanopy)
-    HeatPrcpCanToGrd = DripCanopyRain * (ConstHeatCapacWater/1000.0) * (TemperatureCanopy-TemperatureGrd)
-    HeatPrcpAirToGrd = ThroughfallRain * (ConstHeatCapacWater/1000.0) * (TemperatureAirRefHeight-TemperatureGrd)
+    HeatPrcpAirToCan = VegFrac(I,J) * RainfallRefHeight(I,J) * (ConstHeatCapacWater/1000.0) * (TemperatureAirRefHeight(I,J)-TemperatureCanopy(I,J))
+    HeatPrcpCanToGrd = DripCanopyRain(I,J) * (ConstHeatCapacWater/1000.0) * (TemperatureCanopy(I,J)-TemperatureGrd(I,J))
+    HeatPrcpAirToGrd = ThroughfallRain(I,J) * (ConstHeatCapacWater/1000.0) * (TemperatureAirRefHeight(I,J)-TemperatureGrd(I,J))
 
     ! Heat advection for snowfall
     HeatPrcpAirToCan = HeatPrcpAirToCan + &
-                       VegFrac * SnowfallRefHeight * (ConstHeatCapacIce/1000.0) * (TemperatureAirRefHeight-TemperatureCanopy)
+                       VegFrac(I,J) * SnowfallRefHeight(I,J) * (ConstHeatCapacIce/1000.0) * (TemperatureAirRefHeight(I,J)-TemperatureCanopy(I,J))
     HeatPrcpCanToGrd = HeatPrcpCanToGrd + &
-                       DripCanopySnow * (ConstHeatCapacIce/1000.0) * (TemperatureCanopy-TemperatureGrd)
+                       DripCanopySnow(I,J) * (ConstHeatCapacIce/1000.0) * (TemperatureCanopy(I,J)-TemperatureGrd(I,J))
     HeatPrcpAirToGrd = HeatPrcpAirToGrd + &
-                       ThroughfallSnow * (ConstHeatCapacIce/1000.0) * (TemperatureAirRefHeight-TemperatureGrd)
+                       ThroughfallSnow(I,J) * (ConstHeatCapacIce/1000.0) * (TemperatureAirRefHeight(I,J)-TemperatureGrd(I,J))
 
     ! net heat advection
-    HeatPrecipAdvCanopy  = HeatPrcpAirToCan - HeatPrcpCanToGrd
-    HeatPrecipAdvVegGrd  = HeatPrcpCanToGrd
-    HeatPrecipAdvBareGrd = HeatPrcpAirToGrd
+    HeatPrecipAdvCanopy(I,J)  = HeatPrcpAirToCan - HeatPrcpCanToGrd
+    HeatPrecipAdvVegGrd(I,J)  = HeatPrcpCanToGrd
+    HeatPrecipAdvBareGrd(I,J) = HeatPrcpAirToGrd
 
     ! adjust for VegFrac
-    if ( (VegFrac > 0.0) .and. (VegFrac < 1.0) ) then
-       HeatPrecipAdvVegGrd  = HeatPrecipAdvVegGrd / VegFrac                  ! these will be multiplied by fraction later
-       HeatPrecipAdvBareGrd = HeatPrecipAdvBareGrd / (1.0-VegFrac)
-    elseif ( VegFrac <= 0.0 ) then
-       HeatPrecipAdvBareGrd = HeatPrecipAdvVegGrd + HeatPrecipAdvBareGrd     ! for case of canopy getting buried
-       HeatPrecipAdvVegGrd  = 0.0
-       HeatPrecipAdvCanopy  = 0.0
-    elseif ( VegFrac >= 1.0 ) then
-       HeatPrecipAdvBareGrd = 0.0
+    if ( (VegFrac(I,J) > 0.0) .and. (VegFrac(I,J) < 1.0) ) then
+       HeatPrecipAdvVegGrd(I,J)  = HeatPrecipAdvVegGrd(I,J) / VegFrac(I,J)                  ! these will be multiplied by fraction later
+       HeatPrecipAdvBareGrd(I,J) = HeatPrecipAdvBareGrd(I,J) / (1.0-VegFrac(I,J))
+    elseif ( VegFrac(I,J) <= 0.0 ) then
+       HeatPrecipAdvBareGrd(I,J) = HeatPrecipAdvVegGrd(I,J) + HeatPrecipAdvBareGrd(I,J)     ! for case of canopy getting buried
+       HeatPrecipAdvVegGrd(I,J)  = 0.0
+       HeatPrecipAdvCanopy(I,J)  = 0.0
+    elseif ( VegFrac(I,J) >= 1.0 ) then
+       HeatPrecipAdvBareGrd(I,J) = 0.0
     endif
 
     ! Put some artificial limits here for stability
-    HeatPrecipAdvCanopy  = max(HeatPrecipAdvCanopy , -20.0)
-    HeatPrecipAdvCanopy  = min(HeatPrecipAdvCanopy ,  20.0)
-    HeatPrecipAdvVegGrd  = max(HeatPrecipAdvVegGrd , -20.0)
-    HeatPrecipAdvVegGrd  = min(HeatPrecipAdvVegGrd ,  20.0)
-    HeatPrecipAdvBareGrd = max(HeatPrecipAdvBareGrd, -20.0)
-    HeatPrecipAdvBareGrd = min(HeatPrecipAdvBareGrd,  20.0)
+    HeatPrecipAdvCanopy(I,J)  = max(HeatPrecipAdvCanopy(I,J) , -20.0)
+    HeatPrecipAdvCanopy(I,J)  = min(HeatPrecipAdvCanopy(I,J) ,  20.0)
+    HeatPrecipAdvVegGrd(I,J)  = max(HeatPrecipAdvVegGrd(I,J) , -20.0)
+    HeatPrecipAdvVegGrd(I,J)  = min(HeatPrecipAdvVegGrd(I,J) ,  20.0)
+    HeatPrecipAdvBareGrd(I,J) = max(HeatPrecipAdvBareGrd(I,J), -20.0)
+    HeatPrecipAdvBareGrd(I,J) = min(HeatPrecipAdvBareGrd(I,J),  20.0)
 
   else if (noahmp%config%domain%IndicatorIceSfc(I,J) == -1) then
 
     ! initialization for glacier points
     HeatPrcpAirToGrd     = 0.0
-    HeatPrecipAdvBareGrd = 0.0
-    RainfallGround       = RainfallRefHeight
-    SnowfallGround       = SnowfallRefHeight
+    HeatPrecipAdvBareGrd(I,J) = 0.0
+    RainfallGround(I,J)       = RainfallRefHeight(I,J)
+    SnowfallGround(I,J)       = SnowfallRefHeight(I,J)
 
     ! Heat advection for liquid rainfall
-    HeatPrcpAirToGrd     = RainfallGround * (ConstHeatCapacWater/1000.0) * (TemperatureAirRefHeight - TemperatureGrd)
+    HeatPrcpAirToGrd     = RainfallGround(I,J) * (ConstHeatCapacWater/1000.0) * (TemperatureAirRefHeight(I,J) - TemperatureGrd(I,J))
 
     ! Heat advection for snowfall
     HeatPrcpAirToGrd     = HeatPrcpAirToGrd + &
-                           SnowfallGround * (ConstHeatCapacIce/1000.0) * (TemperatureAirRefHeight - TemperatureGrd)
+                           SnowfallGround(I,J) * (ConstHeatCapacIce/1000.0) * (TemperatureAirRefHeight(I,J) - TemperatureGrd(I,J))
 
     ! net heat advection
-    HeatPrecipAdvBareGrd = HeatPrcpAirToGrd
+    HeatPrecipAdvBareGrd(I,J) = HeatPrcpAirToGrd
 
     ! Put some artificial limits here for stability
-    HeatPrecipAdvBareGrd = max(HeatPrecipAdvBareGrd, -20.0)
-    HeatPrecipAdvBareGrd = min(HeatPrecipAdvBareGrd,  20.0)
+    HeatPrecipAdvBareGrd(I,J) = max(HeatPrecipAdvBareGrd(I,J), -20.0)
+    HeatPrecipAdvBareGrd(I,J) = min(HeatPrecipAdvBareGrd(I,J),  20.0)
 
   endif
-        end associate
 
       end do
     end do
     !$acc end parallel loop
+
+
+        end associate
 
   end subroutine PrecipitationHeatAdvect
 

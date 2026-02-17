@@ -58,6 +58,7 @@ contains
     NoahmpIO%SOIL_UPDATE_STEPS = max(NoahmpIO%SOIL_UPDATE_STEPS,1)
 
     if ( NoahmpIO%SOIL_UPDATE_STEPS == 1 ) then
+       !$acc parallel loop collapse(2) gang vector default(present) private(I, J)
        do J = NoahmpIO%JTS, NoahmpIO%JTE
        do I = NoahmpIO%ITS, NoahmpIO%ITE
           NoahmpIO%ACC_SSOILXY(I,J)    = 0.0
@@ -76,6 +77,7 @@ contains
 
     if ( NoahmpIO%SOIL_UPDATE_STEPS > 1 ) then
        if ( mod(NoahmpIO%ITIMESTEP, NoahmpIO%SOIL_UPDATE_STEPS) == 1 ) then
+          !$acc parallel loop collapse(2) gang vector default(present) private(I, J)
           do J = NoahmpIO%JTS, NoahmpIO%JTE
           do I = NoahmpIO%ITS, NoahmpIO%ITE
              NoahmpIO%ACC_SSOILXY(I,J)    = 0.0
@@ -163,6 +165,8 @@ contains
              !------------------------------------------------------------------------------------
              !  initialize Data Types and transfer all the inputs from 2-D to 1-D column variables
              !------------------------------------------------------------------------------------
+
+             !$acc enter data copyin(noahmp)  ! copy in empty noahmp data type to be filled in by init and transfer subroutines
              call ConfigVarInitDefault  (noahmp)
              call ConfigVarInTransfer   (noahmp, NoahmpIO)
              call ForcingVarInitDefault (noahmp)
@@ -173,6 +177,7 @@ contains
              call WaterVarInTransfer    (noahmp, NoahmpIO)
              call BiochemVarInitDefault (noahmp)
              call BiochemVarInTransfer  (noahmp, NoahmpIO)
+             !$acc update device(noahmp)  ! update device with initialized and transferred noahmp data type
 
       JLOOP2 : do J = NoahmpIO%JTS, NoahmpIO%JTE
        ILOOP2 : do I = NoahmpIO%ITS, NoahmpIO%ITE

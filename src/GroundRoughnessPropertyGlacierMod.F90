@@ -28,40 +28,42 @@ contains
     integer                          :: I, J      ! grid indices
 
 ! --------------------------------------------------------------------
-   !$acc parallel loop collapse(2) gang vector present(noahmp)
+    associate(                                                                &
+              RefHeightAboveSfc => noahmp%config%domain%RefHeightAboveSfc,& ! in,  reference height [m] above surface zero plane
+              SnowDepth         => noahmp%water%state%SnowDepth          ,& ! in,  snow depth [m]
+              RoughLenMomSnow   => noahmp%energy%param%RoughLenMomSnow   ,& ! in,  snow surface roughness length [m]
+              RoughLenMomSfc    => noahmp%energy%state%RoughLenMomSfc    ,& ! out, roughness length [m], momentum, surface
+              RoughLenMomGrd    => noahmp%energy%state%RoughLenMomGrd    ,& ! out, roughness length [m], momentum, ground
+              ZeroPlaneDispSfc  => noahmp%energy%state%ZeroPlaneDispSfc  ,& ! out, surface zero plane displacement [m]
+              ZeroPlaneDispGrd  => noahmp%energy%state%ZeroPlaneDispGrd  ,& ! out, ground zero plane displacement [m]
+              RefHeightAboveGrd => noahmp%energy%state%RefHeightAboveGrd  & ! out, reference height [m] above ground
+             )
+
+   !$acc parallel loop collapse(2) gang vector default(present)
     do J = noahmp%config%domain%JTS, noahmp%config%domain%JTE
       do I = noahmp%config%domain%ITS, noahmp%config%domain%ITE
 
         if (noahmp%config%domain%IndicatorIceSfc(I,J) /= -1) cycle
 
-    associate(                                                                &
-              RefHeightAboveSfc => noahmp%config%domain%RefHeightAboveSfc(I,J),& ! in,  reference height [m] above surface zero plane
-              SnowDepth         => noahmp%water%state%SnowDepth(I,J)          ,& ! in,  snow depth [m]
-              RoughLenMomSnow   => noahmp%energy%param%RoughLenMomSnow(I,J)   ,& ! in,  snow surface roughness length [m]
-              RoughLenMomSfc    => noahmp%energy%state%RoughLenMomSfc(I,J)    ,& ! out, roughness length [m], momentum, surface
-              RoughLenMomGrd    => noahmp%energy%state%RoughLenMomGrd(I,J)    ,& ! out, roughness length [m], momentum, ground
-              ZeroPlaneDispSfc  => noahmp%energy%state%ZeroPlaneDispSfc(I,J)  ,& ! out, surface zero plane displacement [m]
-              ZeroPlaneDispGrd  => noahmp%energy%state%ZeroPlaneDispGrd(I,J)  ,& ! out, ground zero plane displacement [m]
-              RefHeightAboveGrd => noahmp%energy%state%RefHeightAboveGrd(I,J)  & ! out, reference height [m] above ground
-             )
-! ----------------------------------------------------------------------
 
     ! ground roughness length
-    RoughLenMomGrd    = RoughLenMomSnow
-    RoughLenMomSfc    = RoughLenMomGrd
+    RoughLenMomGrd(I,J)    = RoughLenMomSnow(I,J)
+    RoughLenMomSfc(I,J)    = RoughLenMomGrd(I,J)
 
     ! surface roughness length and displacement height
-    ZeroPlaneDispGrd  = SnowDepth
-    ZeroPlaneDispSfc  = ZeroPlaneDispGrd
+    ZeroPlaneDispGrd(I,J)  = SnowDepth(I,J)
+    ZeroPlaneDispSfc(I,J)  = ZeroPlaneDispGrd(I,J)
 
     ! reference height above ground
-    RefHeightAboveGrd = ZeroPlaneDispSfc + RefHeightAboveSfc
+    RefHeightAboveGrd(I,J) = ZeroPlaneDispSfc(I,J) + RefHeightAboveSfc(I,J)
 
-    end associate
 
       end do
     end do
    !$acc end parallel loop
+
+
+    end associate
 
   end subroutine GroundRoughnessPropertyGlacier
 

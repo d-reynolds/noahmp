@@ -28,39 +28,39 @@ contains
     real(kind=kind_noahmp)           :: SnowAlbedoTmp         ! temporary snow albedo
 
 ! --------------------------------------------------------------------
-    !$acc parallel loop collapse(2) gang vector present(noahmp)
+        associate(                                                                     &
+                  NumSwRadBand         => noahmp%config%domain%NumSwRadBand           ,& ! in,  number of solar radiation wave bands
+                  MainTimeStep         => noahmp%config%domain%MainTimeStep           ,& ! in,  noahmp main time step [s]
+                  SnowfallGround       => noahmp%water%flux%SnowfallGround       ,& ! in,  snowfall at ground [mm/s]
+                  SnowMassFullCoverOld => noahmp%water%param%SnowMassFullCoverOld     ,& ! in,  new snow mass to fully cover old snow [mm]
+                  SnowAlbRefClass      => noahmp%energy%param%SnowAlbRefClass         ,& ! in,  reference snow albedo in CLASS scheme
+                  SnowAgeFacClass      => noahmp%energy%param%SnowAgeFacClass         ,& ! in,  snow aging e-folding time [s]
+                  SnowAlbFreshClass    => noahmp%energy%param%SnowAlbFreshClass       ,& ! in,  fresh snow albedo
+                  AlbedoSnowPrev       => noahmp%energy%state%AlbedoSnowPrev     ,& ! in,  snow albedo at last time step
+                  AlbedoSnowDir        => noahmp%energy%state%AlbedoSnowDir           ,& ! out, snow albedo for direct (1=vis, 2=nir) (3D)
+                  AlbedoSnowDif        => noahmp%energy%state%AlbedoSnowDif            & ! out, snow albedo for diffuse (1=vis, 2=nir) (3D)
+                 )
+
+    !$acc parallel loop collapse(2) gang vector default(present) private(SnowAlbedoTmp)
     do J = noahmp%config%domain%JTS, noahmp%config%domain%JTE
       do I = noahmp%config%domain%ITS, noahmp%config%domain%ITE
 
         ! solar radiation process is only done if there is light
         if ( noahmp%config%domain%CosSolarZenithAngle(I,J) <= 0 ) cycle
 
-        associate(                                                                     &
-                  NumSwRadBand         => noahmp%config%domain%NumSwRadBand           ,& ! in,  number of solar radiation wave bands
-                  MainTimeStep         => noahmp%config%domain%MainTimeStep           ,& ! in,  noahmp main time step [s]
-                  SnowfallGround       => noahmp%water%flux%SnowfallGround(I,J)       ,& ! in,  snowfall at ground [mm/s]
-                  SnowMassFullCoverOld => noahmp%water%param%SnowMassFullCoverOld(I,J)     ,& ! in,  new snow mass to fully cover old snow [mm]
-                  SnowAlbRefClass      => noahmp%energy%param%SnowAlbRefClass(I,J)         ,& ! in,  reference snow albedo in CLASS scheme
-                  SnowAgeFacClass      => noahmp%energy%param%SnowAgeFacClass(I,J)         ,& ! in,  snow aging e-folding time [s]
-                  SnowAlbFreshClass    => noahmp%energy%param%SnowAlbFreshClass(I,J)       ,& ! in,  fresh snow albedo
-                  AlbedoSnowPrev       => noahmp%energy%state%AlbedoSnowPrev(I,J)     ,& ! in,  snow albedo at last time step
-                  AlbedoSnowDir        => noahmp%energy%state%AlbedoSnowDir           ,& ! out, snow albedo for direct (1=vis, 2=nir) (3D)
-                  AlbedoSnowDif        => noahmp%energy%state%AlbedoSnowDif            & ! out, snow albedo for diffuse (1=vis, 2=nir) (3D)
-                 )
-! ----------------------------------------------------------------------
 
         ! initialization
         AlbedoSnowDir(I,1:NumSwRadBand,J) = 0.0
         AlbedoSnowDif(I,1:NumSwRadBand,J) = 0.0
 
         ! when CosSolarZenithAngle > 0
-        SnowAlbedoTmp = SnowAlbRefClass + (AlbedoSnowPrev-SnowAlbRefClass) * exp(-0.01*MainTimeStep/SnowAgeFacClass)
+        SnowAlbedoTmp = SnowAlbRefClass(I,J) + (AlbedoSnowPrev(I,J)-SnowAlbRefClass(I,J)) * exp(-0.01*MainTimeStep/SnowAgeFacClass(I,J))
 
         ! 1 mm fresh snow(SWE) -- 10mm snow depth, assumed the fresh snow density 100kg/m3
         ! here assume 1cm snow depth will fully cover the old snow
-        if ( SnowfallGround > 0.0 ) then
-           SnowAlbedoTmp = SnowAlbedoTmp + min(SnowfallGround, SnowMassFullCoverOld/MainTimeStep) * &
-                                           (SnowAlbFreshClass-SnowAlbedoTmp) / (SnowMassFullCoverOld/MainTimeStep)
+        if ( SnowfallGround(I,J) > 0.0 ) then
+           SnowAlbedoTmp = SnowAlbedoTmp + min(SnowfallGround(I,J), SnowMassFullCoverOld(I,J)/MainTimeStep) * &
+                                           (SnowAlbFreshClass(I,J)-SnowAlbedoTmp) / (SnowMassFullCoverOld(I,J)/MainTimeStep)
         endif
 
         AlbedoSnowDif(I,1,J) = SnowAlbedoTmp
@@ -68,13 +68,15 @@ contains
         AlbedoSnowDir(I,1,J) = SnowAlbedoTmp
         AlbedoSnowDir(I,2,J) = SnowAlbedoTmp
 
-        AlbedoSnowPrev   = SnowAlbedoTmp
+        AlbedoSnowPrev(I,J)   = SnowAlbedoTmp
 
-        end associate
 
       end do
     end do
     !$acc end parallel loop
+
+
+        end associate
 
   end subroutine SnowAlbedoClass
 

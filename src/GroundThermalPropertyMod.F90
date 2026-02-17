@@ -31,7 +31,25 @@ contains
 
 ! --------------------------------------------------------------------
     ! initialize - done in parallel
-    !$acc parallel loop collapse(2) gang vector present(noahmp)
+        associate(                                                                           &
+                  NumSoilLayer           => noahmp%config%domain%NumSoilLayer               ,& ! in,  number of soil layers
+                  SurfaceType            => noahmp%config%domain%SurfaceType                ,& ! in,  surface type 1-soil; 2-lake
+                  MainTimeStep           => noahmp%config%domain%MainTimeStep               ,& ! in,  main noahmp timestep [s]
+                  ThicknessSnowSoilLayer => noahmp%config%domain%ThicknessSnowSoilLayer     ,& ! in,  thickness of snow/soil layers [m] (3D)
+                  NumSnowLayerNeg        => noahmp%config%domain%NumSnowLayerNeg       ,& ! in,  actual number of snow layers (negative)
+                  FlagUrban              => noahmp%config%domain%FlagUrban             ,& ! in,  logical flag for urban grid
+                  SnowDepth              => noahmp%water%state%SnowDepth               ,& ! in,  snow depth [m]
+                  TemperatureSoilSnow    => noahmp%energy%state%TemperatureSoilSnow         ,& ! in,  snow and soil layer temperature [K] (3D)
+                  ThermConductSoilSnow   => noahmp%energy%state%ThermConductSoilSnow        ,& ! out, thermal conductivity [W/m/K] for all soil & snow (3D)
+                  HeatCapacSoilSnow      => noahmp%energy%state%HeatCapacSoilSnow           ,& ! out, heat capacity [J/m3/K] for all soil & snow (3D)
+                  PhaseChgFacSoilSnow    => noahmp%energy%state%PhaseChgFacSoilSnow         ,& ! out, energy factor for soil & snow phase change (3D)
+                  HeatCapacVolSnow       => noahmp%energy%state%HeatCapacVolSnow            ,& ! out, snow layer volumetric specific heat [J/m3/K] (3D)
+                  ThermConductSnow       => noahmp%energy%state%ThermConductSnow            ,& ! out, snow layer thermal conductivity [W/m/K] (3D)
+                  HeatCapacVolSoil       => noahmp%energy%state%HeatCapacVolSoil            ,& ! out, soil layer volumetric specific heat [J/m3/K] (3D)
+                  ThermConductSoil       => noahmp%energy%state%ThermConductSoil             & ! out, soil layer thermal conductivity [W/m/K] (3D)
+                 )
+
+    !$acc parallel loop collapse(2) gang vector default(present)
     do J = noahmp%config%domain%JTS, noahmp%config%domain%JTE
       do I = noahmp%config%domain%ITS, noahmp%config%domain%ITE
         noahmp%energy%state%HeatCapacSoilSnow(I,:,J)    = 0.0
@@ -47,32 +65,14 @@ contains
     call SoilThermalProperty(noahmp)
 
     ! combine snow and soil thermal properties, compute phase change factor
-    !$acc parallel loop collapse(2) gang vector present(noahmp)
+    !$acc parallel loop collapse(2) gang vector default(present) private(LoopInd)
     do J = noahmp%config%domain%JTS, noahmp%config%domain%JTE
       do I = noahmp%config%domain%ITS, noahmp%config%domain%ITE
 
-        associate(                                                                           &
-                  NumSoilLayer           => noahmp%config%domain%NumSoilLayer               ,& ! in,  number of soil layers
-                  SurfaceType            => noahmp%config%domain%SurfaceType(I,J)                ,& ! in,  surface type 1-soil; 2-lake
-                  MainTimeStep           => noahmp%config%domain%MainTimeStep               ,& ! in,  main noahmp timestep [s]
-                  ThicknessSnowSoilLayer => noahmp%config%domain%ThicknessSnowSoilLayer     ,& ! in,  thickness of snow/soil layers [m] (3D)
-                  NumSnowLayerNeg        => noahmp%config%domain%NumSnowLayerNeg(I,J)       ,& ! in,  actual number of snow layers (negative)
-                  FlagUrban              => noahmp%config%domain%FlagUrban(I,J)             ,& ! in,  logical flag for urban grid
-                  SnowDepth              => noahmp%water%state%SnowDepth(I,J)               ,& ! in,  snow depth [m]
-                  TemperatureSoilSnow    => noahmp%energy%state%TemperatureSoilSnow         ,& ! in,  snow and soil layer temperature [K] (3D)
-                  ThermConductSoilSnow   => noahmp%energy%state%ThermConductSoilSnow        ,& ! out, thermal conductivity [W/m/K] for all soil & snow (3D)
-                  HeatCapacSoilSnow      => noahmp%energy%state%HeatCapacSoilSnow           ,& ! out, heat capacity [J/m3/K] for all soil & snow (3D)
-                  PhaseChgFacSoilSnow    => noahmp%energy%state%PhaseChgFacSoilSnow         ,& ! out, energy factor for soil & snow phase change (3D)
-                  HeatCapacVolSnow       => noahmp%energy%state%HeatCapacVolSnow            ,& ! out, snow layer volumetric specific heat [J/m3/K] (3D)
-                  ThermConductSnow       => noahmp%energy%state%ThermConductSnow            ,& ! out, snow layer thermal conductivity [W/m/K] (3D)
-                  HeatCapacVolSoil       => noahmp%energy%state%HeatCapacVolSoil            ,& ! out, soil layer volumetric specific heat [J/m3/K] (3D)
-                  ThermConductSoil       => noahmp%energy%state%ThermConductSoil             & ! out, soil layer thermal conductivity [W/m/K] (3D)
-                 )
-! ----------------------------------------------------------------------
 
         ! copy snow thermal properties
         !$acc loop seq
-        do LoopInd = NumSnowLayerNeg+1, 0
+        do LoopInd = NumSnowLayerNeg(I,J)+1, 0
            ThermConductSoilSnow(I,LoopInd,J) = ThermConductSnow(I,LoopInd,J)
            HeatCapacSoilSnow(I,LoopInd,J)    = HeatCapacVolSnow(I,LoopInd,J)
         enddo
@@ -85,7 +85,7 @@ contains
         enddo
 
         ! urban override
-        if ( FlagUrban .eqv. .true. ) then
+        if ( FlagUrban(I,J) .eqv. .true. ) then
            !$acc loop seq
            do LoopInd = 1, NumSoilLayer
               ThermConductSoilSnow(I,LoopInd,J) = 3.24
@@ -99,7 +99,7 @@ contains
         ! ThermConductSoilSnow(I,1,J) = ThermConductSoilSnow(I,1,J) * EXP (SBETA * VegFracGreen(I,J))
 
         ! compute lake thermal properties (no consideration of turbulent mixing for this version)
-        if ( SurfaceType == 2 ) then
+        if ( SurfaceType(I,J) == 2 ) then
            !$acc loop seq
            do LoopInd = 1, NumSoilLayer
               if ( TemperatureSoilSnow(I,LoopInd,J) > ConstFreezePoint) then
@@ -114,25 +114,27 @@ contains
 
         ! combine a temporary variable used for melting/freezing of snow and frozen soil
         !$acc loop seq
-        do LoopInd = NumSnowLayerNeg+1, NumSoilLayer
+        do LoopInd = NumSnowLayerNeg(I,J)+1, NumSoilLayer
            PhaseChgFacSoilSnow(I,LoopInd,J) = MainTimeStep / (HeatCapacSoilSnow(I,LoopInd,J) * ThicknessSnowSoilLayer(I,LoopInd,J))
         enddo
 
         ! snow/soil interface
-        if ( NumSnowLayerNeg == 0 ) then
-           ThermConductSoilSnow(I,1,J) = (ThermConductSoilSnow(I,1,J)*ThicknessSnowSoilLayer(I,1,J) + 0.35*SnowDepth) / &
-                                     (SnowDepth + ThicknessSnowSoilLayer(I,1,J))
+        if ( NumSnowLayerNeg(I,J) == 0 ) then
+           ThermConductSoilSnow(I,1,J) = (ThermConductSoilSnow(I,1,J)*ThicknessSnowSoilLayer(I,1,J) + 0.35*SnowDepth(I,J)) / &
+                                     (SnowDepth(I,J) + ThicknessSnowSoilLayer(I,1,J))
         else
            ThermConductSoilSnow(I,1,J) = (ThermConductSoilSnow(I,1,J)*ThicknessSnowSoilLayer(I,1,J) + &
                                       ThermConductSoilSnow(I,0,J)*ThicknessSnowSoilLayer(I,0,J)) / &
                                      (ThicknessSnowSoilLayer(I,0,J) + ThicknessSnowSoilLayer(I,1,J))
         endif
 
-        end associate
 
       end do
     end do
     !$acc end parallel loop
+
+
+        end associate
 
   end subroutine GroundThermalProperty
 

@@ -30,24 +30,26 @@ contains
     integer                          :: I, J      ! grid indices
 
 ! --------------------------------------------------------------------
-   !$acc parallel loop collapse(2) gang vector present(noahmp)
+    associate(                                                               &
+              ResistanceGrdEvap => noahmp%energy%state%ResistanceGrdEvap,& ! out, ground surface resistance [s/m] to evaporation
+              RelHumidityGrd    => noahmp%energy%state%RelHumidityGrd    & ! out, raltive humidity in surface glacier/snow air space
+             )
+
+   !$acc parallel loop collapse(2) gang vector default(present)
     do J = noahmp%config%domain%JTS, noahmp%config%domain%JTE
       do I = noahmp%config%domain%ITS, noahmp%config%domain%ITE
 
-    associate(                                                               &
-              ResistanceGrdEvap => noahmp%energy%state%ResistanceGrdEvap(I,J),& ! out, ground surface resistance [s/m] to evaporation
-              RelHumidityGrd    => noahmp%energy%state%RelHumidityGrd(I,J)    & ! out, raltive humidity in surface glacier/snow air space
-             )
-! ----------------------------------------------------------------------
 
-    ResistanceGrdEvap = 1.0
-    RelHumidityGrd    = 1.0
+    ResistanceGrdEvap(I,J) = 1.0
+    RelHumidityGrd(I,J)    = 1.0
 
-    end associate
 
       end do
     end do
    !$acc end parallel loop
+
+
+    end associate
 
   end subroutine ResistanceGroundEvaporationGlacier
 

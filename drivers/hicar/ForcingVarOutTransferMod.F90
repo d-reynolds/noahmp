@@ -26,7 +26,7 @@ contains
 
     integer :: I, J
 
-    !$acc parallel loop collapse(2) present(noahmp, NoahmpIO)
+    !$acc parallel loop collapse(2) default(present)
     do J = noahmp%config%domain%JTS, noahmp%config%domain%JTE
       do I = noahmp%config%domain%ITS, noahmp%config%domain%ITE
 

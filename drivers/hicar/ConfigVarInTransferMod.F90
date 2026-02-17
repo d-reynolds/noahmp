@@ -89,7 +89,6 @@ contains
     noahmp%config%domain%IndexCropPoint              = NoahmpIO%ISCROP_TABLE
     noahmp%config%domain%IndexEBLForest              = NoahmpIO%EBLFOREST_TABLE
     noahmp%config%domain%RunoffSlopeType             = NoahmpIO%SLOPETYP
-    noahmp%config%domain%DepthSoilTempBottom         = NoahmpIO%ZBOT_TABLE
 
     noahmp%config%domain%ITS = NoahmpIO%ITS
     noahmp%config%domain%ITE = NoahmpIO%ITE
@@ -104,9 +103,6 @@ contains
        noahmp%config%domain%NumSnicarRadBand         = NoahmpIO%snicar_numrad_snw
        noahmp%config%domain%NumRadiusSnwMieSnicar    = NoahmpIO%idx_Mie_snw_mx
     endif
-
-    ! copy in all scalar fields
-    !$acc enter data copyin(noahmp%config)
 
     associate(                                      &
               NumSnowLayerMax => NoahmpIO%NSNOW    ,&
@@ -203,10 +199,9 @@ contains
        !$acc enter data create(noahmp%config%domain%CosSolarZenithAngle)
     endif
    end associate
+   
+    !$acc update device(noahmp%config)
 
-    !$acc parallel loop collapse(2) gang vector present(noahmp%config, NoahmpIO) private(I, J)
-      do J = noahmp%config%domain%JTS, noahmp%config%domain%JTE
-         do I = noahmp%config%domain%ITS, noahmp%config%domain%ITE
 ! --------------------------------------------------------------------- 
     associate(                                      &
               NumSnowLayerMax => NoahmpIO%NSNOW    ,&
@@ -217,6 +212,10 @@ contains
               JTE             => noahmp%config%domain%JTE              &
              )
 ! ---------------------------------------------------------------------
+
+    !$acc parallel loop collapse(2) gang vector default(present) private(I, J) private(LoopInd)
+      do J = noahmp%config%domain%JTS, noahmp%config%domain%JTE
+         do I = noahmp%config%domain%ITS, noahmp%config%domain%ITE
 
     ! initial setting default values of 2D config arrays -- moved from ConfigVarInitMod,
     ! since these arrays are only allocated above and not earlier
@@ -236,8 +235,7 @@ contains
       noahmp%config%domain%RefHeightAboveSfc(I,J)      = undefined_real
       noahmp%config%domain%ThicknessAtmosBotLayer(I,J) = undefined_real
       noahmp%config%domain%Latitude(I,J)               = undefined_real
-      noahmp%config%domain%DepthSoilTempBottom(I,J)    = undefined_real
-
+      noahmp%config%domain%DepthSoilTempBottom(I,J)    = NoahmpIO%ZBOT_TABLE
 
     noahmp%config%domain%SoilColor(I,J)                   = 4
     noahmp%config%domain%NumSnowLayerNeg(I,J)             = NoahmpIO%ISNOWXY(I,J)
@@ -329,10 +327,9 @@ contains
 #endif
     endif
 
-    end associate
-
          enddo
       enddo 
+    end associate
 
   end subroutine ConfigVarInTransfer
 

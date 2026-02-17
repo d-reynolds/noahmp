@@ -29,15 +29,15 @@ contains
     integer :: LoopInd
 
 ! -------------------------------------------------------------------------
-      !$acc parallel loop collapse(2) present(noahmp, NoahmpIO)
-      do J = noahmp%config%domain%JTS, noahmp%config%domain%JTE
-         do I = noahmp%config%domain%ITS, noahmp%config%domain%ITE
     associate(                                                   &
-              VegType      => noahmp%config%domain%VegType(I,J)      ,&
-              CropType     => noahmp%config%domain%CropType(I,J)     ,&
+              VegType      => noahmp%config%domain%VegType      ,&
+              CropType     => noahmp%config%domain%CropType     ,&
               OptCropModel => noahmp%config%nmlist%OptCropModel  &
              )
-! -------------------------------------------------------------------------
+
+      !$acc parallel loop collapse(2) default(present) private(LoopInd)
+      do J = noahmp%config%domain%JTS, noahmp%config%domain%JTE
+         do I = noahmp%config%domain%ITS, noahmp%config%domain%ITE
 
     ! biochem state variables
     noahmp%biochem%state%PlantGrowStage(I,J)             = NoahmpIO%PGSXY   (I,J)   
@@ -52,79 +52,79 @@ contains
     noahmp%biochem%state%NitrogenConcFoliage(I,J)        = 1.0  ! for now, set to nitrogen saturation
 
     ! biochem parameter variables
-    noahmp%biochem%param%NitrogenConcFoliageMax(I,J)     = NoahmpIO%FOLNMX_TABLE (VegType)
-    noahmp%biochem%param%QuantumEfficiency25C(I,J)       = NoahmpIO%QE25_TABLE   (VegType)
-    noahmp%biochem%param%CarboxylRateMax25C(I,J)         = NoahmpIO%VCMX25_TABLE (VegType)
-    noahmp%biochem%param%CarboxylRateMaxQ10(I,J)         = NoahmpIO%AVCMX_TABLE  (VegType)
-    noahmp%biochem%param%PhotosynPathC3(I,J)             = NoahmpIO%C3PSN_TABLE  (VegType)
-    noahmp%biochem%param%SlopeConductToPhotosyn(I,J)     = NoahmpIO%MP_TABLE     (VegType)
-    noahmp%biochem%param%RespMaintQ10(I,J)               = NoahmpIO%ARM_TABLE    (VegType)
-    noahmp%biochem%param%RespMaintLeaf25C(I,J)           = NoahmpIO%RMF25_TABLE  (VegType)
-    noahmp%biochem%param%RespMaintStem25C(I,J)           = NoahmpIO%RMS25_TABLE  (VegType)
-    noahmp%biochem%param%RespMaintRoot25C(I,J)           = NoahmpIO%RMR25_TABLE  (VegType)
-    noahmp%biochem%param%WoodToRootRatio(I,J)            = NoahmpIO%WRRAT_TABLE  (VegType)
-    noahmp%biochem%param%WoodPoolIndex(I,J)              = NoahmpIO%WDPOOL_TABLE (VegType)
-    noahmp%biochem%param%TurnoverCoeffLeafVeg(I,J)       = NoahmpIO%LTOVRC_TABLE (VegType)
-    noahmp%biochem%param%TemperaureLeafFreeze(I,J)       = NoahmpIO%TDLEF_TABLE  (VegType)
-    noahmp%biochem%param%LeafDeathWaterCoeffVeg(I,J)     = NoahmpIO%DILEFW_TABLE (VegType)
-    noahmp%biochem%param%LeafDeathTempCoeffVeg(I,J)      = NoahmpIO%DILEFC_TABLE (VegType)
-    noahmp%biochem%param%GrowthRespFrac(I,J)             = NoahmpIO%FRAGR_TABLE  (VegType)
-    noahmp%biochem%param%MicroRespCoeff(I,J)             = NoahmpIO%MRP_TABLE    (VegType)
-    noahmp%biochem%param%TemperatureMinPhotosyn(I,J)     = NoahmpIO%TMIN_TABLE   (VegType)
-    noahmp%biochem%param%LeafAreaPerMass1side(I,J)       = NoahmpIO%SLA_TABLE    (VegType)
-    noahmp%biochem%param%StemAreaIndexMin(I,J)           = NoahmpIO%XSAMIN_TABLE (VegType)
-    noahmp%biochem%param%WoodAllocFac(I,J)               = NoahmpIO%BF_TABLE     (VegType)
-    noahmp%biochem%param%WaterStressCoeff(I,J)           = NoahmpIO%WSTRC_TABLE  (VegType)
-    noahmp%biochem%param%LeafAreaIndexMin(I,J)           = NoahmpIO%LAIMIN_TABLE (VegType)
-    noahmp%biochem%param%TurnoverCoeffRootVeg(I,J)       = NoahmpIO%RTOVRC_TABLE (VegType)
-    noahmp%biochem%param%WoodRespCoeff(I,J)              = NoahmpIO%RSWOODC_TABLE(VegType)
+    noahmp%biochem%param%NitrogenConcFoliageMax(I,J)     = NoahmpIO%FOLNMX_TABLE (VegType(I,J))
+    noahmp%biochem%param%QuantumEfficiency25C(I,J)       = NoahmpIO%QE25_TABLE   (VegType(I,J))
+    noahmp%biochem%param%CarboxylRateMax25C(I,J)         = NoahmpIO%VCMX25_TABLE (VegType(I,J))
+    noahmp%biochem%param%CarboxylRateMaxQ10(I,J)         = NoahmpIO%AVCMX_TABLE  (VegType(I,J))
+    noahmp%biochem%param%PhotosynPathC3(I,J)             = NoahmpIO%C3PSN_TABLE  (VegType(I,J))
+    noahmp%biochem%param%SlopeConductToPhotosyn(I,J)     = NoahmpIO%MP_TABLE     (VegType(I,J))
+    noahmp%biochem%param%RespMaintQ10(I,J)               = NoahmpIO%ARM_TABLE    (VegType(I,J))
+    noahmp%biochem%param%RespMaintLeaf25C(I,J)           = NoahmpIO%RMF25_TABLE  (VegType(I,J))
+    noahmp%biochem%param%RespMaintStem25C(I,J)           = NoahmpIO%RMS25_TABLE  (VegType(I,J))
+    noahmp%biochem%param%RespMaintRoot25C(I,J)           = NoahmpIO%RMR25_TABLE  (VegType(I,J))
+    noahmp%biochem%param%WoodToRootRatio(I,J)            = NoahmpIO%WRRAT_TABLE  (VegType(I,J))
+    noahmp%biochem%param%WoodPoolIndex(I,J)              = NoahmpIO%WDPOOL_TABLE (VegType(I,J))
+    noahmp%biochem%param%TurnoverCoeffLeafVeg(I,J)       = NoahmpIO%LTOVRC_TABLE (VegType(I,J))
+    noahmp%biochem%param%TemperaureLeafFreeze(I,J)       = NoahmpIO%TDLEF_TABLE  (VegType(I,J))
+    noahmp%biochem%param%LeafDeathWaterCoeffVeg(I,J)     = NoahmpIO%DILEFW_TABLE (VegType(I,J))
+    noahmp%biochem%param%LeafDeathTempCoeffVeg(I,J)      = NoahmpIO%DILEFC_TABLE (VegType(I,J))
+    noahmp%biochem%param%GrowthRespFrac(I,J)             = NoahmpIO%FRAGR_TABLE  (VegType(I,J))
+    noahmp%biochem%param%MicroRespCoeff(I,J)             = NoahmpIO%MRP_TABLE    (VegType(I,J))
+    noahmp%biochem%param%TemperatureMinPhotosyn(I,J)     = NoahmpIO%TMIN_TABLE   (VegType(I,J))
+    noahmp%biochem%param%LeafAreaPerMass1side(I,J)       = NoahmpIO%SLA_TABLE    (VegType(I,J))
+    noahmp%biochem%param%StemAreaIndexMin(I,J)           = NoahmpIO%XSAMIN_TABLE (VegType(I,J))
+    noahmp%biochem%param%WoodAllocFac(I,J)               = NoahmpIO%BF_TABLE     (VegType(I,J))
+    noahmp%biochem%param%WaterStressCoeff(I,J)           = NoahmpIO%WSTRC_TABLE  (VegType(I,J))
+    noahmp%biochem%param%LeafAreaIndexMin(I,J)           = NoahmpIO%LAIMIN_TABLE (VegType(I,J))
+    noahmp%biochem%param%TurnoverCoeffRootVeg(I,J)       = NoahmpIO%RTOVRC_TABLE (VegType(I,J))
+    noahmp%biochem%param%WoodRespCoeff(I,J)              = NoahmpIO%RSWOODC_TABLE(VegType(I,J))
     ! crop model specific parameters
-    if ( (OptCropModel > 0) .and. (CropType > 0) ) then
-       noahmp%biochem%param%DatePlanting(I,J)            = NoahmpIO%PLTDAY_TABLE   (CropType)
-       noahmp%biochem%param%DateHarvest(I,J)             = NoahmpIO%HSDAY_TABLE    (CropType)
-       noahmp%biochem%param%NitrogenConcFoliageMax(I,J)  = NoahmpIO%FOLNMXI_TABLE  (CropType)
-       noahmp%biochem%param%QuantumEfficiency25C(I,J)    = NoahmpIO%QE25I_TABLE    (CropType)
-       noahmp%biochem%param%CarboxylRateMax25C(I,J)      = NoahmpIO%VCMX25I_TABLE  (CropType)
-       noahmp%biochem%param%CarboxylRateMaxQ10(I,J)      = NoahmpIO%AVCMXI_TABLE   (CropType)
-       noahmp%biochem%param%PhotosynPathC3(I,J)          = NoahmpIO%C3PSNI_TABLE   (CropType)
-       noahmp%biochem%param%SlopeConductToPhotosyn(I,J)  = NoahmpIO%MPI_TABLE      (CropType)
-       noahmp%biochem%param%RespMaintQ10(I,J)            = NoahmpIO%Q10MR_TABLE    (CropType)
-       noahmp%biochem%param%RespMaintLeaf25C(I,J)        = NoahmpIO%LFMR25_TABLE   (CropType)
-       noahmp%biochem%param%RespMaintStem25C(I,J)        = NoahmpIO%STMR25_TABLE   (CropType)
-       noahmp%biochem%param%RespMaintRoot25C(I,J)        = NoahmpIO%RTMR25_TABLE   (CropType)
-       noahmp%biochem%param%GrowthRespFrac(I,J)          = NoahmpIO%FRA_GR_TABLE   (CropType)
-       noahmp%biochem%param%TemperaureLeafFreeze(I,J)    = NoahmpIO%LEFREEZ_TABLE  (CropType)
-       noahmp%biochem%param%LeafAreaPerBiomass(I,J)      = NoahmpIO%BIO2LAI_TABLE  (CropType)
-       noahmp%biochem%param%TempBaseGrowDegDay(I,J)      = NoahmpIO%GDDTBASE_TABLE (CropType)
-       noahmp%biochem%param%TempMaxGrowDegDay(I,J)       = NoahmpIO%GDDTCUT_TABLE  (CropType)
-       noahmp%biochem%param%GrowDegDayEmerg(I,J)         = NoahmpIO%GDDS1_TABLE    (CropType)
-       noahmp%biochem%param%GrowDegDayInitVeg(I,J)       = NoahmpIO%GDDS2_TABLE    (CropType)
-       noahmp%biochem%param%GrowDegDayPostVeg(I,J)       = NoahmpIO%GDDS3_TABLE    (CropType)
-       noahmp%biochem%param%GrowDegDayInitReprod(I,J)    = NoahmpIO%GDDS4_TABLE    (CropType)
-       noahmp%biochem%param%GrowDegDayMature(I,J)        = NoahmpIO%GDDS5_TABLE    (CropType)
-       noahmp%biochem%param%PhotosynRadFrac(I,J)         = NoahmpIO%I2PAR_TABLE    (CropType)
-       noahmp%biochem%param%TempMinCarbonAssim(I,J)      = NoahmpIO%TASSIM0_TABLE  (CropType)
-       noahmp%biochem%param%TempMaxCarbonAssim(I,J)      = NoahmpIO%TASSIM1_TABLE  (CropType)
-       noahmp%biochem%param%TempMaxCarbonAssimMax(I,J)   = NoahmpIO%TASSIM2_TABLE  (CropType)
-       noahmp%biochem%param%CarbonAssimRefMax(I,J)       = NoahmpIO%AREF_TABLE     (CropType)
-       noahmp%biochem%param%LightExtCoeff(I,J)           = NoahmpIO%K_TABLE        (CropType)
-       noahmp%biochem%param%LightUseEfficiency(I,J)      = NoahmpIO%EPSI_TABLE     (CropType)
-       noahmp%biochem%param%CarbonAssimReducFac(I,J)     = NoahmpIO%PSNRF_TABLE    (CropType)
-       noahmp%biochem%param%RespMaintGrain25C(I,J)       = NoahmpIO%GRAINMR25_TABLE(CropType)
+    if ( (OptCropModel > 0) .and. (CropType(I,J) > 0) ) then
+       noahmp%biochem%param%DatePlanting(I,J)            = NoahmpIO%PLTDAY_TABLE   (CropType(I,J))
+       noahmp%biochem%param%DateHarvest(I,J)             = NoahmpIO%HSDAY_TABLE    (CropType(I,J))
+       noahmp%biochem%param%NitrogenConcFoliageMax(I,J)  = NoahmpIO%FOLNMXI_TABLE  (CropType(I,J))
+       noahmp%biochem%param%QuantumEfficiency25C(I,J)    = NoahmpIO%QE25I_TABLE    (CropType(I,J))
+       noahmp%biochem%param%CarboxylRateMax25C(I,J)      = NoahmpIO%VCMX25I_TABLE  (CropType(I,J))
+       noahmp%biochem%param%CarboxylRateMaxQ10(I,J)      = NoahmpIO%AVCMXI_TABLE   (CropType(I,J))
+       noahmp%biochem%param%PhotosynPathC3(I,J)          = NoahmpIO%C3PSNI_TABLE   (CropType(I,J))
+       noahmp%biochem%param%SlopeConductToPhotosyn(I,J)  = NoahmpIO%MPI_TABLE      (CropType(I,J))
+       noahmp%biochem%param%RespMaintQ10(I,J)            = NoahmpIO%Q10MR_TABLE    (CropType(I,J))
+       noahmp%biochem%param%RespMaintLeaf25C(I,J)        = NoahmpIO%LFMR25_TABLE   (CropType(I,J))
+       noahmp%biochem%param%RespMaintStem25C(I,J)        = NoahmpIO%STMR25_TABLE   (CropType(I,J))
+       noahmp%biochem%param%RespMaintRoot25C(I,J)        = NoahmpIO%RTMR25_TABLE   (CropType(I,J))
+       noahmp%biochem%param%GrowthRespFrac(I,J)          = NoahmpIO%FRA_GR_TABLE   (CropType(I,J))
+       noahmp%biochem%param%TemperaureLeafFreeze(I,J)    = NoahmpIO%LEFREEZ_TABLE  (CropType(I,J))
+       noahmp%biochem%param%LeafAreaPerBiomass(I,J)      = NoahmpIO%BIO2LAI_TABLE  (CropType(I,J))
+       noahmp%biochem%param%TempBaseGrowDegDay(I,J)      = NoahmpIO%GDDTBASE_TABLE (CropType(I,J))
+       noahmp%biochem%param%TempMaxGrowDegDay(I,J)       = NoahmpIO%GDDTCUT_TABLE  (CropType(I,J))
+       noahmp%biochem%param%GrowDegDayEmerg(I,J)         = NoahmpIO%GDDS1_TABLE    (CropType(I,J))
+       noahmp%biochem%param%GrowDegDayInitVeg(I,J)       = NoahmpIO%GDDS2_TABLE    (CropType(I,J))
+       noahmp%biochem%param%GrowDegDayPostVeg(I,J)       = NoahmpIO%GDDS3_TABLE    (CropType(I,J))
+       noahmp%biochem%param%GrowDegDayInitReprod(I,J)    = NoahmpIO%GDDS4_TABLE    (CropType(I,J))
+       noahmp%biochem%param%GrowDegDayMature(I,J)        = NoahmpIO%GDDS5_TABLE    (CropType(I,J))
+       noahmp%biochem%param%PhotosynRadFrac(I,J)         = NoahmpIO%I2PAR_TABLE    (CropType(I,J))
+       noahmp%biochem%param%TempMinCarbonAssim(I,J)      = NoahmpIO%TASSIM0_TABLE  (CropType(I,J))
+       noahmp%biochem%param%TempMaxCarbonAssim(I,J)      = NoahmpIO%TASSIM1_TABLE  (CropType(I,J))
+       noahmp%biochem%param%TempMaxCarbonAssimMax(I,J)   = NoahmpIO%TASSIM2_TABLE  (CropType(I,J))
+       noahmp%biochem%param%CarbonAssimRefMax(I,J)       = NoahmpIO%AREF_TABLE     (CropType(I,J))
+       noahmp%biochem%param%LightExtCoeff(I,J)           = NoahmpIO%K_TABLE        (CropType(I,J))
+       noahmp%biochem%param%LightUseEfficiency(I,J)      = NoahmpIO%EPSI_TABLE     (CropType(I,J))
+       noahmp%biochem%param%CarbonAssimReducFac(I,J)     = NoahmpIO%PSNRF_TABLE    (CropType(I,J))
+       noahmp%biochem%param%RespMaintGrain25C(I,J)       = NoahmpIO%GRAINMR25_TABLE(CropType(I,J))
        !$acc loop seq
        do LoopInd = 1, noahmp%config%domain%NumCropGrowStage
-         noahmp%biochem%param%LeafDeathTempCoeffCrop(I,LoopInd,J)  = NoahmpIO%DILE_FC_TABLE  (CropType,LoopInd)
-         noahmp%biochem%param%LeafDeathWaterCoeffCrop(I,LoopInd,J) = NoahmpIO%DILE_FW_TABLE  (CropType,LoopInd)
-         noahmp%biochem%param%CarbohydrLeafToGrain(I,LoopInd,J)    = NoahmpIO%LFCT_TABLE     (CropType,LoopInd)
-         noahmp%biochem%param%CarbohydrStemToGrain(I,LoopInd,J)    = NoahmpIO%STCT_TABLE     (CropType,LoopInd)
-         noahmp%biochem%param%CarbohydrRootToGrain(I,LoopInd,J)    = NoahmpIO%RTCT_TABLE     (CropType,LoopInd)
-         noahmp%biochem%param%CarbohydrFracToLeaf(I,LoopInd,J)     = NoahmpIO%LFPT_TABLE     (CropType,LoopInd)
-         noahmp%biochem%param%CarbohydrFracToStem(I,LoopInd,J)     = NoahmpIO%STPT_TABLE     (CropType,LoopInd)
-         noahmp%biochem%param%CarbohydrFracToRoot(I,LoopInd,J)     = NoahmpIO%RTPT_TABLE     (CropType,LoopInd)
-         noahmp%biochem%param%CarbohydrFracToGrain(I,LoopInd,J)    = NoahmpIO%GRAINPT_TABLE  (CropType,LoopInd)
-         noahmp%biochem%param%TurnoverCoeffLeafCrop(I,LoopInd,J)   = NoahmpIO%LF_OVRC_TABLE  (CropType,LoopInd)
-         noahmp%biochem%param%TurnoverCoeffStemCrop(I,LoopInd,J)   = NoahmpIO%ST_OVRC_TABLE  (CropType,LoopInd)
-         noahmp%biochem%param%TurnoverCoeffRootCrop(I,LoopInd,J)   = NoahmpIO%RT_OVRC_TABLE  (CropType,LoopInd)
+         noahmp%biochem%param%LeafDeathTempCoeffCrop(I,LoopInd,J)  = NoahmpIO%DILE_FC_TABLE  (CropType(I,J),LoopInd)
+         noahmp%biochem%param%LeafDeathWaterCoeffCrop(I,LoopInd,J) = NoahmpIO%DILE_FW_TABLE  (CropType(I,J),LoopInd)
+         noahmp%biochem%param%CarbohydrLeafToGrain(I,LoopInd,J)    = NoahmpIO%LFCT_TABLE     (CropType(I,J),LoopInd)
+         noahmp%biochem%param%CarbohydrStemToGrain(I,LoopInd,J)    = NoahmpIO%STCT_TABLE     (CropType(I,J),LoopInd)
+         noahmp%biochem%param%CarbohydrRootToGrain(I,LoopInd,J)    = NoahmpIO%RTCT_TABLE     (CropType(I,J),LoopInd)
+         noahmp%biochem%param%CarbohydrFracToLeaf(I,LoopInd,J)     = NoahmpIO%LFPT_TABLE     (CropType(I,J),LoopInd)
+         noahmp%biochem%param%CarbohydrFracToStem(I,LoopInd,J)     = NoahmpIO%STPT_TABLE     (CropType(I,J),LoopInd)
+         noahmp%biochem%param%CarbohydrFracToRoot(I,LoopInd,J)     = NoahmpIO%RTPT_TABLE     (CropType(I,J),LoopInd)
+         noahmp%biochem%param%CarbohydrFracToGrain(I,LoopInd,J)    = NoahmpIO%GRAINPT_TABLE  (CropType(I,J),LoopInd)
+         noahmp%biochem%param%TurnoverCoeffLeafCrop(I,LoopInd,J)   = NoahmpIO%LF_OVRC_TABLE  (CropType(I,J),LoopInd)
+         noahmp%biochem%param%TurnoverCoeffStemCrop(I,LoopInd,J)   = NoahmpIO%ST_OVRC_TABLE  (CropType(I,J),LoopInd)
+         noahmp%biochem%param%TurnoverCoeffRootCrop(I,LoopInd,J)   = NoahmpIO%RT_OVRC_TABLE  (CropType(I,J),LoopInd)
        end do
        if ( OptCropModel == 1 ) then
           if ( (NoahmpIO%PLANTING(I,J)>0) .and. (NoahmpIO%PLANTING(I,J)<367) ) then
@@ -157,10 +157,12 @@ contains
        endif ! 2D input map exist
     endif
     
-      end associate
     end do
     end do
     !$acc end parallel loop
+
+
+    end associate
 
   end subroutine BiochemVarInTransfer
 

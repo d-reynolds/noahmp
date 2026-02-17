@@ -30,27 +30,28 @@ contains
     ! compute ground water
     call GroundWaterTopModel(noahmp)
 
-    !$acc parallel loop collapse(2) gang vector present(noahmp)
+    associate(                                                              &
+              DischargeGw      => noahmp%water%flux%DischargeGw            ,& ! out, groundwater discharge [mm/s]
+              RunoffSubsurface => noahmp%water%flux%RunoffSubsurface        & ! out, subsurface runoff [mm/s]
+             )
+
+    !$acc parallel loop collapse(2) gang vector default(present)
     do J = noahmp%config%domain%JTS, noahmp%config%domain%JTE
       do I = noahmp%config%domain%ITS, noahmp%config%domain%ITE
          if ( noahmp%config%domain%IndicatorIceSfc(I,J) == -1 ) cycle  ! skip soil process for ice surface points
 
-! --------------------------------------------------------------------
-    associate(                                                              &
-              DischargeGw      => noahmp%water%flux%DischargeGw(I,J)            ,& ! out, groundwater discharge [mm/s]
-              RunoffSubsurface => noahmp%water%flux%RunoffSubsurface(I,J)        & ! out, subsurface runoff [mm/s]
-             )
-! ----------------------------------------------------------------------
 
     ! compute subsurface runoff as groundwater discharge
-    RunoffSubsurface = DischargeGw
+    RunoffSubsurface(I,J) = DischargeGw(I,J)
 
-    end associate
 
       end do
     end do
     !$acc end parallel loop
 
+
+
+    end associate
 
   end subroutine RunoffSubSurfaceGroundWater
 

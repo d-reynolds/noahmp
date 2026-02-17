@@ -31,11 +31,6 @@ contains
     real(kind=kind_noahmp)           :: WaterAvailTmp        ! temporary available water
     real(kind=kind_noahmp)           :: WaterTableDepthTmp   ! temporary water table depth [m]
 
-    !$acc parallel loop collapse(2) gang vector present(noahmp)
-    do J = noahmp%config%domain%JTS, noahmp%config%domain%JTE
-      do I = noahmp%config%domain%ITS, noahmp%config%domain%ITE
-         if ( noahmp%config%domain%IndicatorIceSfc(I,J) == -1 ) cycle  ! skip soil process for ice surface points
-! --------------------------------------------------------------------
     associate(                                                                 &
               NumSoilLayer         => noahmp%config%domain%NumSoilLayer       ,& ! in,    number of soil layers
               DepthSoilLayer       => noahmp%config%domain%DepthSoilLayer     ,& ! in,    depth [m] of layer-bottom from soil surface
@@ -43,9 +38,14 @@ contains
               SoilMoistureFieldCap => noahmp%water%param%SoilMoistureFieldCap ,& ! in,    reference soil moisture (field capacity) [m3/m3]
               SoilMoistureWilt     => noahmp%water%param%SoilMoistureWilt     ,& ! in,    wilting point soil moisture [m3/m3]
               SoilMoisture         => noahmp%water%state%SoilMoisture         ,& ! inout, total soil moisture [m3/m3]
-              WaterTableDepth      => noahmp%water%state%WaterTableDepth(I,J)  & ! out,   water table depth [m]
+              WaterTableDepth      => noahmp%water%state%WaterTableDepth  & ! out,   water table depth [m]
              )
-! ----------------------------------------------------------------------
+
+    !$acc parallel loop collapse(2) gang vector default(present) private(IndSatLayer, IndSoil, WaterAvailTmp, &
+    !$acc WaterTableDepthTmp)
+    do J = noahmp%config%domain%JTS, noahmp%config%domain%JTE
+      do I = noahmp%config%domain%ITS, noahmp%config%domain%ITE
+         if ( noahmp%config%domain%IndicatorIceSfc(I,J) == -1 ) cycle  ! skip soil process for ice surface points
 
     ! initialization
     IndSatLayer   = 0                 ! indicator for sat. layers
@@ -74,12 +74,14 @@ contains
        IndSatLayer        = NumSoilLayer + 1
     endif
 
-    WaterTableDepth = WaterTableDepthTmp
+    WaterTableDepth(I,J) = WaterTableDepthTmp
 
-    end associate
 
    enddo
 enddo
+
+
+    end associate
 
   end subroutine WaterTableDepthSearch
 

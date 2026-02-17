@@ -30,23 +30,22 @@ contains
     integer :: I, J
     integer :: SoilLayerIndex, LoopInd
 
-    !$acc parallel loop collapse(2) present(noahmp, NoahmpIO)
-      do J = noahmp%config%domain%JTS, noahmp%config%domain%JTE
-         do I = noahmp%config%domain%ITS, noahmp%config%domain%ITE
-! -------------------------------------------------------------------------
     associate(                                                                    &
-              VegType               => noahmp%config%domain%VegType(I,J)              ,&
+              VegType               => noahmp%config%domain%VegType              ,&
               SoilType              => noahmp%config%domain%SoilType                  ,&
-              CropType              => noahmp%config%domain%CropType(I,J)             ,&
-              SoilColor             => noahmp%config%domain%SoilColor(I,J)            ,&
-              FlagUrban             => noahmp%config%domain%FlagUrban(I,J)            ,&
+              CropType              => noahmp%config%domain%CropType             ,&
+              SoilColor             => noahmp%config%domain%SoilColor            ,&
+              FlagUrban             => noahmp%config%domain%FlagUrban            ,&
               NumSnowLayerMax       => noahmp%config%domain%NumSnowLayerMax      ,&
               NumSoilLayer          => noahmp%config%domain%NumSoilLayer         ,&
               NumSwRadBand          => noahmp%config%domain%NumSwRadBand         ,&
               NumSnicarRadBand      => noahmp%config%domain%NumSnicarRadBand     ,&
               NumRadiusSnwMieSnicar => noahmp%config%domain%NumRadiusSnwMieSnicar &
              )
-! -------------------------------------------------------------------------
+
+    !$acc parallel loop collapse(2) default(present) private(LoopInd, SoilLayerIndex)
+      do J = noahmp%config%domain%JTS, noahmp%config%domain%JTE
+         do I = noahmp%config%domain%ITS, noahmp%config%domain%ITE
 
     ! energy state variables
     noahmp%energy%state%LeafAreaIndex(I,J)                             = NoahmpIO%LAI     (I,J)
@@ -78,7 +77,7 @@ contains
     enddo
 
     ! vegetation treatment for USGS land types (playa, lava, sand to bare)
-    if ( (VegType == 25) .or. (VegType == 26) .or. (VegType == 27) ) then
+    if ( (VegType(I,J) == 25) .or. (VegType(I,J) == 26) .or. (VegType(I,J) == 27) ) then
        noahmp%energy%state%VegFrac(I,J)       = 0.0
        noahmp%energy%state%LeafAreaIndex(I,J) = 0.0
     endif
@@ -122,38 +121,38 @@ contains
     noahmp%energy%param%ResistanceSnowSfc(I,J)                         = NoahmpIO%RSURF_SNOW_TABLE
     noahmp%energy%param%VegFracAnnMax(I,J)                             = NoahmpIO%GVFMAX(I,J) / 100.0
     noahmp%energy%param%VegFracGreen(I,J)                              = NoahmpIO%VEGFRA(I,J) / 100.0
-    noahmp%energy%param%TreeCrownRadius(I,J)                           = NoahmpIO%RC_TABLE    (VegType)
-    noahmp%energy%param%HeightCanopyTop(I,J)                           = NoahmpIO%HVT_TABLE   (VegType)
-    noahmp%energy%param%HeightCanopyBot(I,J)                           = NoahmpIO%HVB_TABLE   (VegType)
-    noahmp%energy%param%RoughLenMomVeg(I,J)                            = NoahmpIO%Z0MVT_TABLE (VegType)
-    noahmp%energy%param%CanopyWindExtFac(I,J)                          = NoahmpIO%CWPVT_TABLE (VegType)
-    noahmp%energy%param%TreeDensity(I,J)                               = NoahmpIO%DEN_TABLE   (VegType)
-    noahmp%energy%param%CanopyOrientIndex(I,J)                         = NoahmpIO%XL_TABLE    (VegType)
-    noahmp%energy%param%ConductanceLeafMin(I,J)                        = NoahmpIO%BP_TABLE    (VegType)
-    noahmp%energy%param%Co2MmConst25C(I,J)                             = NoahmpIO%KC25_TABLE  (VegType)
-    noahmp%energy%param%O2MmConst25C(I,J)                              = NoahmpIO%KO25_TABLE  (VegType)
-    noahmp%energy%param%Co2MmConstQ10(I,J)                             = NoahmpIO%AKC_TABLE   (VegType)
-    noahmp%energy%param%O2MmConstQ10(I,J)                              = NoahmpIO%AKO_TABLE   (VegType)
-    noahmp%energy%param%RadiationStressFac(I,J)                        = NoahmpIO%RGL_TABLE   (VegType)
-    noahmp%energy%param%ResistanceStomataMin(I,J)                      = NoahmpIO%RS_TABLE    (VegType)
-    noahmp%energy%param%ResistanceStomataMax(I,J)                      = NoahmpIO%RSMAX_TABLE (VegType)
-    noahmp%energy%param%AirTempOptimTransp(I,J)                        = NoahmpIO%TOPT_TABLE  (VegType)
-    noahmp%energy%param%VaporPresDeficitFac(I,J)                       = NoahmpIO%HS_TABLE    (VegType)
-    noahmp%energy%param%LeafDimLength(I,J)                             = NoahmpIO%DLEAF_TABLE (VegType)
-    noahmp%energy%param%HeatCapacCanFac(I,J)                           = NoahmpIO%CBIOM_TABLE (VegType)
+    noahmp%energy%param%TreeCrownRadius(I,J)                           = NoahmpIO%RC_TABLE    (VegType(I,J))
+    noahmp%energy%param%HeightCanopyTop(I,J)                           = NoahmpIO%HVT_TABLE   (VegType(I,J))
+    noahmp%energy%param%HeightCanopyBot(I,J)                           = NoahmpIO%HVB_TABLE   (VegType(I,J))
+    noahmp%energy%param%RoughLenMomVeg(I,J)                            = NoahmpIO%Z0MVT_TABLE (VegType(I,J))
+    noahmp%energy%param%CanopyWindExtFac(I,J)                          = NoahmpIO%CWPVT_TABLE (VegType(I,J))
+    noahmp%energy%param%TreeDensity(I,J)                               = NoahmpIO%DEN_TABLE   (VegType(I,J))
+    noahmp%energy%param%CanopyOrientIndex(I,J)                         = NoahmpIO%XL_TABLE    (VegType(I,J))
+    noahmp%energy%param%ConductanceLeafMin(I,J)                        = NoahmpIO%BP_TABLE    (VegType(I,J))
+    noahmp%energy%param%Co2MmConst25C(I,J)                             = NoahmpIO%KC25_TABLE  (VegType(I,J))
+    noahmp%energy%param%O2MmConst25C(I,J)                              = NoahmpIO%KO25_TABLE  (VegType(I,J))
+    noahmp%energy%param%Co2MmConstQ10(I,J)                             = NoahmpIO%AKC_TABLE   (VegType(I,J))
+    noahmp%energy%param%O2MmConstQ10(I,J)                              = NoahmpIO%AKO_TABLE   (VegType(I,J))
+    noahmp%energy%param%RadiationStressFac(I,J)                        = NoahmpIO%RGL_TABLE   (VegType(I,J))
+    noahmp%energy%param%ResistanceStomataMin(I,J)                      = NoahmpIO%RS_TABLE    (VegType(I,J))
+    noahmp%energy%param%ResistanceStomataMax(I,J)                      = NoahmpIO%RSMAX_TABLE (VegType(I,J))
+    noahmp%energy%param%AirTempOptimTransp(I,J)                        = NoahmpIO%TOPT_TABLE  (VegType(I,J))
+    noahmp%energy%param%VaporPresDeficitFac(I,J)                       = NoahmpIO%HS_TABLE    (VegType(I,J))
+    noahmp%energy%param%LeafDimLength(I,J)                             = NoahmpIO%DLEAF_TABLE (VegType(I,J))
+    noahmp%energy%param%HeatCapacCanFac(I,J)                           = NoahmpIO%CBIOM_TABLE (VegType(I,J))
     !$acc loop seq
     do LoopInd = 1, 12
-      noahmp%energy%param%LeafAreaIndexMon (I,LoopInd,J)                   = NoahmpIO%LAIM_TABLE  (VegType,LoopInd)
-      noahmp%energy%param%StemAreaIndexMon (I,LoopInd,J)                   = NoahmpIO%SAIM_TABLE  (VegType,LoopInd)
+      noahmp%energy%param%LeafAreaIndexMon (I,LoopInd,J)                   = NoahmpIO%LAIM_TABLE  (VegType(I,J),LoopInd)
+      noahmp%energy%param%StemAreaIndexMon (I,LoopInd,J)                   = NoahmpIO%SAIM_TABLE  (VegType(I,J),LoopInd)
     end do
     !$acc loop seq
     do LoopInd = 1, NumSwRadBand
-      noahmp%energy%param%ReflectanceLeaf  (I,LoopInd,J)         = NoahmpIO%RHOL_TABLE  (VegType,LoopInd)
-      noahmp%energy%param%ReflectanceStem  (I,LoopInd,J)         = NoahmpIO%RHOS_TABLE  (VegType,LoopInd)
-      noahmp%energy%param%TransmittanceLeaf(I,LoopInd,J)         = NoahmpIO%TAUL_TABLE  (VegType,LoopInd)
-      noahmp%energy%param%TransmittanceStem(I,LoopInd,J)         = NoahmpIO%TAUS_TABLE  (VegType,LoopInd)
-      noahmp%energy%param%AlbedoSoilSat    (I,LoopInd,J)         = NoahmpIO%ALBSAT_TABLE(SoilColor,LoopInd)
-      noahmp%energy%param%AlbedoSoilDry    (I,LoopInd,J)         = NoahmpIO%ALBDRY_TABLE(SoilColor,LoopInd)
+      noahmp%energy%param%ReflectanceLeaf  (I,LoopInd,J)         = NoahmpIO%RHOL_TABLE  (VegType(I,J),LoopInd)
+      noahmp%energy%param%ReflectanceStem  (I,LoopInd,J)         = NoahmpIO%RHOS_TABLE  (VegType(I,J),LoopInd)
+      noahmp%energy%param%TransmittanceLeaf(I,LoopInd,J)         = NoahmpIO%TAUL_TABLE  (VegType(I,J),LoopInd)
+      noahmp%energy%param%TransmittanceStem(I,LoopInd,J)         = NoahmpIO%TAUS_TABLE  (VegType(I,J),LoopInd)
+      noahmp%energy%param%AlbedoSoilSat    (I,LoopInd,J)         = NoahmpIO%ALBSAT_TABLE(SoilColor(I,J),LoopInd)
+      noahmp%energy%param%AlbedoSoilDry    (I,LoopInd,J)         = NoahmpIO%ALBDRY_TABLE(SoilColor(I,J),LoopInd)
       noahmp%energy%param%AlbedoLakeFrz    (I,LoopInd,J)         = NoahmpIO%ALBLAK_TABLE(LoopInd)
       noahmp%energy%param%ScatterCoeffSnow (I,LoopInd,J)         = NoahmpIO%OMEGAS_TABLE(LoopInd)
     end do
@@ -219,21 +218,23 @@ contains
        enddo
     endif
 
-    if ( FlagUrban .eqv. .true. ) noahmp%energy%param%SoilHeatCapacity(I,J) = 3.0e6
+    if ( FlagUrban(I,J) .eqv. .true. ) noahmp%energy%param%SoilHeatCapacity(I,J) = 3.0e6
 
-    if ( CropType > 0 ) then
-       noahmp%energy%param%ConductanceLeafMin(I,J)             = NoahmpIO%BPI_TABLE  (CropType)
-       noahmp%energy%param%Co2MmConst25C(I,J)                  = NoahmpIO%KC25I_TABLE(CropType)
-       noahmp%energy%param%O2MmConst25C(I,J)                   = NoahmpIO%KO25I_TABLE(CropType)
-       noahmp%energy%param%Co2MmConstQ10(I,J)                  = NoahmpIO%AKCI_TABLE (CropType)
-       noahmp%energy%param%O2MmConstQ10(I,J)                   = NoahmpIO%AKOI_TABLE (CropType)
+    if ( CropType(I,J) > 0 ) then
+       noahmp%energy%param%ConductanceLeafMin(I,J)             = NoahmpIO%BPI_TABLE  (CropType(I,J))
+       noahmp%energy%param%Co2MmConst25C(I,J)                  = NoahmpIO%KC25I_TABLE(CropType(I,J))
+       noahmp%energy%param%O2MmConst25C(I,J)                   = NoahmpIO%KO25I_TABLE(CropType(I,J))
+       noahmp%energy%param%Co2MmConstQ10(I,J)                  = NoahmpIO%AKCI_TABLE (CropType(I,J))
+       noahmp%energy%param%O2MmConstQ10(I,J)                   = NoahmpIO%AKOI_TABLE (CropType(I,J))
     endif
 
-    end associate
 
          end do
       end do
     !$acc end parallel loop
+
+
+    end associate
 
   end subroutine EnergyVarInTransfer
 

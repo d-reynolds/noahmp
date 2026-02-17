@@ -29,7 +29,26 @@ contains
     real(kind=kind_noahmp)           :: TemperatureDiff    ! temperature difference for growing degree days calculation
     real(kind=kind_noahmp)           :: TemperatureAirC    ! air temperature degC
 
-   !$acc parallel loop collapse(2) gang vector present(noahmp) &
+    associate(                                                                   &
+              MainTimeStep         => noahmp%config%domain%MainTimeStep         ,& ! in,    main noahmp timestep [s]
+              DayJulianInYear      => noahmp%config%domain%DayJulianInYear      ,& ! in,    Julian day of year
+              TemperatureAir2m     => noahmp%energy%state%TemperatureAir2m ,& ! in,    2-m air temperature [K]
+              DatePlanting         => noahmp%biochem%param%DatePlanting    ,& ! in,    Planting day (day of year)
+              DateHarvest          => noahmp%biochem%param%DateHarvest     ,& ! in,    Harvest date (day of year)
+              TempBaseGrowDegDay   => noahmp%biochem%param%TempBaseGrowDegDay,& ! in,    Base temperature for grow degree day accumulation [C]
+              TempMaxGrowDegDay    => noahmp%biochem%param%TempMaxGrowDegDay,& ! in,    Max temperature for grow degree day accumulation [C]
+              GrowDegDayEmerg      => noahmp%biochem%param%GrowDegDayEmerg ,& ! in,    grow degree day from seeding to emergence
+              GrowDegDayInitVeg    => noahmp%biochem%param%GrowDegDayInitVeg,& ! in,    grow degree day from seeding to initial vegetative
+              GrowDegDayPostVeg    => noahmp%biochem%param%GrowDegDayPostVeg,& ! in,    grow degree day from seeding to post vegetative
+              GrowDegDayInitReprod => noahmp%biochem%param%GrowDegDayInitReprod,& ! in,    grow degree day from seeding to intial reproductive
+              GrowDegDayMature     => noahmp%biochem%param%GrowDegDayMature,& ! in,    grow degree day from seeding to physical maturity
+              GrowDegreeDay        => noahmp%biochem%state%GrowDegreeDay   ,& ! inout, crop growing degree days
+              IndexPlanting        => noahmp%biochem%state%IndexPlanting   ,& ! out,   Planting index index (0=off, 1=on)
+              IndexHarvest         => noahmp%biochem%state%IndexHarvest    ,& ! out,   Havest index (0=on,1=off)
+              PlantGrowStage       => noahmp%biochem%state%PlantGrowStage   & ! out,   Plant growth stage (1=S1,2=S2,3=S3)
+             )
+
+   !$acc parallel loop collapse(2) gang vector default(present) &
    !$acc private(GrowDegDayCnt, TemperatureDiff, TemperatureAirC)
     do J = noahmp%config%domain%JTS, noahmp%config%domain%JTE
       do I = noahmp%config%domain%ITS, noahmp%config%domain%ITE
@@ -37,50 +56,30 @@ contains
     ! condition to cycle moved from NoahmpMainMod to here
     if ( .not. (noahmp%config%domain%FlagDynamicCrop(I,J) .and. (noahmp%config%nmlist%OptCropModel == 1) ) ) cycle
 
-!------------------------------------------------------------------------
-    associate(                                                                   &
-              MainTimeStep         => noahmp%config%domain%MainTimeStep         ,& ! in,    main noahmp timestep [s]
-              DayJulianInYear      => noahmp%config%domain%DayJulianInYear      ,& ! in,    Julian day of year
-              TemperatureAir2m     => noahmp%energy%state%TemperatureAir2m(I,J) ,& ! in,    2-m air temperature [K]
-              DatePlanting         => noahmp%biochem%param%DatePlanting(I,J)    ,& ! in,    Planting day (day of year)
-              DateHarvest          => noahmp%biochem%param%DateHarvest(I,J)     ,& ! in,    Harvest date (day of year)
-              TempBaseGrowDegDay   => noahmp%biochem%param%TempBaseGrowDegDay(I,J),& ! in,    Base temperature for grow degree day accumulation [C]
-              TempMaxGrowDegDay    => noahmp%biochem%param%TempMaxGrowDegDay(I,J),& ! in,    Max temperature for grow degree day accumulation [C]
-              GrowDegDayEmerg      => noahmp%biochem%param%GrowDegDayEmerg(I,J) ,& ! in,    grow degree day from seeding to emergence
-              GrowDegDayInitVeg    => noahmp%biochem%param%GrowDegDayInitVeg(I,J),& ! in,    grow degree day from seeding to initial vegetative
-              GrowDegDayPostVeg    => noahmp%biochem%param%GrowDegDayPostVeg(I,J),& ! in,    grow degree day from seeding to post vegetative
-              GrowDegDayInitReprod => noahmp%biochem%param%GrowDegDayInitReprod(I,J),& ! in,    grow degree day from seeding to intial reproductive
-              GrowDegDayMature     => noahmp%biochem%param%GrowDegDayMature(I,J),& ! in,    grow degree day from seeding to physical maturity
-              GrowDegreeDay        => noahmp%biochem%state%GrowDegreeDay(I,J)   ,& ! inout, crop growing degree days
-              IndexPlanting        => noahmp%biochem%state%IndexPlanting(I,J)   ,& ! out,   Planting index index (0=off, 1=on)
-              IndexHarvest         => noahmp%biochem%state%IndexHarvest(I,J)    ,& ! out,   Havest index (0=on,1=off)
-              PlantGrowStage       => noahmp%biochem%state%PlantGrowStage(I,J)   & ! out,   Plant growth stage (1=S1,2=S2,3=S3)
-             )
-!------------------------------------------------------------------------
 
     ! initialize
-    TemperatureAirC = TemperatureAir2m - 273.15
+    TemperatureAirC = TemperatureAir2m(I,J) - 273.15
 
     ! Planting and Havest index
-    IndexPlanting = 1  ! planting on
-    IndexHarvest  = 1  ! harvest off
+    IndexPlanting(I,J) = 1  ! planting on
+    IndexHarvest(I,J)  = 1  ! harvest off
 
     ! turn on/off the planting 
-    if ( DayJulianInYear < DatePlanting ) IndexPlanting = 0   ! planting off
+    if ( DayJulianInYear < DatePlanting(I,J) ) IndexPlanting(I,J) = 0   ! planting off
         
     ! turn on/off the harvesting
-    if ( DayJulianInYear >= DateHarvest ) IndexHarvest  = 0   ! harvest on            
+    if ( DayJulianInYear >= DateHarvest(I,J) ) IndexHarvest(I,J)  = 0   ! harvest on            
 
     ! Calculate the growing degree days               
-    if ( TemperatureAirC < TempBaseGrowDegDay ) then
+    if ( TemperatureAirC < TempBaseGrowDegDay(I,J) ) then
        TemperatureDiff = 0.0
-    elseif ( TemperatureAirC >= TempMaxGrowDegDay ) then
-       TemperatureDiff = TempMaxGrowDegDay - TempBaseGrowDegDay
+    elseif ( TemperatureAirC >= TempMaxGrowDegDay(I,J) ) then
+       TemperatureDiff = TempMaxGrowDegDay(I,J) - TempBaseGrowDegDay(I,J)
     else
-       TemperatureDiff = TemperatureAirC - TempBaseGrowDegDay
+       TemperatureDiff = TemperatureAirC - TempBaseGrowDegDay(I,J)
     endif
-    GrowDegreeDay = (GrowDegreeDay + TemperatureDiff * MainTimeStep / 86400.0) * IndexPlanting * IndexHarvest
-    GrowDegDayCnt = GrowDegreeDay
+    GrowDegreeDay(I,J) = (GrowDegreeDay(I,J) + TemperatureDiff * MainTimeStep / 86400.0) * IndexPlanting(I,J) * IndexHarvest(I,J)
+    GrowDegDayCnt = GrowDegreeDay(I,J)
       
     ! Decide corn growth stage, based on Hybrid-Maize 
     ! PlantGrowStage    = 1 : Before planting
@@ -100,21 +99,23 @@ contains
     ! GrowDegDayPostVeg = 170
 
     ! compute plant growth stage
-    PlantGrowStage = 1   ! MB: set PlantGrowStage = 1 (for initialization during growing season when no GDD)  
-    if ( GrowDegDayCnt > 0.0 )                   PlantGrowStage = 2
-    if ( GrowDegDayCnt >= GrowDegDayEmerg )      PlantGrowStage = 3
-    if ( GrowDegDayCnt >= GrowDegDayInitVeg )    PlantGrowStage = 4 
-    if ( GrowDegDayCnt >= GrowDegDayPostVeg )    PlantGrowStage = 5
-    if ( GrowDegDayCnt >= GrowDegDayInitReprod ) PlantGrowStage = 6
-    if ( GrowDegDayCnt >= GrowDegDayMature )     PlantGrowStage = 7
-    if ( DayJulianInYear >= DateHarvest )        PlantGrowStage = 8
-    if ( DayJulianInYear < DatePlanting )        PlantGrowStage = 1   
+    PlantGrowStage(I,J) = 1   ! MB: set PlantGrowStage(I,J) = 1 (for initialization during growing season when no GDD)  
+    if ( GrowDegDayCnt > 0.0 )                   PlantGrowStage(I,J) = 2
+    if ( GrowDegDayCnt >= GrowDegDayEmerg(I,J) )      PlantGrowStage(I,J) = 3
+    if ( GrowDegDayCnt >= GrowDegDayInitVeg(I,J) )    PlantGrowStage(I,J) = 4 
+    if ( GrowDegDayCnt >= GrowDegDayPostVeg(I,J) )    PlantGrowStage(I,J) = 5
+    if ( GrowDegDayCnt >= GrowDegDayInitReprod(I,J) ) PlantGrowStage(I,J) = 6
+    if ( GrowDegDayCnt >= GrowDegDayMature(I,J) )     PlantGrowStage(I,J) = 7
+    if ( DayJulianInYear >= DateHarvest(I,J) )        PlantGrowStage(I,J) = 8
+    if ( DayJulianInYear < DatePlanting(I,J) )        PlantGrowStage(I,J) = 1   
 
-    end associate
 
       end do
     end do
    !$acc end parallel loop
+
+
+    end associate
 
   end subroutine CropGrowDegreeDay
 

@@ -35,47 +35,48 @@ contains
     ! estimate infiltration rate based on Philips Eq.
     call IrrigationInfilPhilip(noahmp, noahmp%config%domain%SoilTimeStep, InfilRateSfc)
 
-   !$acc parallel loop collapse(2) gang vector present(noahmp, InfilRateSfc)
+    associate(                                                               &
+              SoilTimeStep        => noahmp%config%domain%SoilTimeStep ,& ! in,    noahmp soil time step [s]
+              NumSoilTimeStep     => noahmp%config%domain%NumSoilTimeStep,& ! in,    number of time step for calculating soil processes
+              IrriFloodRateFac    => noahmp%water%param%IrriFloodRateFac,& ! in,    flood application rate factor
+              IrrigationFracFlood => noahmp%water%state%IrrigationFracFlood,& ! in,    fraction of grid under flood irrigation (0 to 1)
+              IrrigationAmtFlood  => noahmp%water%state%IrrigationAmtFlood,& ! inout, flood irrigation water amount [m]
+              SoilSfcInflowAcc    => noahmp%water%flux%SoilSfcInflowAcc,& ! inout, accumulated water flux into soil during soil timestep [m/s * dt_soil/dt_main]
+              IrrigationRateFlood => noahmp%water%flux%IrrigationRateFlood & ! inout, flood irrigation water rate [m/timestep]
+             )
+
+   !$acc parallel loop collapse(2) gang vector default(present)
     do J = noahmp%config%domain%JTS, noahmp%config%domain%JTE
       do I = noahmp%config%domain%ITS, noahmp%config%domain%ITE
 
         if ( .not.((noahmp%config%domain%FlagCropland(I,J) .eqv. .true.) .and. (noahmp%water%state%IrrigationAmtFlood(I,J) > 0.0)) ) cycle
 
-! --------------------------------------------------------------------
-    associate(                                                               &
-              SoilTimeStep        => noahmp%config%domain%SoilTimeStep ,& ! in,    noahmp soil time step [s]
-              NumSoilTimeStep     => noahmp%config%domain%NumSoilTimeStep,& ! in,    number of time step for calculating soil processes
-              IrriFloodRateFac    => noahmp%water%param%IrriFloodRateFac(I,J),& ! in,    flood application rate factor
-              IrrigationFracFlood => noahmp%water%state%IrrigationFracFlood(I,J),& ! in,    fraction of grid under flood irrigation (0 to 1)
-              IrrigationAmtFlood  => noahmp%water%state%IrrigationAmtFlood(I,J),& ! inout, flood irrigation water amount [m]
-              SoilSfcInflowAcc    => noahmp%water%flux%SoilSfcInflowAcc(I,J),& ! inout, accumulated water flux into soil during soil timestep [m/s * dt_soil/dt_main]
-              IrrigationRateFlood => noahmp%water%flux%IrrigationRateFlood(I,J) & ! inout, flood irrigation water rate [m/timestep]
-             )
-! ----------------------------------------------------------------------
 
 
     ! irrigation rate of flood irrigation. It should be
     ! greater than infiltration rate to get infiltration
     ! excess runoff at the time of application
-    IrrigationRateFlood = InfilRateSfc(I,J) * SoilTimeStep * IrriFloodRateFac   ! Limit irrigation rate to fac*infiltration rate 
-    IrrigationRateFlood = IrrigationRateFlood * IrrigationFracFlood
+    IrrigationRateFlood(I,J) = InfilRateSfc(I,J) * SoilTimeStep * IrriFloodRateFac(I,J)   ! Limit irrigation rate to fac*infiltration rate 
+    IrrigationRateFlood(I,J) = IrrigationRateFlood(I,J) * IrrigationFracFlood(I,J)
 
-    if ( IrrigationRateFlood >= IrrigationAmtFlood ) then
-       IrrigationRateFlood = IrrigationAmtFlood
-       IrrigationAmtFlood  = 0.0
+    if ( IrrigationRateFlood(I,J) >= IrrigationAmtFlood(I,J) ) then
+       IrrigationRateFlood(I,J) = IrrigationAmtFlood(I,J)
+       IrrigationAmtFlood(I,J)  = 0.0
     else
-       IrrigationAmtFlood  = IrrigationAmtFlood - IrrigationRateFlood
+       IrrigationAmtFlood(I,J)  = IrrigationAmtFlood(I,J) - IrrigationRateFlood(I,J)
     endif
 
     ! update water flux going to surface soil
-    SoilSfcInflowAcc = SoilSfcInflowAcc + (IrrigationRateFlood / SoilTimeStep * NumSoilTimeStep)  ! [m/s * dt_soil/dt_main]
+    SoilSfcInflowAcc(I,J) = SoilSfcInflowAcc(I,J) + (IrrigationRateFlood(I,J) / SoilTimeStep * NumSoilTimeStep)  ! [m/s * dt_soil/dt_main]
 
-    end associate
 
       end do
     end do
    !$acc end parallel loop
    !$acc end data
+
+
+    end associate
 
   end subroutine IrrigationFlood
 

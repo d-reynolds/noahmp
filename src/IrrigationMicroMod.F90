@@ -37,50 +37,51 @@ contains
     ! estimate infiltration rate based on Philips Eq.
     call IrrigationInfilPhilip(noahmp, noahmp%config%domain%SoilTimeStep, InfilRateSfc)
 
-   !$acc parallel loop collapse(2) gang vector present(noahmp, InfilRateSfc) private(IrriRateTmp)
+    associate(                                                               &
+              SoilTimeStep        => noahmp%config%domain%SoilTimeStep      ,& ! in,    noahmp soil time step [s]
+              DepthSoilLayer      => noahmp%config%domain%DepthSoilLayer    ,& ! in,    depth [m] of layer-bottom from soil surface
+              IrrigationFracMicro => noahmp%water%state%IrrigationFracMicro,& ! in,    fraction of grid under micro irrigation (0 to 1)
+              IrriMicroRate       => noahmp%water%param%IrriMicroRate  ,& ! in,    micro irrigation rate [mm/hr]
+              SoilLiqWater        => noahmp%water%state%SoilLiqWater        ,& ! inout, soil water content [m3/m3]
+              IrrigationAmtMicro  => noahmp%water%state%IrrigationAmtMicro,& ! inout, micro irrigation water amount [m]
+              IrrigationRateMicro => noahmp%water%flux%IrrigationRateMicro & ! inout, micro irrigation water rate [m/timestep]
+             )
+
+   !$acc parallel loop collapse(2) gang vector default(present) private(IrriRateTmp)
     do J = noahmp%config%domain%JTS, noahmp%config%domain%JTE
       do I = noahmp%config%domain%ITS, noahmp%config%domain%ITE
 
       if ( .not.((noahmp%config%domain%FlagCropland(I,J) .eqv. .true.) .and. (noahmp%water%state%IrrigationAmtFlood(I,J) > 0.0)) ) cycle
-! --------------------------------------------------------------------
-    associate(                                                               &
-              SoilTimeStep        => noahmp%config%domain%SoilTimeStep      ,& ! in,    noahmp soil time step [s]
-              DepthSoilLayer      => noahmp%config%domain%DepthSoilLayer    ,& ! in,    depth [m] of layer-bottom from soil surface
-              IrrigationFracMicro => noahmp%water%state%IrrigationFracMicro(I,J),& ! in,    fraction of grid under micro irrigation (0 to 1)
-              IrriMicroRate       => noahmp%water%param%IrriMicroRate(I,J)  ,& ! in,    micro irrigation rate [mm/hr]
-              SoilLiqWater        => noahmp%water%state%SoilLiqWater        ,& ! inout, soil water content [m3/m3]
-              IrrigationAmtMicro  => noahmp%water%state%IrrigationAmtMicro(I,J),& ! inout, micro irrigation water amount [m]
-              IrrigationRateMicro => noahmp%water%flux%IrrigationRateMicro(I,J) & ! inout, micro irrigation water rate [m/timestep]
-             )
-! ----------------------------------------------------------------------
     
     ! initialize local variables
     IrriRateTmp = 0.0
 
 
     ! irrigation rate of micro irrigation
-    IrriRateTmp         = IrriMicroRate * (1.0/1000.0) * SoilTimeStep/ 3600.0                   ! NRCS rate/time step - calibratable
-    IrrigationRateMicro = min(0.5*InfilRateSfc(I,J)*SoilTimeStep, IrrigationAmtMicro, IrriRateTmp)   ! Limit irrigation rate to minimum of 0.5*infiltration rate
+    IrriRateTmp         = IrriMicroRate(I,J) * (1.0/1000.0) * SoilTimeStep/ 3600.0                   ! NRCS rate/time step - calibratable
+    IrrigationRateMicro(I,J) = min(0.5*InfilRateSfc(I,J)*SoilTimeStep, IrrigationAmtMicro(I,J), IrriRateTmp)   ! Limit irrigation rate to minimum of 0.5*infiltration rate
                                                                                                 ! and to the NRCS recommended rate, (m)
-    IrrigationRateMicro = IrrigationRateMicro * IrrigationFracMicro
+    IrrigationRateMicro(I,J) = IrrigationRateMicro(I,J) * IrrigationFracMicro(I,J)
 
-    if ( IrrigationRateMicro >= IrrigationAmtMicro ) then
-       IrrigationRateMicro = IrrigationAmtMicro
-       IrrigationAmtMicro  = 0.0
+    if ( IrrigationRateMicro(I,J) >= IrrigationAmtMicro(I,J) ) then
+       IrrigationRateMicro(I,J) = IrrigationAmtMicro(I,J)
+       IrrigationAmtMicro(I,J)  = 0.0
     else
-       IrrigationAmtMicro  = IrrigationAmtMicro - IrrigationRateMicro
+       IrrigationAmtMicro(I,J)  = IrrigationAmtMicro(I,J) - IrrigationRateMicro(I,J)
     endif
 
     ! update soil moisture
     ! we implement drip in first layer of the Noah-MP. Change layer 1 moisture wrt to irrigation rate
-    SoilLiqWater(I,1,J) = SoilLiqWater(I,1,J) + (IrrigationRateMicro / (-1.0*DepthSoilLayer(I,1,J)))
+    SoilLiqWater(I,1,J) = SoilLiqWater(I,1,J) + (IrrigationRateMicro(I,J) / (-1.0*DepthSoilLayer(I,1,J)))
 
-    end associate
 
       end do
     end do
    !$acc end parallel loop
    !$acc end data
+
+    end associate
+
   end subroutine IrrigationMicro
 
 end module IrrigationMicroMod

@@ -55,7 +55,29 @@ contains
     call WaterTableDepthSearch(noahmp)
 #endif
 
-    !$acc parallel loop collapse(2) gang vector present(noahmp) &
+        associate(                                                                 &
+                  NumSoilLayer         => noahmp%config%domain%NumSoilLayer       ,& ! in,    number of soil layers
+                  DepthSoilLayer       => noahmp%config%domain%DepthSoilLayer     ,& ! in,    depth [m] of layer-bottom from soil surface
+                  SoilTimeStep         => noahmp%config%domain%SoilTimeStep       ,& ! in,    noahmp soil timestep [s]
+                  GridSize             => noahmp%config%domain%GridSize           ,& ! in,    noahmp model grid spacing [m]
+                  ThicknessSoilLayer   => noahmp%config%domain%ThicknessSoilLayer ,& ! in,    soil layer thickness [m]
+                  SoilMoistureFieldCap => noahmp%water%param%SoilMoistureFieldCap ,& ! in,    reference soil moisture (field capacity) [m3/m3]
+                  TileDrainCoeff       => noahmp%water%param%TileDrainCoeff  ,& ! in,    drainage coefficent [m/day]
+                  DrainDepthToImperv   => noahmp%water%param%DrainDepthToImperv,& ! in,    Actual depth to impermeable layer from surface [m]
+                  LateralWatCondFac    => noahmp%water%param%LateralWatCondFac,& ! in,    multiplication factor to determine lateral hydraulic conductivity
+                  TileDrainDepth       => noahmp%water%param%TileDrainDepth  ,& ! in,    Depth of drain [m]
+                  DrainTubeDist        => noahmp%water%param%DrainTubeDist   ,& ! in,    distance between two drain tubes or tiles [m]
+                  DrainTubeRadius      => noahmp%water%param%DrainTubeRadius ,& ! in,    effective radius of drains [m]
+                  SoilWatConductivity  => noahmp%water%state%SoilWatConductivity  ,& ! in,    soil hydraulic conductivity [m/s]
+                  SoilIce              => noahmp%water%state%SoilIce              ,& ! in,    soil ice content [m3/m3]
+                  WaterTableHydro      => noahmp%water%state%WaterTableHydro ,& ! in,    water table depth estimated in WRF-Hydro fine grids [m]
+                  SoilLiqWater         => noahmp%water%state%SoilLiqWater         ,& ! inout, soil water content [m3/m3]
+                  SoilMoisture         => noahmp%water%state%SoilMoisture         ,& ! inout, total soil moisture [m3/m3]
+                  WaterTableDepth      => noahmp%water%state%WaterTableDepth ,& ! inout, water table depth [m]
+                  TileDrain            => noahmp%water%flux%TileDrain         & ! inout, tile drainage [mm/s]
+                 )
+
+    !$acc parallel loop collapse(2) gang vector default(present) &
     !$acc private(IndSoil, NumDrain, ThickSatZoneTot, LateralFlow, DepthToLayerTop) &
     !$acc private(WatTblTmp1, WatTblTmp2, LateralWatCondAve, DrainWatHgtAbvImp) &
     !$acc private(DepthSfcToImp, HgtDrnToWatTbl, DrainCoeffTmp, TileDrainTmp) &
@@ -67,28 +89,6 @@ contains
          !cycle condition copied from SoilWaterMainMod before GPU port
          if ( noahmp%water%state%TileDrainFrac (I,J) <= 0.1 ) cycle
 
-        associate(                                                                 &
-                  NumSoilLayer         => noahmp%config%domain%NumSoilLayer       ,& ! in,    number of soil layers
-                  DepthSoilLayer       => noahmp%config%domain%DepthSoilLayer     ,& ! in,    depth [m] of layer-bottom from soil surface
-                  SoilTimeStep         => noahmp%config%domain%SoilTimeStep       ,& ! in,    noahmp soil timestep [s]
-                  GridSize             => noahmp%config%domain%GridSize           ,& ! in,    noahmp model grid spacing [m]
-                  ThicknessSoilLayer   => noahmp%config%domain%ThicknessSoilLayer ,& ! in,    soil layer thickness [m]
-                  SoilMoistureFieldCap => noahmp%water%param%SoilMoistureFieldCap ,& ! in,    reference soil moisture (field capacity) [m3/m3]
-                  TileDrainCoeff       => noahmp%water%param%TileDrainCoeff(I,J)  ,& ! in,    drainage coefficent [m/day]
-                  DrainDepthToImperv   => noahmp%water%param%DrainDepthToImperv(I,J),& ! in,    Actual depth to impermeable layer from surface [m]
-                  LateralWatCondFac    => noahmp%water%param%LateralWatCondFac(I,J),& ! in,    multiplication factor to determine lateral hydraulic conductivity
-                  TileDrainDepth       => noahmp%water%param%TileDrainDepth(I,J)  ,& ! in,    Depth of drain [m]
-                  DrainTubeDist        => noahmp%water%param%DrainTubeDist(I,J)   ,& ! in,    distance between two drain tubes or tiles [m]
-                  DrainTubeRadius      => noahmp%water%param%DrainTubeRadius(I,J) ,& ! in,    effective radius of drains [m]
-                  SoilWatConductivity  => noahmp%water%state%SoilWatConductivity  ,& ! in,    soil hydraulic conductivity [m/s]
-                  SoilIce              => noahmp%water%state%SoilIce              ,& ! in,    soil ice content [m3/m3]
-                  WaterTableHydro      => noahmp%water%state%WaterTableHydro(I,J) ,& ! in,    water table depth estimated in WRF-Hydro fine grids [m]
-                  SoilLiqWater         => noahmp%water%state%SoilLiqWater         ,& ! inout, soil water content [m3/m3]
-                  SoilMoisture         => noahmp%water%state%SoilMoisture         ,& ! inout, total soil moisture [m3/m3]
-                  WaterTableDepth      => noahmp%water%state%WaterTableDepth(I,J) ,& ! inout, water table depth [m]
-                  TileDrain            => noahmp%water%flux%TileDrain(I,J)         & ! inout, tile drainage [mm/s]
-                 )
-! ----------------------------------------------------------------------
 
         ! initialization
         !$acc loop seq
@@ -102,7 +102,7 @@ contains
         DepthToLayerTop      = 0.0
         LateralFlow          = 0.0
         ThickSatZoneTot      = 0.0
-        DrainCoeffTmp        = TileDrainCoeff * 1000.0 * SoilTimeStep / (24.0 * 3600.0)  ! m per day to mm per timestep
+        DrainCoeffTmp        = TileDrainCoeff(I,J) * 1000.0 * SoilTimeStep / (24.0 * 3600.0)  ! m per day to mm per timestep
 
         ! Thickness of soil layers
         !$acc loop seq
@@ -116,12 +116,12 @@ contains
 
 #ifdef WRF_HYDRO
         ! Depth to water table from WRF-HYDRO, m
-        WatTblTmp2 = WaterTableHydro
+        WatTblTmp2 = WaterTableHydro(I,J)
 #else
-        WatTblTmp2 = WaterTableDepth
+        WatTblTmp2 = WaterTableDepth(I,J)
 #endif
 
-        if ( WatTblTmp2 > DrainDepthToImperv) WatTblTmp2 = DrainDepthToImperv
+        if ( WatTblTmp2 > DrainDepthToImperv(I,J)) WatTblTmp2 = DrainDepthToImperv(I,J)
 
         ! Depth of saturated zone
         !$acc loop seq
@@ -149,34 +149,34 @@ contains
         ! lateral hydraulic conductivity and total lateral flow
         !$acc loop seq
         do IndSoil = 1, NumSoilLayer
-           LateralWatCondTmp(IndSoil) = SoilWatConductivity(I,IndSoil,J) * LateralWatCondFac * SoilTimeStep  ! m/s to m/timestep
+           LateralWatCondTmp(IndSoil) = SoilWatConductivity(I,IndSoil,J) * LateralWatCondFac(I,J) * SoilTimeStep  ! m/s to m/timestep
            LateralFlow                = LateralFlow + (ThickSatZone(IndSoil) * LateralWatCondTmp(IndSoil))
            ThickSatZoneTot            = ThickSatZoneTot + ThickSatZone(IndSoil)
         enddo
         if ( ThickSatZoneTot < 0.001 ) ThickSatZoneTot = 0.001                                               ! unit is m
         if ( LateralFlow < 0.001 )     LateralFlow     = 0.0                                                 ! unit is m
         LateralWatCondAve  = LateralFlow / ThickSatZoneTot                                                   ! lateral hydraulic conductivity per timestep
-        DrainDepthToImpTmp = DrainDepthToImperv - TileDrainDepth
+        DrainDepthToImpTmp = DrainDepthToImperv(I,J) - TileDrainDepth(I,J)
 
-        call TileDrainageEquiDepth(DrainDepthToImpTmp, DrainTubeDist, DrainTubeRadius, DrainWatHgtAbvImp)
+        call TileDrainageEquiDepth(DrainDepthToImpTmp, DrainTubeDist(I,J), DrainTubeRadius(I,J), DrainWatHgtAbvImp)
 
-        DepthSfcToImp  = DrainWatHgtAbvImp + TileDrainDepth
-        HgtDrnToWatTbl = TileDrainDepth - WatTblTmp2
+        DepthSfcToImp  = DrainWatHgtAbvImp + TileDrainDepth(I,J)
+        HgtDrnToWatTbl = TileDrainDepth(I,J) - WatTblTmp2
         if ( HgtDrnToWatTbl <= 0.0 ) then
-           TileDrain = 0.0
+           TileDrain(I,J) = 0.0
         else
-           TileDrain = ((8.0*LateralWatCondAve*DrainWatHgtAbvImp*HgtDrnToWatTbl) + &
-                       (4.0*LateralWatCondAve*HgtDrnToWatTbl*HgtDrnToWatTbl)) / (DrainTubeDist*DrainTubeDist)
+           TileDrain(I,J) = ((8.0*LateralWatCondAve*DrainWatHgtAbvImp*HgtDrnToWatTbl) + &
+                       (4.0*LateralWatCondAve*HgtDrnToWatTbl*HgtDrnToWatTbl)) / (DrainTubeDist(I,J)*DrainTubeDist(I,J))
         endif
-        TileDrain    = TileDrain * 1000.0                                                                     ! m per timestep to mm/timestep /one tile
-        if ( TileDrain <= 0.0 ) TileDrain = 0.0
-        if ( TileDrain > DrainCoeffTmp ) TileDrain = DrainCoeffTmp
-        NumDrain  = int(GridSize / DrainTubeDist)
-        TileDrain = TileDrain * NumDrain
-        if ( TileDrain > WatExcFieldCapTot ) TileDrain = WatExcFieldCapTot
+        TileDrain(I,J)    = TileDrain(I,J) * 1000.0                                                                     ! m per timestep to mm/timestep /one tile
+        if ( TileDrain(I,J) <= 0.0 ) TileDrain(I,J) = 0.0
+        if ( TileDrain(I,J) > DrainCoeffTmp ) TileDrain(I,J) = DrainCoeffTmp
+        NumDrain  = int(GridSize / DrainTubeDist(I,J))
+        TileDrain(I,J) = TileDrain(I,J) * NumDrain
+        if ( TileDrain(I,J) > WatExcFieldCapTot ) TileDrain(I,J) = WatExcFieldCapTot
 
         ! update soil moisture after drainage: moisture drains from top to bottom
-        TileDrainTmp = TileDrain
+        TileDrainTmp = TileDrain(I,J)
         !$acc loop seq
         do IndSoil = 1, NumSoilLayer
            if ( TileDrainTmp > 0.0) then
@@ -196,13 +196,15 @@ contains
            endif
         enddo
 
-        TileDrain = TileDrain / SoilTimeStep            ! mm/s
+        TileDrain(I,J) = TileDrain(I,J) / SoilTimeStep            ! mm/s
 
-        end associate
 
       end do
     end do
     !$acc end parallel loop
+
+
+        end associate
 
   end subroutine TileDrainageHooghoudt
 

@@ -26,42 +26,43 @@ contains
 ! local variable
     integer                          :: I, J      ! grid indices
 
-    !$acc parallel loop collapse(2) gang vector present(noahmp)
+    associate(                                                                 &
+              SoilSfcInflowMean => noahmp%water%flux%SoilSfcInflowMean        ,& ! in,  mean water input on soil surface [m/s]
+              RunoffDecayFac    => noahmp%water%param%RunoffDecayFac          ,& ! in,  runoff decay factor [1/m]
+              SoilSfcSatFracMax => noahmp%water%param%SoilSfcSatFracMax       ,& ! in,  maximum surface saturated fraction (global mean)
+              SoilImpervFrac    => noahmp%water%state%SoilImpervFrac               ,& ! in,  impervious fraction due to frozen soil
+              WaterTableDepth   => noahmp%water%state%WaterTableDepth         ,& ! in,  water table depth [m]
+              SoilSaturateFrac  => noahmp%water%state%SoilSaturateFrac        ,& ! out, fractional saturated area for soil moisture
+              RunoffSurface     => noahmp%water%flux%RunoffSurface            ,& ! out, surface runoff [m/s]
+              InfilRateSfc      => noahmp%water%flux%InfilRateSfc              & ! out, infiltration rate at surface [m/s]
+             )
+
+    !$acc parallel loop collapse(2) gang vector default(present)
     do J = noahmp%config%domain%JTS, noahmp%config%domain%JTE
       do I = noahmp%config%domain%ITS, noahmp%config%domain%ITE
          if ( noahmp%config%domain%IndicatorIceSfc(I,J) == -1 ) cycle  ! skip soil process for ice surface points
 
-! --------------------------------------------------------------------
-    associate(                                                                 &
-              SoilSfcInflowMean => noahmp%water%flux%SoilSfcInflowMean(I,J)        ,& ! in,  mean water input on soil surface [m/s]
-              RunoffDecayFac    => noahmp%water%param%RunoffDecayFac(I,J)          ,& ! in,  runoff decay factor [1/m]
-              SoilSfcSatFracMax => noahmp%water%param%SoilSfcSatFracMax(I,J)       ,& ! in,  maximum surface saturated fraction (global mean)
-              SoilImpervFrac    => noahmp%water%state%SoilImpervFrac               ,& ! in,  impervious fraction due to frozen soil
-              WaterTableDepth   => noahmp%water%state%WaterTableDepth(I,J)         ,& ! in,  water table depth [m]
-              SoilSaturateFrac  => noahmp%water%state%SoilSaturateFrac(I,J)        ,& ! out, fractional saturated area for soil moisture
-              RunoffSurface     => noahmp%water%flux%RunoffSurface(I,J)            ,& ! out, surface runoff [m/s]
-              InfilRateSfc      => noahmp%water%flux%InfilRateSfc(I,J)              & ! out, infiltration rate at surface [m/s]
-             )
-! ----------------------------------------------------------------------
 
     ! set up key parameter
-    RunoffDecayFac = 2.0
+    RunoffDecayFac(I,J) = 2.0
 
     ! compute saturated area fraction
-    SoilSaturateFrac = SoilSfcSatFracMax * exp(-0.5 * RunoffDecayFac * WaterTableDepth)
+    SoilSaturateFrac(I,J) = SoilSfcSatFracMax(I,J) * exp(-0.5 * RunoffDecayFac(I,J) * WaterTableDepth(I,J))
 
     ! compute surface runoff and infiltration  m/s
-    if ( SoilSfcInflowMean > 0.0 ) then
-       RunoffSurface = SoilSfcInflowMean * ((1.0-SoilImpervFrac(I,1,J)) * SoilSaturateFrac + SoilImpervFrac(I,1,J))
-       InfilRateSfc  = SoilSfcInflowMean - RunoffSurface 
+    if ( SoilSfcInflowMean(I,J) > 0.0 ) then
+       RunoffSurface(I,J) = SoilSfcInflowMean(I,J) * ((1.0-SoilImpervFrac(I,1,J)) * SoilSaturateFrac(I,J) + SoilImpervFrac(I,1,J))
+       InfilRateSfc(I,J)  = SoilSfcInflowMean(I,J) - RunoffSurface(I,J) 
     endif
 
-    end associate
 
       end do
     end do
     !$acc end parallel loop
 
+
+
+    end associate
 
   end subroutine RunoffSurfaceTopModelEqui
 

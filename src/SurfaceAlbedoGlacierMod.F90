@@ -35,24 +35,24 @@ contains
     integer                          :: IndBand       ! solar band index
     integer                          :: IndSnow       ! snow layer index
 ! --------------------------------------------------------------------
-   !$acc parallel loop collapse(2) gang vector present(noahmp) private(IndBand)
+    associate(                                                                      &
+              NumSwRadBand        => noahmp%config%domain%NumSwRadBand ,& ! in,  number of solar radiation wave bands
+              CosSolarZenithAngle => noahmp%config%domain%CosSolarZenithAngle ,& ! in,  cosine solar zenith angle
+              OptSnowAlbedo       => noahmp%config%nmlist%OptSnowAlbedo ,& ! in,  options for ground snow surface albedo
+              AlbedoGrdDir        => noahmp%energy%state%AlbedoGrdDir ,& ! out, ground albedo (direct beam: vis, nir)
+              AlbedoGrdDif        => noahmp%energy%state%AlbedoGrdDif ,& ! out, ground albedo (diffuse: vis, nir)
+              AlbedoSnowDir       => noahmp%energy%state%AlbedoSnowDir ,& ! out, snow albedo for direct(1=vis, 2=nir)
+              AlbedoSnowDif       => noahmp%energy%state%AlbedoSnowDif ,& ! out, snow albedo for diffuse(1=vis, 2=nir)
+              AlbedoSfcDir        => noahmp%energy%state%AlbedoSfcDir ,& ! out, surface albedo (direct)
+              AlbedoSfcDif        => noahmp%energy%state%AlbedoSfcDif ,& ! out, surface albedo (diffuse)
+              FracRadSwAbsSnowDir => noahmp%energy%flux%FracRadSwAbsSnowDir ,& ! out, direct solar flux factor absorbed by snow [frc]
+              FracRadSwAbsSnowDif => noahmp%energy%flux%FracRadSwAbsSnowDif  & ! out, diffuse solar flux factor absorbed by snow [frc]
+             )
+
+   !$acc parallel loop collapse(2) gang vector default(present) private(IndBand) private(IndSnow)
     do J = noahmp%config%domain%JTS, noahmp%config%domain%JTE
       do I = noahmp%config%domain%ITS, noahmp%config%domain%ITE
 
-    associate(                                                                    &
-              NumSwRadBand        => noahmp%config%domain%NumSwRadBand            ,& ! in,  number of solar radiation wave bands
-              CosSolarZenithAngle => noahmp%config%domain%CosSolarZenithAngle(I,J),& ! in,  cosine solar zenith angle
-              OptSnowAlbedo       => noahmp%config%nmlist%OptSnowAlbedo           ,& ! in,  options for ground snow surface albedo
-              AlbedoGrdDir        => noahmp%energy%state%AlbedoGrdDir             ,& ! out, ground albedo (direct beam: vis, nir)
-              AlbedoGrdDif        => noahmp%energy%state%AlbedoGrdDif             ,& ! out, ground albedo (diffuse: vis, nir)
-              AlbedoSnowDir       => noahmp%energy%state%AlbedoSnowDir            ,& ! out, snow albedo for direct(1=vis, 2=nir)
-              AlbedoSnowDif       => noahmp%energy%state%AlbedoSnowDif            ,& ! out, snow albedo for diffuse(1=vis, 2=nir)
-              AlbedoSfcDir        => noahmp%energy%state%AlbedoSfcDir             ,& ! out, surface albedo (direct)
-              AlbedoSfcDif        => noahmp%energy%state%AlbedoSfcDif             ,& ! out, surface albedo (diffuse)
-              FracRadSwAbsSnowDir => noahmp%energy%flux%FracRadSwAbsSnowDir       ,& ! out, direct solar flux factor absorbed by snow [frc]
-              FracRadSwAbsSnowDif => noahmp%energy%flux%FracRadSwAbsSnowDif        & ! out, diffuse solar flux factor absorbed by snow [frc]
-             )
-! ----------------------------------------------------------------------
 
     ! initialization
     !$acc loop seq
@@ -70,7 +70,6 @@ contains
        enddo
       endif
     enddo
-    end associate
 
       end do
     end do
@@ -93,34 +92,27 @@ contains
       ! ground albedo
       call GroundAlbedoGlacier(noahmp)
 
-   !$acc parallel loop collapse(2) gang vector present(noahmp) private(IndBand)
+   !$acc parallel loop collapse(2) gang vector default(present) private(IndBand)
     do J = noahmp%config%domain%JTS, noahmp%config%domain%JTE
       do I = noahmp%config%domain%ITS, noahmp%config%domain%ITE
 
-    associate(                                                                    &
-              NumSwRadBand        => noahmp%config%domain%NumSwRadBand            ,& ! in,  number of solar radiation wave bands
-              CosSolarZenithAngle => noahmp%config%domain%CosSolarZenithAngle(I,J),& ! in,  cosine solar zenith angle
-              AlbedoGrdDir        => noahmp%energy%state%AlbedoGrdDir             ,& ! out, ground albedo (direct beam: vis, nir)
-              AlbedoGrdDif        => noahmp%energy%state%AlbedoGrdDif             ,& ! out, ground albedo (diffuse: vis, nir)
-              AlbedoSfcDir        => noahmp%energy%state%AlbedoSfcDir             ,& ! out, surface albedo (direct)
-              AlbedoSfcDif        => noahmp%energy%state%AlbedoSfcDif              & ! out, surface albedo (diffuse)
-             )
-! ----------------------------------------------------------------------
     ! solar radiation process is only done if there is light
-    if ( CosSolarZenithAngle > 0 ) then
+    if ( CosSolarZenithAngle(I,J) > 0 ) then
        ! surface albedo
        !$acc loop seq
        do IndBand = 1, NumSwRadBand
           AlbedoSfcDir(I,IndBand,J) = AlbedoGrdDir(I,IndBand,J)
           AlbedoSfcDif(I,IndBand,J) = AlbedoGrdDif(I,IndBand,J)
        enddo
-    endif  ! CosSolarZenithAngle > 0
+    endif  ! CosSolarZenithAngle(I,J) > 0
 
-    end associate
 
       end do
     end do
    !$acc end parallel loop
+
+
+    end associate
 
   end subroutine SurfaceAlbedoGlacier
 

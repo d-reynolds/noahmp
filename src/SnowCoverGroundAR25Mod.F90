@@ -30,39 +30,41 @@ contains
     real(kind=kind_noahmp)           :: SnowCoverFac   ! snow cover factor [scfac] (scale-dependent)
 
 ! --------------------------------------------------------------------
-   !$acc parallel loop collapse(2) gang vector present(noahmp) private(SnowDensBulk,MeltFac,SnowMeltFac,SnowCoverFac)
+    associate(                                                              &
+              SnowDepth         => noahmp%water%state%SnowDepth        ,& ! in,  snow depth [m]
+              SnowWaterEquiv    => noahmp%water%state%SnowWaterEquiv   ,& ! in,  snow water equivalent [mm]
+              GridSize          => noahmp%config%domain%GridSize            ,& ! in,  noahmp model grid spacing [m]
+              SnowCoverM1AR25   => noahmp%water%param%SnowCoverM1AR25  ,& ! in,  SCFm1 parameter from AR2025
+              SnowCoverM2AR25   => noahmp%water%param%SnowCoverM2AR25  ,& ! in,  SCFm2 parameter from AR2025
+              SnowCoverFac1AR25 => noahmp%water%param%SnowCoverFac1AR25,& ! in,  SCfac1 parameter from AR2025
+              SnowCoverFac2AR25 => noahmp%water%param%SnowCoverFac2AR25,& ! in,  SCfac2 parameter from AR2025
+              SnowCoverFrac     => noahmp%water%state%SnowCoverFrac     & ! out, snow cover fraction
+             )
+
+   !$acc parallel loop collapse(2) gang vector default(present) private(SnowDensBulk,MeltFac,SnowMeltFac,SnowCoverFac)
     do J = noahmp%config%domain%JTS, noahmp%config%domain%JTE
       do I = noahmp%config%domain%ITS, noahmp%config%domain%ITE
 
-    associate(                                                              &
-              SnowDepth         => noahmp%water%state%SnowDepth(I,J)        ,& ! in,  snow depth [m]
-              SnowWaterEquiv    => noahmp%water%state%SnowWaterEquiv(I,J)   ,& ! in,  snow water equivalent [mm]
-              GridSize          => noahmp%config%domain%GridSize            ,& ! in,  noahmp model grid spacing [m]
-              SnowCoverM1AR25   => noahmp%water%param%SnowCoverM1AR25(I,J)  ,& ! in,  SCFm1 parameter from AR2025
-              SnowCoverM2AR25   => noahmp%water%param%SnowCoverM2AR25(I,J)  ,& ! in,  SCFm2 parameter from AR2025
-              SnowCoverFac1AR25 => noahmp%water%param%SnowCoverFac1AR25(I,J),& ! in,  SCfac1 parameter from AR2025
-              SnowCoverFac2AR25 => noahmp%water%param%SnowCoverFac2AR25(I,J),& ! in,  SCfac2 parameter from AR2025
-              SnowCoverFrac     => noahmp%water%state%SnowCoverFrac(I,J)     & ! out, snow cover fraction
-             )
-! ----------------------------------------------------------------------
 
-    SnowCoverFrac = 0.0
-    if ( SnowDepth > 0.0 ) then
+    SnowCoverFrac(I,J) = 0.0
+    if ( SnowDepth(I,J) > 0.0 ) then
          ! calculate SCF parameters as a function of grid size (limit gridsize to 500m~36km due to parameterization limitation)
-         SnowMeltFac  = SnowCoverM1AR25 + tanh(SnowCoverM2AR25 * min((max(GridSize,500.0)/1000),36.0))
-         SnowCoverFac = SnowCoverFac1AR25 * sinh(SnowCoverFac2AR25*min((max(GridSize,500.0)/1000),36.0)) + SnowCoverFac2AR25
+         SnowMeltFac  = SnowCoverM1AR25(I,J) + tanh(SnowCoverM2AR25(I,J) * min((max(GridSize,500.0)/1000),36.0))
+         SnowCoverFac = SnowCoverFac1AR25(I,J) * sinh(SnowCoverFac2AR25(I,J)*min((max(GridSize,500.0)/1000),36.0)) + SnowCoverFac2AR25(I,J)
         
          ! using scale-dependent parameters, employ the Niu-Yang 07 SCF soluiton
-         SnowDensBulk  = SnowWaterEquiv / SnowDepth
+         SnowDensBulk  = SnowWaterEquiv(I,J) / SnowDepth(I,J)
          MeltFac       = (SnowDensBulk / 100.0)**SnowMeltFac
-         SnowCoverFrac = tanh( SnowDepth /(SnowCoverFac * MeltFac))
+         SnowCoverFrac(I,J) = tanh( SnowDepth(I,J) /(SnowCoverFac * MeltFac))
     endif
 
-    end associate
 
       end do
     end do
    !$acc end parallel loop
+
+
+    end associate
 
   end subroutine SnowCoverGroundAR25
 

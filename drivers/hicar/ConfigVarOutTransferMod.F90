@@ -32,7 +32,7 @@ contains
              )
 ! ----------------------------------------------------------------------
 
-    !$acc parallel loop collapse(2) present(noahmp, NoahmpIO) private(NumSnowLayerMax, NumSoilLayer)
+    !$acc parallel loop collapse(2) default(present) private(NumSnowLayerMax, NumSoilLayer)
     do J = noahmp%config%domain%JTS, noahmp%config%domain%JTE
       do I = noahmp%config%domain%ITS, noahmp%config%domain%ITE
 

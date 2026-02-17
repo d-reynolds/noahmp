@@ -28,46 +28,48 @@ contains
     real(kind=kind_noahmp)           :: HeatPrcpAirToGrd    ! precipitation advected heat - air to ground [W/m2]
 
 ! --------------------------------------------------------------------
-   !$acc parallel loop collapse(2) gang vector present(noahmp) private(HeatPrcpAirToGrd)
+    associate(                                                                       &
+              TemperatureAirRefHeight => noahmp%forcing%TemperatureAirRefHeight ,& ! in,  air temperature [K] at reference height
+              TemperatureGrd          => noahmp%energy%state%TemperatureGrd     ,& ! in,  ground temperature [K]
+              RainfallRefHeight       => noahmp%water%flux%RainfallRefHeight    ,& ! in,  total liquid rainfall [mm/s] before interception
+              SnowfallRefHeight       => noahmp%water%flux%SnowfallRefHeight    ,& ! in,  total snowfall [mm/s] before interception
+              SnowfallGround          => noahmp%water%flux%SnowfallGround       ,& ! out, snowfall at ground surface [mm/s]
+              RainfallGround          => noahmp%water%flux%RainfallGround       ,& ! out, rainfall at ground surface [mm/s]
+              HeatPrecipAdvBareGrd    => noahmp%energy%flux%HeatPrecipAdvBareGrd & ! out, precipitation advected heat - bare ground net [W/m2]
+             )
+
+   !$acc parallel loop collapse(2) gang vector default(present) private(HeatPrcpAirToGrd)
     do J = noahmp%config%domain%JTS, noahmp%config%domain%JTE
       do I = noahmp%config%domain%ITS, noahmp%config%domain%ITE
 
-    associate(                                                                       &
-              TemperatureAirRefHeight => noahmp%forcing%TemperatureAirRefHeight(I,J) ,& ! in,  air temperature [K] at reference height
-              TemperatureGrd          => noahmp%energy%state%TemperatureGrd(I,J)     ,& ! in,  ground temperature [K]
-              RainfallRefHeight       => noahmp%water%flux%RainfallRefHeight(I,J)    ,& ! in,  total liquid rainfall [mm/s] before interception
-              SnowfallRefHeight       => noahmp%water%flux%SnowfallRefHeight(I,J)    ,& ! in,  total snowfall [mm/s] before interception
-              SnowfallGround          => noahmp%water%flux%SnowfallGround(I,J)       ,& ! out, snowfall at ground surface [mm/s]
-              RainfallGround          => noahmp%water%flux%RainfallGround(I,J)       ,& ! out, rainfall at ground surface [mm/s]
-              HeatPrecipAdvBareGrd    => noahmp%energy%flux%HeatPrecipAdvBareGrd(I,J) & ! out, precipitation advected heat - bare ground net [W/m2]
-             )
-! ----------------------------------------------------------------------
 
     ! initialization
     HeatPrcpAirToGrd     = 0.0
-    HeatPrecipAdvBareGrd = 0.0
-    RainfallGround       = RainfallRefHeight
-    SnowfallGround       = SnowfallRefHeight
+    HeatPrecipAdvBareGrd(I,J) = 0.0
+    RainfallGround(I,J)       = RainfallRefHeight(I,J)
+    SnowfallGround(I,J)       = SnowfallRefHeight(I,J)
 
     ! Heat advection for liquid rainfall
-    HeatPrcpAirToGrd     = RainfallGround * (ConstHeatCapacWater/1000.0) * (TemperatureAirRefHeight - TemperatureGrd)
+    HeatPrcpAirToGrd     = RainfallGround(I,J) * (ConstHeatCapacWater/1000.0) * (TemperatureAirRefHeight(I,J) - TemperatureGrd(I,J))
 
     ! Heat advection for snowfall
     HeatPrcpAirToGrd     = HeatPrcpAirToGrd + &
-                           SnowfallGround * (ConstHeatCapacIce/1000.0) * (TemperatureAirRefHeight - TemperatureGrd)
+                           SnowfallGround(I,J) * (ConstHeatCapacIce/1000.0) * (TemperatureAirRefHeight(I,J) - TemperatureGrd(I,J))
 
     ! net heat advection
-    HeatPrecipAdvBareGrd = HeatPrcpAirToGrd
+    HeatPrecipAdvBareGrd(I,J) = HeatPrcpAirToGrd
 
     ! Put some artificial limits here for stability
-    HeatPrecipAdvBareGrd = max(HeatPrecipAdvBareGrd, -20.0)
-    HeatPrecipAdvBareGrd = min(HeatPrecipAdvBareGrd,  20.0)
+    HeatPrecipAdvBareGrd(I,J) = max(HeatPrecipAdvBareGrd(I,J), -20.0)
+    HeatPrecipAdvBareGrd(I,J) = min(HeatPrecipAdvBareGrd(I,J),  20.0)
 
-    end associate
 
       end do
     end do
    !$acc end parallel loop
+
+
+    end associate
 
   end subroutine PrecipitationHeatAdvectGlacier
 

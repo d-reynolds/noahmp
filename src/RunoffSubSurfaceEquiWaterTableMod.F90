@@ -30,37 +30,38 @@ contains
     ! compute equilibrium water table depth
     call WaterTableEquilibrium(noahmp)
 
-    !$acc parallel loop collapse(2) gang vector present(noahmp)
+    associate(                                                                      &
+              SoilImpervFracMax => noahmp%water%state%SoilImpervFracMax       ,& ! in,    maximum soil imperviousness fraction
+              GridTopoIndex     => noahmp%water%param%GridTopoIndex           ,& ! in,    gridcell mean topgraphic index (global mean)
+              RunoffDecayFac    => noahmp%water%param%RunoffDecayFac          ,& ! in,    runoff decay factor [m-1]
+              BaseflowCoeff     => noahmp%water%param%BaseflowCoeff           ,& ! inout, baseflow coefficient [mm/s]
+              WaterTableDepth   => noahmp%water%state%WaterTableDepth         ,& ! out,   water table depth [m]
+              RunoffSubsurface  => noahmp%water%flux%RunoffSubsurface          & ! out,   subsurface runoff [mm/s]
+             )
+
+    !$acc parallel loop collapse(2) gang vector default(present)
     do J = noahmp%config%domain%JTS, noahmp%config%domain%JTE
       do I = noahmp%config%domain%ITS, noahmp%config%domain%ITE
          if ( noahmp%config%domain%IndicatorIceSfc(I,J) == -1 ) cycle  ! skip soil process for ice surface points
 
-! --------------------------------------------------------------------
-    associate(                                                                      &
-              SoilImpervFracMax => noahmp%water%state%SoilImpervFracMax(I,J)       ,& ! in,    maximum soil imperviousness fraction
-              GridTopoIndex     => noahmp%water%param%GridTopoIndex(I,J)           ,& ! in,    gridcell mean topgraphic index (global mean)
-              RunoffDecayFac    => noahmp%water%param%RunoffDecayFac(I,J)          ,& ! in,    runoff decay factor [m-1]
-              BaseflowCoeff     => noahmp%water%param%BaseflowCoeff(I,J)           ,& ! inout, baseflow coefficient [mm/s]
-              WaterTableDepth   => noahmp%water%state%WaterTableDepth(I,J)         ,& ! out,   water table depth [m]
-              RunoffSubsurface  => noahmp%water%flux%RunoffSubsurface(I,J)          & ! out,   subsurface runoff [mm/s]
-             )
-! ----------------------------------------------------------------------
 
     ! set parameter values specific for this scheme
-    RunoffDecayFac = 2.0
-    BaseflowCoeff  = 4.0
+    RunoffDecayFac(I,J) = 2.0
+    BaseflowCoeff(I,J)  = 4.0
 
 
     ! compuate subsurface runoff mm/s
-    RunoffSubsurface = (1.0 - SoilImpervFracMax) * BaseflowCoeff * &
-                       exp(-GridTopoIndex) * exp(-RunoffDecayFac * WaterTableDepth)
+    RunoffSubsurface(I,J) = (1.0 - SoilImpervFracMax(I,J)) * BaseflowCoeff(I,J) * &
+                       exp(-GridTopoIndex(I,J)) * exp(-RunoffDecayFac(I,J) * WaterTableDepth(I,J))
 
-    end associate
 
       end do
     end do
     !$acc end parallel loop
 
+
+
+    end associate
 
   end subroutine RunoffSubSurfaceEquiWaterTable
 

@@ -29,17 +29,17 @@ contains
     real(kind=kind_noahmp) :: DepthIceLayerMid   ! mid-point ice layer depth
 
 ! --------------------------------------------------------------------
-   !$acc parallel loop collapse(2) gang vector present(noahmp) private(LoopInd1,LoopInd2,DepthIceLayerMid)
-    do J = noahmp%config%domain%JTS, noahmp%config%domain%JTE
-      do I = noahmp%config%domain%ITS, noahmp%config%domain%ITE
-
     associate(                                                                          &
               NumSoilLayer           => noahmp%config%domain%NumSoilLayer               ,& ! in,  number of soil layers
               ThicknessSnowSoilLayer => noahmp%config%domain%ThicknessSnowSoilLayer     ,& ! in,  thickness of snow/soil layers [m]
               HeatCapacGlaIce        => noahmp%energy%state%HeatCapacGlaIce             ,& ! out, glacier ice layer volumetric specific heat [J/m3/K]
               ThermConductGlaIce     => noahmp%energy%state%ThermConductGlaIce           & ! out, glacier ice layer thermal conductivity [W/m/K]
              )
-! ----------------------------------------------------------------------
+
+   !$acc parallel loop collapse(2) gang vector default(present) private(LoopInd1,LoopInd2,DepthIceLayerMid)
+    do J = noahmp%config%domain%JTS, noahmp%config%domain%JTE
+      do I = noahmp%config%domain%ITS, noahmp%config%domain%ITE
+
 
     !$acc loop seq
     do LoopInd1 = 1, NumSoilLayer
@@ -52,11 +52,13 @@ contains
        ThermConductGlaIce(I,LoopInd1,J) = 0.32333 + (0.10073 * DepthIceLayerMid)
     enddo
 
-    end associate
 
       end do
     end do
    !$acc end parallel loop
+
+
+    end associate
 
   end subroutine GlacierIceThermalProperty
 

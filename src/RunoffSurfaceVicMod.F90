@@ -37,35 +37,35 @@ contains
     real(kind=kind_noahmp)                :: SoilMoistTopMax   ! top layer max soil moisture [m]
 
 
-    !$acc parallel loop collapse(2) gang vector present(noahmp) &
-    !$acc private(LoopInd,InfilExpFac,WaterDepthInit,WaterDepthMax,InfilVarTmp,SoilMoistTop,SoilMoistTopMax)
-    do J = noahmp%config%domain%JTS, noahmp%config%domain%JTE
-      do I = noahmp%config%domain%ITS, noahmp%config%domain%ITE
-         if ( noahmp%config%domain%IndicatorIceSfc(I,J) == -1 ) cycle  ! skip soil process for ice surface points
-! --------------------------------------------------------------------
     associate(                                                                &
               NumSoilLayer      => noahmp%config%domain%NumSoilLayer         ,& ! in,  number of soil layers
               DepthSoilLayer    => noahmp%config%domain%DepthSoilLayer       ,& ! in,  depth [m] of layer-bottom from soil surface
               SoilMoisture      => noahmp%water%state%SoilMoisture           ,& ! in,  total soil moisture [m3/m3]
-              SoilSfcInflowMean => noahmp%water%flux%SoilSfcInflowMean(I,J)  ,& ! in,  mean water input on soil surface [m/s]
+              SoilSfcInflowMean => noahmp%water%flux%SoilSfcInflowMean  ,& ! in,  mean water input on soil surface [m/s]
               SoilMoistureSat   => noahmp%water%param%SoilMoistureSat        ,& ! in,  saturated value of soil moisture [m3/m3]
-              InfilFacVic       => noahmp%water%param%InfilFacVic(I,J)       ,& ! in,  VIC model infiltration parameter
-              RunoffSurface     => noahmp%water%flux%RunoffSurface(I,J)      ,& ! out, surface runoff [m/s]
-              InfilRateSfc      => noahmp%water%flux%InfilRateSfc(I,J)       ,& ! out, infiltration rate at surface [m/s]
-              SoilSaturateFrac  => noahmp%water%state%SoilSaturateFrac(I,J)   & ! out, fractional saturated area for soil moisture
+              InfilFacVic       => noahmp%water%param%InfilFacVic       ,& ! in,  VIC model infiltration parameter
+              RunoffSurface     => noahmp%water%flux%RunoffSurface      ,& ! out, surface runoff [m/s]
+              InfilRateSfc      => noahmp%water%flux%InfilRateSfc       ,& ! out, infiltration rate at surface [m/s]
+              SoilSaturateFrac  => noahmp%water%state%SoilSaturateFrac   & ! out, fractional saturated area for soil moisture
              )
-! ----------------------------------------------------------------------
+
+    !$acc parallel loop collapse(2) gang vector default(present) &
+    !$acc private(LoopInd,InfilExpFac,WaterDepthInit,WaterDepthMax,InfilVarTmp,SoilMoistTop,SoilMoistTopMax) &
+    !$acc firstprivate(TimeStep)
+    do J = noahmp%config%domain%JTS, noahmp%config%domain%JTE
+      do I = noahmp%config%domain%ITS, noahmp%config%domain%ITE
+         if ( noahmp%config%domain%IndicatorIceSfc(I,J) == -1 ) cycle  ! skip soil process for ice surface points
 
     ! Initialization
     InfilExpFac      = 0.0
-    SoilSaturateFrac = 0.0
+    SoilSaturateFrac(I,J) = 0.0
     WaterDepthMax    = 0.0
     WaterDepthInit   = 0.0
     InfilVarTmp      = 0.0
     SoilMoistTop     = 0.0
     SoilMoistTopMax  = 0.0
-    RunoffSurface    = 0.0
-    InfilRateSfc     = 0.0
+    RunoffSurface(I,J)    = 0.0
+    InfilRateSfc(I,J)     = 0.0
 
     !$acc loop seq
     do LoopInd = 1, NumSoilLayer-2
@@ -74,40 +74,42 @@ contains
     enddo
 
     ! fractional saturated area from soil moisture
-    InfilExpFac      = InfilFacVic / ( 1.0 + InfilFacVic )
-    SoilSaturateFrac = 1.0 - (max(0.0, (1.0-(SoilMoistTop/SoilMoistTopMax))))**InfilExpFac
-    SoilSaturateFrac = max(0.0, SoilSaturateFrac)
-    SoilSaturateFrac = min(1.0, SoilSaturateFrac)
+    InfilExpFac      = InfilFacVic(I,J) / ( 1.0 + InfilFacVic(I,J) )
+    SoilSaturateFrac(I,J) = 1.0 - (max(0.0, (1.0-(SoilMoistTop/SoilMoistTopMax))))**InfilExpFac
+    SoilSaturateFrac(I,J) = max(0.0, SoilSaturateFrac(I,J))
+    SoilSaturateFrac(I,J) = min(1.0, SoilSaturateFrac(I,J))
 
     ! Infiltration for the previous time-step soil moisture based on SoilSaturateFrac
-    WaterDepthMax  = (1.0 + InfilFacVic) * SoilMoistTopMax
-    WaterDepthInit = WaterDepthMax * (1.0 - (1.0 - SoilSaturateFrac)**(1.0/InfilFacVic))
+    WaterDepthMax  = (1.0 + InfilFacVic(I,J)) * SoilMoistTopMax
+    WaterDepthInit = WaterDepthMax * (1.0 - (1.0 - SoilSaturateFrac(I,J))**(1.0/InfilFacVic(I,J)))
 
     ! Solve for surface runoff
-    if ( SoilSfcInflowMean == 0.0 ) then
-       RunoffSurface = 0.0
+    if ( SoilSfcInflowMean(I,J) == 0.0 ) then
+       RunoffSurface(I,J) = 0.0
     else if ( WaterDepthMax == 0.0 ) then
-       RunoffSurface = SoilSfcInflowMean * TimeStep
-    else if ( (WaterDepthInit + (SoilSfcInflowMean*TimeStep)) > WaterDepthMax ) then
-       RunoffSurface = SoilSfcInflowMean * TimeStep - SoilMoistTopMax + SoilMoistTop
+       RunoffSurface(I,J) = SoilSfcInflowMean(I,J) * TimeStep
+    else if ( (WaterDepthInit + (SoilSfcInflowMean(I,J)*TimeStep)) > WaterDepthMax ) then
+       RunoffSurface(I,J) = SoilSfcInflowMean(I,J) * TimeStep - SoilMoistTopMax + SoilMoistTop
     else
-       InfilVarTmp  = 1.0 - ((WaterDepthInit + (SoilSfcInflowMean * TimeStep) ) / WaterDepthMax)
-       RunoffSurface = SoilSfcInflowMean * TimeStep - SoilMoistTopMax + SoilMoistTop + &
-                       SoilMoistTopMax * (InfilVarTmp**(1.0+InfilFacVic))
+       InfilVarTmp  = 1.0 - ((WaterDepthInit + (SoilSfcInflowMean(I,J) * TimeStep) ) / WaterDepthMax)
+       RunoffSurface(I,J) = SoilSfcInflowMean(I,J) * TimeStep - SoilMoistTopMax + SoilMoistTop + &
+                       SoilMoistTopMax * (InfilVarTmp**(1.0+InfilFacVic(I,J)))
     endif
 
-    RunoffSurface = RunoffSurface / TimeStep
-    if ( RunoffSurface < 0.0 ) RunoffSurface = 0.0
-    if ( RunoffSurface > SoilSfcInflowMean) RunoffSurface = SoilSfcInflowMean
+    RunoffSurface(I,J) = RunoffSurface(I,J) / TimeStep
+    if ( RunoffSurface(I,J) < 0.0 ) RunoffSurface(I,J) = 0.0
+    if ( RunoffSurface(I,J) > SoilSfcInflowMean(I,J)) RunoffSurface(I,J) = SoilSfcInflowMean(I,J)
 
-    InfilRateSfc = SoilSfcInflowMean - RunoffSurface
+    InfilRateSfc(I,J) = SoilSfcInflowMean(I,J) - RunoffSurface(I,J)
 
-    end associate
 
       end do
     end do
     !$acc end parallel loop
 
+
+
+    end associate
 
   end subroutine RunoffSurfaceVIC
 

@@ -39,11 +39,6 @@ contains
     real(kind=kind_noahmp)                 :: SoilWatDiffusivity   ! soil water diffusivity [m2/s]
     real(kind=kind_noahmp)                 :: SoilIceMaxTmp        ! maximum soil ice content [m3/m3]
 
-    !$acc parallel loop collapse(2) gang vector present(noahmp, InfilRateSfc) &
-    !$acc private(SoilWatConductivity, SoilWatDiffusivity, SoilIceMaxTmp, SoilSorptivity, SoilWatConductInit, IndSoilLayer, LoopInd, I, J)
-    do J = noahmp%config%domain%JTS, noahmp%config%domain%JTE
-      do I = noahmp%config%domain%ITS, noahmp%config%domain%ITE
-! --------------------------------------------------------------------
     associate(                                                                     &
               NumSoilLayer           => noahmp%config%domain%NumSoilLayer         ,& ! in, number of soil layers
               SoilMoisture           => noahmp%water%state%SoilMoisture           ,& ! in, total soil moisture [m3/m3]
@@ -53,7 +48,11 @@ contains
               SoilWatDiffusivitySat  => noahmp%water%param%SoilWatDiffusivitySat  ,& ! in, saturated soil hydraulic diffusivity [m2/s]
               SoilWatConductivitySat => noahmp%water%param%SoilWatConductivitySat  & ! in, saturated soil hydraulic conductivity [m/s]
              )
-! ----------------------------------------------------------------------
+
+    !$acc parallel loop collapse(2) gang vector default(present) private(SoilWatConductivity, SoilWatDiffusivity, &
+    !$acc SoilIceMaxTmp, SoilSorptivity, SoilWatConductInit, IndSoilLayer, LoopInd, I, J) firstprivate(TimeStep)
+    do J = noahmp%config%domain%JTS, noahmp%config%domain%JTE
+      do I = noahmp%config%domain%ITS, noahmp%config%domain%ITE
 
     ! initialize out-only and local variables
     SoilWatConductivity = 0.0
@@ -85,9 +84,11 @@ contains
     InfilRateSfc(I,J) = 0.5 * SoilSorptivity * (TimeStep**(-0.5)) + SoilWatConductInit
     InfilRateSfc(I,J) = max(0.0, InfilRateSfc(I,J))
 
-    end associate
       end do
     end do
+
+
+    end associate
 
   end subroutine IrrigationInfilPhilip
 

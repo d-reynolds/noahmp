@@ -40,23 +40,23 @@ contains
 ! --------------------------------------------------------------------
 
     ! initialization and compute solar penetration
-    !$acc parallel loop collapse(2) gang vector present(noahmp) private(IndLoop, RadSwAbsSum)
-    do J = noahmp%config%domain%JTS, noahmp%config%domain%JTE
-      do I = noahmp%config%domain%ITS, noahmp%config%domain%ITE
-
         associate(                                                                         &
                   NumSoilLayer          => noahmp%config%domain%NumSoilLayer              ,& ! in,  number of glacier/soil layers
                   NumSnowLayerMax       => noahmp%config%domain%NumSnowLayerMax           ,& ! in,  maximum number of snow layers
-                  NumSnowLayerNeg       => noahmp%config%domain%NumSnowLayerNeg(I,J)      ,& ! in,  actual number of snow layers (negative)
-                  DepthSoilTempBottom   => noahmp%config%domain%DepthSoilTempBottom(I,J)  ,& ! in,  depth [m] from glacier surface for lower soil temperature boundary
+                  NumSnowLayerNeg       => noahmp%config%domain%NumSnowLayerNeg      ,& ! in,  actual number of snow layers (negative)
+                  DepthSoilTempBottom   => noahmp%config%domain%DepthSoilTempBottom  ,& ! in,  depth [m] from glacier surface for lower soil temperature boundary
                   OptSnowAlbedo         => noahmp%config%nmlist%OptSnowAlbedo             ,& ! in,  options for ground snow surface albedo
-                  SnowDepth             => noahmp%water%state%SnowDepth(I,J)              ,& ! in,  snow depth [m]
+                  SnowDepth             => noahmp%water%state%SnowDepth              ,& ! in,  snow depth [m]
                   RadSwAbsSnowSoilLayer => noahmp%energy%flux%RadSwAbsSnowSoilLayer       ,& ! in,  total absorbed solar radiation by snow for each layer [W/m2]
-                  RadSwAbsGrd           => noahmp%energy%flux%RadSwAbsGrd(I,J)            ,& ! in,  solar radiation absorbed by ground [W/m2]
-                  DepthSoilTempBotToSno => noahmp%energy%state%DepthSoilTempBotToSno(I,J) ,& ! out, depth of lower boundary condition [m] from snow surface
+                  RadSwAbsGrd           => noahmp%energy%flux%RadSwAbsGrd            ,& ! in,  solar radiation absorbed by ground [W/m2]
+                  DepthSoilTempBotToSno => noahmp%energy%state%DepthSoilTempBotToSno ,& ! out, depth of lower boundary condition [m] from snow surface
                   RadSwPenetrateGrd     => noahmp%energy%flux%RadSwPenetrateGrd            & ! out, light penetrating through snow/ice [W/m2]
                  )
-! ----------------------------------------------------------------------
+
+    !$acc parallel loop collapse(2) gang vector default(present) private(IndLoop, RadSwAbsSum)
+    do J = noahmp%config%domain%JTS, noahmp%config%domain%JTE
+      do I = noahmp%config%domain%ITS, noahmp%config%domain%ITE
+
 
         ! initialize RadSwPenetrateGrd
         !$acc loop seq
@@ -65,7 +65,7 @@ contains
         enddo
 
         ! compute solar penetration through snowpack and glacier ice
-        if (OptSnowAlbedo == 3 .and. NumSnowLayerNeg < 0) then
+        if (OptSnowAlbedo == 3 .and. NumSnowLayerNeg(I,J) < 0) then
            ! Check if sum > 0 (replacing sum() intrinsic)
            RadSwAbsSum = 0.0
            !$acc loop seq
@@ -74,9 +74,9 @@ contains
            enddo
            if (RadSwAbsSum > 0.0) then
               !$acc loop seq
-              do IndLoop = NumSnowLayerNeg+1, 1, 1
-                 if (IndLoop == NumSnowLayerNeg+1) then
-                    RadSwPenetrateGrd(I,IndLoop,J) = RadSwAbsSnowSoilLayer(I,IndLoop,J) - RadSwAbsGrd
+              do IndLoop = NumSnowLayerNeg(I,J)+1, 1, 1
+                 if (IndLoop == NumSnowLayerNeg(I,J)+1) then
+                    RadSwPenetrateGrd(I,IndLoop,J) = RadSwAbsSnowSoilLayer(I,IndLoop,J) - RadSwAbsGrd(I,J)
                  else
                     RadSwPenetrateGrd(I,IndLoop,J) = RadSwAbsSnowSoilLayer(I,IndLoop,J)
                  endif
@@ -85,9 +85,8 @@ contains
         endif
 
         ! adjust DepthSoilTempBottom from glacier ice surface to DepthSoilTempBotToSno from snow surface
-        DepthSoilTempBotToSno = DepthSoilTempBottom - SnowDepth
+        DepthSoilTempBotToSno(I,J) = DepthSoilTempBottom(I,J) - SnowDepth(I,J)
 
-        end associate
 
       end do
     end do
@@ -126,6 +125,9 @@ contains
     deallocate(MatLeft1)
     deallocate(MatLeft2)
     deallocate(MatLeft3)
+
+
+        end associate
 
   end subroutine GlacierTemperatureMain
 

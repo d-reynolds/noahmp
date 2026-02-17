@@ -28,52 +28,54 @@ contains
     integer                          :: I, J         ! grid indices
 
 ! --------------------------------------------------------------------
-   !$acc parallel loop collapse(2) gang vector present(noahmp)
+    associate(                                                              &
+              IndicatorIceSfc    => noahmp%config%domain%IndicatorIceSfc   ,& ! in,  indicator for ice point: 1->seaice; -1->land ice; 0->soil
+              SurfaceType        => noahmp%config%domain%SurfaceType       ,& ! in,  surface type 1-soil; 2-lake
+              EmissivitySnow     => noahmp%energy%param%EmissivitySnow     ,& ! in,  snow emissivity
+              EmissivitySoilLake => noahmp%energy%param%EmissivitySoilLake ,& ! in,  emissivity soil surface
+              EmissivityIceSfc   => noahmp%energy%param%EmissivityIceSfc   ,& ! in,  emissivity ice surface
+              SnowCoverFrac      => noahmp%water%state%SnowCoverFrac       ,& ! in,  snow cover fraction
+              LeafAreaIndEff     => noahmp%energy%state%LeafAreaIndEff     ,& ! in,  leaf area index, after burying by snow
+              StemAreaIndEff     => noahmp%energy%state%StemAreaIndEff     ,& ! in,  stem area index, after burying by snow
+              VegFrac            => noahmp%energy%state%VegFrac            ,& ! in,  greeness vegetation fraction
+              EmissivityVeg      => noahmp%energy%state%EmissivityVeg      ,& ! out, vegetation emissivity
+              EmissivityGrd      => noahmp%energy%state%EmissivityGrd      ,& ! out, ground emissivity
+              EmissivitySfc      => noahmp%energy%state%EmissivitySfc       & ! out, surface emissivity
+             )
+
+   !$acc parallel loop collapse(2) gang vector default(present)
     do J = noahmp%config%domain%JTS, noahmp%config%domain%JTE
       do I = noahmp%config%domain%ITS, noahmp%config%domain%ITE
 
-    associate(                                                              &
-              IndicatorIceSfc    => noahmp%config%domain%IndicatorIceSfc(I,J)   ,& ! in,  indicator for ice point: 1->seaice; -1->land ice; 0->soil
-              SurfaceType        => noahmp%config%domain%SurfaceType(I,J)       ,& ! in,  surface type 1-soil; 2-lake
-              EmissivitySnow     => noahmp%energy%param%EmissivitySnow(I,J)     ,& ! in,  snow emissivity
-              EmissivitySoilLake => noahmp%energy%param%EmissivitySoilLake ,& ! in,  emissivity soil surface
-              EmissivityIceSfc   => noahmp%energy%param%EmissivityIceSfc(I,J)   ,& ! in,  emissivity ice surface
-              SnowCoverFrac      => noahmp%water%state%SnowCoverFrac(I,J)       ,& ! in,  snow cover fraction
-              LeafAreaIndEff     => noahmp%energy%state%LeafAreaIndEff(I,J)     ,& ! in,  leaf area index, after burying by snow
-              StemAreaIndEff     => noahmp%energy%state%StemAreaIndEff(I,J)     ,& ! in,  stem area index, after burying by snow
-              VegFrac            => noahmp%energy%state%VegFrac(I,J)            ,& ! in,  greeness vegetation fraction
-              EmissivityVeg      => noahmp%energy%state%EmissivityVeg(I,J)      ,& ! out, vegetation emissivity
-              EmissivityGrd      => noahmp%energy%state%EmissivityGrd(I,J)      ,& ! out, ground emissivity
-              EmissivitySfc      => noahmp%energy%state%EmissivitySfc(I,J)       & ! out, surface emissivity
-             )
-! ----------------------------------------------------------------------
 
-    if ( IndicatorIceSfc == 0 .or. IndicatorIceSfc == 1 ) then
+    if ( IndicatorIceSfc(I,J) == 0 .or. IndicatorIceSfc(I,J) == 1 ) then
       ! vegetation emissivity
-      EmissivityVeg = 1.0 - exp(-(LeafAreaIndEff + StemAreaIndEff) / 1.0)
+      EmissivityVeg(I,J) = 1.0 - exp(-(LeafAreaIndEff(I,J) + StemAreaIndEff(I,J)) / 1.0)
 
       ! ground emissivity
-      if ( IndicatorIceSfc == 1 ) then
-        EmissivityGrd = EmissivityIceSfc * (1.0-SnowCoverFrac) + EmissivitySnow * SnowCoverFrac
+      if ( IndicatorIceSfc(I,J) == 1 ) then
+        EmissivityGrd(I,J) = EmissivityIceSfc(I,J) * (1.0-SnowCoverFrac(I,J)) + EmissivitySnow(I,J) * SnowCoverFrac(I,J)
       else
-        EmissivityGrd = EmissivitySoilLake(I,SurfaceType,J) * (1.0-SnowCoverFrac) + EmissivitySnow * SnowCoverFrac
+        EmissivityGrd(I,J) = EmissivitySoilLake(I,SurfaceType(I,J),J) * (1.0-SnowCoverFrac(I,J)) + EmissivitySnow(I,J) * SnowCoverFrac(I,J)
       endif
 
       ! net surface emissivity
-      EmissivitySfc = VegFrac * (EmissivityGrd*(1-EmissivityVeg) + EmissivityVeg + &
-                      EmissivityVeg*(1-EmissivityVeg)*(1-EmissivityGrd)) + (1-VegFrac) * EmissivityGrd
-    else if ( IndicatorIceSfc == -1 ) then ! glacier ice point
+      EmissivitySfc(I,J) = VegFrac(I,J) * (EmissivityGrd(I,J)*(1-EmissivityVeg(I,J)) + EmissivityVeg(I,J) + &
+                      EmissivityVeg(I,J)*(1-EmissivityVeg(I,J))*(1-EmissivityGrd(I,J))) + (1-VegFrac(I,J)) * EmissivityGrd(I,J)
+    else if ( IndicatorIceSfc(I,J) == -1 ) then ! glacier ice point
       ! ground emissivity
-      EmissivityGrd = EmissivityIceSfc * (1.0 - SnowCoverFrac) + EmissivitySnow * SnowCoverFrac
+      EmissivityGrd(I,J) = EmissivityIceSfc(I,J) * (1.0 - SnowCoverFrac(I,J)) + EmissivitySnow(I,J) * SnowCoverFrac(I,J)
 
       ! surface emissivity
-      EmissivitySfc = EmissivityGrd
+      EmissivitySfc(I,J) = EmissivityGrd(I,J)
     endif
-    end associate
 
       end do
     end do
    !$acc end parallel loop
+
+
+    end associate
 
   end subroutine SurfaceEmissivity
 

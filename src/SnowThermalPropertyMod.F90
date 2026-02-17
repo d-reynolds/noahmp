@@ -29,12 +29,8 @@ contains
     real(kind=kind_noahmp)           :: SnowDensBulk                   ! bulk density of snow [kg/m3]
 
 ! --------------------------------------------------------------------
-    !$acc parallel loop collapse(2) gang vector present(noahmp)
-    do J = noahmp%config%domain%JTS, noahmp%config%domain%JTE
-      do I = noahmp%config%domain%ITS, noahmp%config%domain%ITE
-
         associate(                                                                         &
-                  NumSnowLayerNeg        => noahmp%config%domain%NumSnowLayerNeg(I,J)     ,& ! in,  actual number of snow layers (negative)
+                  NumSnowLayerNeg        => noahmp%config%domain%NumSnowLayerNeg     ,& ! in,  actual number of snow layers (negative)
                   ThicknessSnowSoilLayer => noahmp%config%domain%ThicknessSnowSoilLayer   ,& ! in,  thickness of snow/soil layers [m] (3D)
                   OptSnowThermConduct    => noahmp%config%nmlist%OptSnowThermConduct      ,& ! in,  options for snow thermal conductivity schemes
                   SnowIce                => noahmp%water%state%SnowIce                    ,& ! in,  snow layer ice [mm] (3D)
@@ -45,11 +41,15 @@ contains
                   HeatCapacVolSnow       => noahmp%energy%state%HeatCapacVolSnow          ,& ! out, snow layer volumetric specific heat [J/m3/K] (3D)
                   ThermConductSnow       => noahmp%energy%state%ThermConductSnow           & ! out, snow layer thermal conductivity [W/m/K] (3D)
                  )
-! ----------------------------------------------------------------------
+
+    !$acc parallel loop collapse(2) gang vector default(present) private(LoopInd, SnowDensBulk)
+    do J = noahmp%config%domain%JTS, noahmp%config%domain%JTE
+      do I = noahmp%config%domain%ITS, noahmp%config%domain%ITE
+
 
         !  effective porosity of snow
         !$acc loop seq
-        do LoopInd = NumSnowLayerNeg+1, 0
+        do LoopInd = NumSnowLayerNeg(I,J)+1, 0
            SnowIceVol(I,LoopInd,J)      = min(1.0, SnowIce(I,LoopInd,J)/(ThicknessSnowSoilLayer(I,LoopInd,J)*ConstDensityIce))
            SnowEffPorosity(I,LoopInd,J) = 1.0 - SnowIceVol(I,LoopInd,J)
            SnowLiqWaterVol(I,LoopInd,J) = min(SnowEffPorosity(I,LoopInd,J), &
@@ -58,7 +58,7 @@ contains
 
         ! thermal capacity of snow
         !$acc loop seq
-        do LoopInd = NumSnowLayerNeg+1, 0
+        do LoopInd = NumSnowLayerNeg(I,J)+1, 0
            SnowDensBulk              = (SnowIce(I,LoopInd,J) + SnowLiqWater(I,LoopInd,J)) / ThicknessSnowSoilLayer(I,LoopInd,J)
            HeatCapacVolSnow(I,LoopInd,J) = ConstHeatCapacIce*SnowIceVol(I,LoopInd,J) + ConstHeatCapacWater*SnowLiqWaterVol(I,LoopInd,J)
           !HeatCapacVolSnow(I,LoopInd,J) = 0.525e06  ! constant
@@ -66,7 +66,7 @@ contains
 
         ! thermal conductivity of snow
         !$acc loop seq
-        do LoopInd = NumSnowLayerNeg+1, 0
+        do LoopInd = NumSnowLayerNeg(I,J)+1, 0
            SnowDensBulk = (SnowIce(I,LoopInd,J) + SnowLiqWater(I,LoopInd,J)) / ThicknessSnowSoilLayer(I,LoopInd,J)
            if (OptSnowThermConduct == 1) &
               ThermConductSnow(I,LoopInd,J) = 3.2217e-6 * SnowDensBulk**2.0                      ! Stieglitz(yen,1965)
@@ -80,11 +80,13 @@ contains
               ThermConductSnow(I,LoopInd,J) = 2.22 * (SnowDensBulk/1000.0)**1.88                 ! Douvill(Yen, 1981)
         enddo
 
-        end associate
 
       end do
     end do
     !$acc end parallel loop
+
+
+        end associate
 
   end subroutine SnowThermalProperty
 

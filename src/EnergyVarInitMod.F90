@@ -1192,7 +1192,7 @@ contains
        endif
 
        ! Initialize SNICAR lookup tables (not spatially varying)
-       !$acc parallel loop gang vector collapse(2) present(noahmp%energy)
+       !$acc parallel loop gang vector collapse(2) default(present) private(k, LoopInd)
        do I = ITS, ITE
          do J = JTS, JTE
         !$acc loop seq
@@ -1429,7 +1429,7 @@ contains
     end associate
 
     ! Now initialize all 2D and 3D arrays in parallel loop
-    !$acc parallel loop collapse(2) gang vector present(noahmp%energy) private(LoopInd)
+    !$acc parallel loop collapse(2) gang vector default(present) private(LoopInd)
     do J = noahmp%config%domain%JTS, noahmp%config%domain%JTE
       do I = noahmp%config%domain%ITS, noahmp%config%domain%ITE
 

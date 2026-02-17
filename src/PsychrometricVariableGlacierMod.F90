@@ -27,25 +27,27 @@ contains
     integer                          :: I, J      ! grid indices
 
 ! --------------------------------------------------------------------
-   !$acc parallel loop collapse(2) gang vector present(noahmp)
+    associate(                                                                &
+              PressureAirRefHeight => noahmp%forcing%PressureAirRefHeight,& ! in,  air pressure [Pa] at reference height
+              LatHeatVapGrd        => noahmp%energy%state%LatHeatVapGrd  ,& ! out, latent heat of vaporization/subli [J/kg], ground
+              PsychConstGrd        => noahmp%energy%state%PsychConstGrd   & ! out, psychrometric constant [Pa/K], ground
+             )
+
+   !$acc parallel loop collapse(2) gang vector default(present)
     do J = noahmp%config%domain%JTS, noahmp%config%domain%JTE
       do I = noahmp%config%domain%ITS, noahmp%config%domain%ITE
 
-    associate(                                                                &
-              PressureAirRefHeight => noahmp%forcing%PressureAirRefHeight(I,J),& ! in,  air pressure [Pa] at reference height
-              LatHeatVapGrd        => noahmp%energy%state%LatHeatVapGrd(I,J)  ,& ! out, latent heat of vaporization/subli [J/kg], ground
-              PsychConstGrd        => noahmp%energy%state%PsychConstGrd(I,J)   & ! out, psychrometric constant [Pa/K], ground
-             )
-! ----------------------------------------------------------------------
 
-    LatHeatVapGrd = ConstLatHeatSublim
-    PsychConstGrd = ConstHeatCapacAir * PressureAirRefHeight / (0.622 * LatHeatVapGrd)
+    LatHeatVapGrd(I,J) = ConstLatHeatSublim
+    PsychConstGrd(I,J) = ConstHeatCapacAir * PressureAirRefHeight(I,J) / (0.622 * LatHeatVapGrd(I,J))
 
-    end associate
 
       end do
     end do
    !$acc end parallel loop
+
+
+    end associate
 
   end subroutine PsychrometricVariableGlacier
 

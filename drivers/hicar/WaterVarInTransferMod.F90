@@ -34,20 +34,20 @@ contains
     real(kind=kind_noahmp) :: SoilClay(1:noahmp%config%domain%NumSoilLayer)
     real(kind=kind_noahmp) :: SoilOrg(1:noahmp%config%domain%NumSoilLayer)
 
-    !$acc parallel loop collapse(2) present(noahmp, NoahmpIO) private(IndexSoilLayer, SoilSand, SoilClay, SoilOrg)
-    do J = noahmp%config%domain%JTS, noahmp%config%domain%JTE
-      do I = noahmp%config%domain%ITS, noahmp%config%domain%ITE
-! -------------------------------------------------------------------------
     associate(                                                         &
               NumSnowLayerMax => noahmp%config%domain%NumSnowLayerMax ,&
               NumSoilLayer    => noahmp%config%domain%NumSoilLayer    ,&
-              VegType         => noahmp%config%domain%VegType(I,J)         ,&
+              VegType         => noahmp%config%domain%VegType         ,&
               SoilType        => noahmp%config%domain%SoilType             ,&
-              FlagUrban       => noahmp%config%domain%FlagUrban(I,J)       ,&
+              FlagUrban       => noahmp%config%domain%FlagUrban       ,&
               RunoffSlopeType => noahmp%config%domain%RunoffSlopeType      ,&
-              NumSnowLayerNeg => noahmp%config%domain%NumSnowLayerNeg(I,J)  &
+              NumSnowLayerNeg => noahmp%config%domain%NumSnowLayerNeg  &
              )
-! -------------------------------------------------------------------------
+
+    !$acc parallel loop collapse(2) default(present) private(IndexSoilLayer, SoilSand, SoilClay, SoilOrg) &
+    !$acc private(LoopInd)
+    do J = noahmp%config%domain%JTS, noahmp%config%domain%JTE
+      do I = noahmp%config%domain%ITS, noahmp%config%domain%ITE
 
     ! water state variables
     noahmp%water%state%CanopyLiqWater(I,J)                     = NoahmpIO%CANLIQXY   (I,J)
@@ -139,7 +139,7 @@ contains
 
     ! water parameter variables
     noahmp%water%param%DrainSoilLayerInd(I,J)                  = NoahmpIO%DRAIN_LAYER_OPT_TABLE
-    noahmp%water%param%CanopyLiqHoldCap(I,J)                   = NoahmpIO%CH2OP_TABLE(VegType)
+    noahmp%water%param%CanopyLiqHoldCap(I,J)                   = NoahmpIO%CH2OP_TABLE(VegType(I,J))
     noahmp%water%param%SnowCompactBurdenFac(I,J)               = NoahmpIO%C2_SNOWCOMPACT_TABLE
     noahmp%water%param%SnowCompactAgingFac1(I,J)               = NoahmpIO%C3_SNOWCOMPACT_TABLE
     noahmp%water%param%SnowCompactAgingFac2(I,J)               = NoahmpIO%C4_SNOWCOMPACT_TABLE
@@ -180,8 +180,8 @@ contains
     noahmp%water%param%SnowfallDensityMax(I,J)                 = NoahmpIO%SNOWDEN_MAX_TABLE
     noahmp%water%param%SnowMassFullCoverOld(I,J)               = NoahmpIO%SWEMX_TABLE
     noahmp%water%param%SoilMatPotentialWilt(I,J)               = NoahmpIO%PSIWLT_TABLE
-    noahmp%water%param%SnowMeltFac(I,J)                        = NoahmpIO%MFSNO_TABLE(VegType)
-    noahmp%water%param%SnowCoverFac(I,J)                       = NoahmpIO%SCFFAC_TABLE(VegType)
+    noahmp%water%param%SnowMeltFac(I,J)                        = NoahmpIO%MFSNO_TABLE(VegType(I,J))
+    noahmp%water%param%SnowCoverFac(I,J)                       = NoahmpIO%SCFFAC_TABLE(VegType(I,J))
     noahmp%water%param%InfilFacVic(I,J)                        = NoahmpIO%BVIC_TABLE(SoilType(I,1,J))
     noahmp%water%param%TensionWatDistrInfl(I,J)                = NoahmpIO%AXAJ_TABLE(SoilType(I,1,J))
     noahmp%water%param%TensionWatDistrShp(I,J)                 = NoahmpIO%BXAJ_TABLE(SoilType(I,1,J))
@@ -199,7 +199,7 @@ contains
     noahmp%water%param%DrainTubeDist(I,J)                      = NoahmpIO%TD_SPAC_TABLE(SoilType(I,1,J))
     noahmp%water%param%DrainTubeRadius(I,J)                    = NoahmpIO%TD_RADI_TABLE(SoilType(I,1,J))
     noahmp%water%param%DrainWatDepToImperv(I,J)                = NoahmpIO%TD_D_TABLE(SoilType(I,1,J))
-    noahmp%water%param%NumSoilLayerRoot(I,J)                   = NoahmpIO%NROOT_TABLE(VegType)
+    noahmp%water%param%NumSoilLayerRoot(I,J)                   = NoahmpIO%NROOT_TABLE(VegType(I,J))
     noahmp%water%param%SoilDrainSlope(I,J)                     = NoahmpIO%SLOPE_TABLE(RunoffSlopeType)
     noahmp%water%param%WetlandCapMax(I,J)                      = NoahmpIO%WCAP_TABLE
 
@@ -290,7 +290,7 @@ contains
     noahmp%water%param%SoilInfilMaxCoeff(I,J)  = noahmp%water%param%SoilInfilFacRef(I,J) *           &
                                             noahmp%water%param%SoilWatConductivitySat(I,1,J) / &
                                             noahmp%water%param%SoilConductivityRef(I,J)
-    if ( FlagUrban .eqv. .true. ) then
+    if ( FlagUrban(I,J) .eqv. .true. ) then
        !$acc loop seq
        do IndexSoilLayer = 1, NumSoilLayer
          noahmp%water%param%SoilMoistureSat(I,IndexSoilLayer,J)      = 0.45
@@ -308,9 +308,9 @@ contains
     do LoopInd = -NumSnowLayerMax+1, 0
       noahmp%water%state%SnowIceFracPrev(I,LoopInd,J) = 0.0
     enddo
-    noahmp%water%state%SnowIceFracPrev(I,NumSnowLayerNeg+1:0,J) = NoahmpIO%SNICEXY(I,NumSnowLayerNeg+1:0,J) /  & 
-                                                              (NoahmpIO%SNICEXY(I,NumSnowLayerNeg+1:0,J) + &
-                                                               NoahmpIO%SNLIQXY(I,NumSnowLayerNeg+1:0,J))
+    noahmp%water%state%SnowIceFracPrev(I,NumSnowLayerNeg(I,J)+1:0,J) = NoahmpIO%SNICEXY(I,NumSnowLayerNeg(I,J)+1:0,J) /  & 
+                                                              (NoahmpIO%SNICEXY(I,NumSnowLayerNeg(I,J)+1:0,J) + &
+                                                               NoahmpIO%SNLIQXY(I,NumSnowLayerNeg(I,J)+1:0,J))
 
     if ( (noahmp%config%nmlist%OptSoilProperty == 3) .and. (.not. noahmp%config%domain%FlagUrban(I,J)) ) then
        !$acc loop seq
@@ -323,7 +323,6 @@ contains
           call PedoTransferSR2006(NoahmpIO,noahmp,SoilSand,SoilClay,SoilOrg,I,J)
     endif
 
-    end associate
 
       enddo
    enddo
@@ -340,6 +339,9 @@ contains
        end do
        end do
     endif
+
+
+    end associate
 
    end subroutine WaterVarInTransfer
 

@@ -32,11 +32,6 @@ contains
     real(kind=kind_noahmp)           :: TmpVar                            ! temporary variable
     real(kind=kind_noahmp), dimension(1:NumSoilFineLy) :: DepthSoilFineLy ! layer-bottom depth of the 100-L soil layers to 6.0 m
     integer                          :: I, J                              ! grid indices
-    !$acc parallel loop collapse(2) gang vector present(noahmp) private(DepthSoilFineLy)
-    do J = noahmp%config%domain%JTS, noahmp%config%domain%JTE
-      do I = noahmp%config%domain%ITS, noahmp%config%domain%ITE
-         if ( noahmp%config%domain%IndicatorIceSfc(I,J) == -1 ) cycle  ! skip soil process for ice surface points
-! --------------------------------------------------------------------
     associate(                                                                       &
               NumSoilLayer           => noahmp%config%domain%NumSoilLayer           ,& ! in,  number of soil layers
               DepthSoilLayer         => noahmp%config%domain%DepthSoilLayer         ,& ! in,  depth [m] of layer-bottom from soil surface
@@ -45,9 +40,14 @@ contains
               SoilMoistureSat        => noahmp%water%param%SoilMoistureSat          ,& ! in,  saturated value of soil moisture [m3/m3]
               SoilMatPotentialSat    => noahmp%water%param%SoilMatPotentialSat      ,& ! in,  saturated soil matric potential [m]
               SoilExpCoeffB          => noahmp%water%param%SoilExpCoeffB            ,& ! in,  soil B parameter
-              WaterTableDepth        => noahmp%water%state%WaterTableDepth(I,J)      & ! out, water table depth [m]
+              WaterTableDepth        => noahmp%water%state%WaterTableDepth      & ! out, water table depth [m]
              )
-! ----------------------------------------------------------------------
+
+    !$acc parallel loop collapse(2) gang vector default(present) private(DepthSoilFineLy) private(IndSoil, &
+    !$acc ThickSoilFineLy, TmpVar, WatDeficitCoarse, WatDeficitFine)
+    do J = noahmp%config%domain%JTS, noahmp%config%domain%JTE
+      do I = noahmp%config%domain%ITS, noahmp%config%domain%ITE
+         if ( noahmp%config%domain%IndicatorIceSfc(I,J) == -1 ) cycle  ! skip soil process for ice surface points
     !$acc loop seq
     do IndSoil = 1, NumSoilFineLy
       DepthSoilFineLy(IndSoil) = 0.0
@@ -65,24 +65,26 @@ contains
        DepthSoilFineLy(IndSoil) = float(IndSoil) * ThickSoilFineLy
     enddo
 
-    WaterTableDepth = -3.0 * DepthSoilLayer(I,NumSoilLayer,J) - 0.001              ! initial value [m]
+    WaterTableDepth(I,J) = -3.0 * DepthSoilLayer(I,NumSoilLayer,J) - 0.001              ! initial value [m]
 
     WatDeficitFine = 0.0
     !$acc loop seq
     do IndSoil = 1, NumSoilFineLy
-       TmpVar         = 1.0 + (WaterTableDepth - DepthSoilFineLy(IndSoil)) / SoilMatPotentialSat(I,1,J)
+       TmpVar         = 1.0 + (WaterTableDepth(I,J) - DepthSoilFineLy(IndSoil)) / SoilMatPotentialSat(I,1,J)
        WatDeficitFine = WatDeficitFine + SoilMoistureSat(I,1,J) * &
                                          (1.0 - TmpVar**(-1.0/SoilExpCoeffB(I,1,J))) * ThickSoilFineLy
        if ( abs(WatDeficitFine-WatDeficitCoarse) <= 0.01 ) then
-          WaterTableDepth = DepthSoilFineLy(IndSoil)
+          WaterTableDepth(I,J) = DepthSoilFineLy(IndSoil)
           exit
        endif
     enddo
 
-    end associate
 
    enddo
 enddo
+
+
+    end associate
 
   end subroutine WaterTableEquilibrium
 

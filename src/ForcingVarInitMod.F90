@@ -27,9 +27,12 @@ contains
     integer :: I, J      ! grid indices
 
     ! Allocate 3D crop parameter arrays and transfer to GPU
-    associate( NumCropGrowStage => noahmp%config%domain%NumCropGrowStage ,&
+    associate(                                                                      &
+              NumCropGrowStage => noahmp%config%domain%NumCropGrowStage ,&
                ITS => noahmp%config%domain%ITS, ITE => noahmp%config%domain%ITE ,&
-               JTS => noahmp%config%domain%JTS, JTE => noahmp%config%domain%JTE )
+               JTS => noahmp%config%domain%JTS, JTE => noahmp%config%domain%JTE  &
+             )
+
 
     if (.not.(allocated(noahmp%forcing%SpecHumidityRefHeight))) then
       allocate(noahmp%forcing%SpecHumidityRefHeight(ITS:ITE,JTS:JTE))
@@ -160,75 +163,80 @@ contains
       allocate(noahmp%forcing%RadSwDirFrac(ITS:ITE,JTS:JTE))
       !$acc enter data create(noahmp%forcing%RadSwDirFrac)
     end if
-
     end associate
+    ! Allocate 3D crop parameter arrays and transfer to GPU
+    associate(                                                                      &
+              NumCropGrowStage => noahmp%config%domain%NumCropGrowStage ,&
+               ITS => noahmp%config%domain%ITS, ITE => noahmp%config%domain%ITE ,&
+               JTS => noahmp%config%domain%JTS, JTE => noahmp%config%domain%JTE ,&
+                  SpecHumidityRefHeight   => noahmp%forcing%SpecHumidityRefHeight ,&
+                  TemperatureAirRefHeight => noahmp%forcing%TemperatureAirRefHeight ,&
+                  WindEastwardRefHeight   => noahmp%forcing%WindEastwardRefHeight ,&
+                  WindNorthwardRefHeight  => noahmp%forcing%WindNorthwardRefHeight ,&
+                  RadLwDownRefHeight      => noahmp%forcing%RadLwDownRefHeight ,&
+                  RadSwDownRefHeight      => noahmp%forcing%RadSwDownRefHeight ,&
+                  PrecipConvRefHeight     => noahmp%forcing%PrecipConvRefHeight ,&
+                  PrecipNonConvRefHeight  => noahmp%forcing%PrecipNonConvRefHeight ,&
+                  PrecipShConvRefHeight   => noahmp%forcing%PrecipShConvRefHeight ,&
+                  PrecipSnowRefHeight     => noahmp%forcing%PrecipSnowRefHeight ,&
+                  PrecipGraupelRefHeight  => noahmp%forcing%PrecipGraupelRefHeight ,&
+                  PrecipHailRefHeight     => noahmp%forcing%PrecipHailRefHeight ,&
+                  PressureAirSurface      => noahmp%forcing%PressureAirSurface ,&
+                  PressureAirRefHeight    => noahmp%forcing%PressureAirRefHeight ,&
+                  TemperatureSoilBottom   => noahmp%forcing%TemperatureSoilBottom ,&
+                  DepBChydropho           => noahmp%forcing%DepBChydropho ,&
+                  DepBChydrophi           => noahmp%forcing%DepBChydrophi ,&
+                  DepOChydropho           => noahmp%forcing%DepOChydropho ,&
+                  DepOChydrophi           => noahmp%forcing%DepOChydrophi ,&
+                  DepDust1                => noahmp%forcing%DepDust1 ,&
+                  DepDust2                => noahmp%forcing%DepDust2 ,&
+                  DepDust3                => noahmp%forcing%DepDust3 ,&
+                  DepDust4                => noahmp%forcing%DepDust4 ,&
+                  DepDust5                => noahmp%forcing%DepDust5 ,&
+                  RadSwVisFrac            => noahmp%forcing%RadSwVisFrac ,&
+                  RadSwDirFrac            => noahmp%forcing%RadSwDirFrac  &
+             )
 
-    !$acc parallel loop collapse(2) gang vector present(noahmp%forcing)
+    !$acc parallel loop collapse(2) gang vector default(present)
     do J = noahmp%config%domain%JTS, noahmp%config%domain%JTE
       do I = noahmp%config%domain%ITS, noahmp%config%domain%ITE
 
-        associate(                                                                            &
-                  SpecHumidityRefHeight   => noahmp%forcing%SpecHumidityRefHeight(I,J)       ,&
-                  TemperatureAirRefHeight => noahmp%forcing%TemperatureAirRefHeight(I,J)     ,&
-                  WindEastwardRefHeight   => noahmp%forcing%WindEastwardRefHeight(I,J)       ,&
-                  WindNorthwardRefHeight  => noahmp%forcing%WindNorthwardRefHeight(I,J)      ,&
-                  RadLwDownRefHeight      => noahmp%forcing%RadLwDownRefHeight(I,J)          ,&
-                  RadSwDownRefHeight      => noahmp%forcing%RadSwDownRefHeight(I,J)          ,&
-                  PrecipConvRefHeight     => noahmp%forcing%PrecipConvRefHeight(I,J)         ,&
-                  PrecipNonConvRefHeight  => noahmp%forcing%PrecipNonConvRefHeight(I,J)      ,&
-                  PrecipShConvRefHeight   => noahmp%forcing%PrecipShConvRefHeight(I,J)       ,&
-                  PrecipSnowRefHeight     => noahmp%forcing%PrecipSnowRefHeight(I,J)         ,&
-                  PrecipGraupelRefHeight  => noahmp%forcing%PrecipGraupelRefHeight(I,J)      ,&
-                  PrecipHailRefHeight     => noahmp%forcing%PrecipHailRefHeight(I,J)         ,&
-                  PressureAirSurface      => noahmp%forcing%PressureAirSurface(I,J)          ,&
-                  PressureAirRefHeight    => noahmp%forcing%PressureAirRefHeight(I,J)        ,&
-                  TemperatureSoilBottom   => noahmp%forcing%TemperatureSoilBottom(I,J)       ,&
-                  DepBChydropho           => noahmp%forcing%DepBChydropho(I,J)               ,&
-                  DepBChydrophi           => noahmp%forcing%DepBChydrophi(I,J)               ,&
-                  DepOChydropho           => noahmp%forcing%DepOChydropho(I,J)               ,&
-                  DepOChydrophi           => noahmp%forcing%DepOChydrophi(I,J)               ,&
-                  DepDust1                => noahmp%forcing%DepDust1(I,J)                    ,&
-                  DepDust2                => noahmp%forcing%DepDust2(I,J)                    ,&
-                  DepDust3                => noahmp%forcing%DepDust3(I,J)                    ,&
-                  DepDust4                => noahmp%forcing%DepDust4(I,J)                    ,&
-                  DepDust5                => noahmp%forcing%DepDust5(I,J)                    ,&
-                  RadSwVisFrac            => noahmp%forcing%RadSwVisFrac(I,J)                ,&
-                  RadSwDirFrac            => noahmp%forcing%RadSwDirFrac(I,J)                 &
-                 )
 
-        SpecHumidityRefHeight   = undefined_real
-        TemperatureAirRefHeight = undefined_real
-        WindEastwardRefHeight   = undefined_real
-        WindNorthwardRefHeight  = undefined_real
-        RadLwDownRefHeight      = undefined_real
-        RadSwDownRefHeight      = undefined_real
-        PrecipConvRefHeight     = undefined_real
-        PrecipNonConvRefHeight  = undefined_real
-        PrecipShConvRefHeight   = undefined_real
-        PrecipSnowRefHeight     = undefined_real
-        PrecipGraupelRefHeight  = undefined_real
-        PrecipHailRefHeight     = undefined_real
-        PressureAirSurface      = undefined_real
-        PressureAirRefHeight    = undefined_real
-        TemperatureSoilBottom   = undefined_real
+        SpecHumidityRefHeight(I,J)   = undefined_real
+        TemperatureAirRefHeight(I,J) = undefined_real
+        WindEastwardRefHeight(I,J)   = undefined_real
+        WindNorthwardRefHeight(I,J)  = undefined_real
+        RadLwDownRefHeight(I,J)      = undefined_real
+        RadSwDownRefHeight(I,J)      = undefined_real
+        PrecipConvRefHeight(I,J)     = undefined_real
+        PrecipNonConvRefHeight(I,J)  = undefined_real
+        PrecipShConvRefHeight(I,J)   = undefined_real
+        PrecipSnowRefHeight(I,J)     = undefined_real
+        PrecipGraupelRefHeight(I,J)  = undefined_real
+        PrecipHailRefHeight(I,J)     = undefined_real
+        PressureAirSurface(I,J)      = undefined_real
+        PressureAirRefHeight(I,J)    = undefined_real
+        TemperatureSoilBottom(I,J)   = undefined_real
 
-        DepBChydropho           = undefined_real
-        DepBChydrophi           = undefined_real
-        DepOChydropho           = undefined_real
-        DepOChydrophi           = undefined_real
-        DepDust1                = undefined_real
-        DepDust2                = undefined_real
-        DepDust3                = undefined_real
-        DepDust4                = undefined_real
-        DepDust5                = undefined_real
-        RadSwVisFrac            = undefined_real
-        RadSwDirFrac            = undefined_real
+        DepBChydropho(I,J)           = undefined_real
+        DepBChydrophi(I,J)           = undefined_real
+        DepOChydropho(I,J)           = undefined_real
+        DepOChydrophi(I,J)           = undefined_real
+        DepDust1(I,J)                = undefined_real
+        DepDust2(I,J)                = undefined_real
+        DepDust3(I,J)                = undefined_real
+        DepDust4(I,J)                = undefined_real
+        DepDust5(I,J)                = undefined_real
+        RadSwVisFrac(I,J)            = undefined_real
+        RadSwDirFrac(I,J)            = undefined_real
 
-        end associate
 
       end do
     end do
     !$acc end parallel loop
+
+
+    end associate
 
   end subroutine ForcingVarInitDefault
 

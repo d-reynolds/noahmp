@@ -1073,7 +1073,7 @@ contains
     end associate
 
     ! Initialize all 2D and 3D arrays in parallel loop
-    !$acc parallel loop collapse(2) gang vector present(noahmp%water) private(LoopInd)
+    !$acc parallel loop collapse(2) gang vector default(present) private(LoopInd)
     do J = noahmp%config%domain%JTS, noahmp%config%domain%JTE
       do I = noahmp%config%domain%ITS, noahmp%config%domain%ITE
 

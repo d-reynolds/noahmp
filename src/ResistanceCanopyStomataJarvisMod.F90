@@ -46,82 +46,84 @@ contains
 
 ! --------------------------------------------------------------------
 
-   !$acc parallel loop collapse(2) gang vector present(noahmp) &
+    associate(                                                                           &
+              PressureAirRefHeight    => noahmp%forcing%PressureAirRefHeight        ,& ! in,  air pressure [Pa] at reference height
+              SoilTranspFacAcc        => noahmp%water%state%SoilTranspFacAcc        ,& ! in,  accumulated soil water transpiration factor (0 to 1)
+              RadiationStressFac      => noahmp%energy%param%RadiationStressFac     ,& ! in,  Parameter used in radiation stress function
+              ResistanceStomataMin    => noahmp%energy%param%ResistanceStomataMin   ,& ! in,  Minimum stomatal resistance [s m-1]
+              ResistanceStomataMax    => noahmp%energy%param%ResistanceStomataMax   ,& ! in,  Maximal stomatal resistance [s m-1]
+              AirTempOptimTransp      => noahmp%energy%param%AirTempOptimTransp     ,& ! in,  Optimum transpiration air temperature [K]
+              VaporPresDeficitFac     => noahmp%energy%param%VaporPresDeficitFac    ,& ! in,  Parameter used in vapor pressure deficit function
+              TemperatureCanopy       => noahmp%energy%state%TemperatureCanopy      ,& ! in,  vegetation temperature [K]
+              PressureVaporCanAir     => noahmp%energy%state%PressureVaporCanAir    ,& ! in,  canopy air vapor pressure [Pa]
+              VegFrac                 => noahmp%energy%state%VegFrac                ,& ! in,  greeness vegetation fraction
+              RadPhotoActAbsSunlit    => noahmp%energy%flux%RadPhotoActAbsSunlit    ,& ! in,  average absorbed par for sunlit leaves [W/m2]
+              RadPhotoActAbsShade     => noahmp%energy%flux%RadPhotoActAbsShade     ,& ! in,  average absorbed par for shaded leaves [W/m2]
+              ResistanceStomataSunlit => noahmp%energy%state%ResistanceStomataSunlit,& ! out, sunlit leaf stomatal resistance [s/m]
+              ResistanceStomataShade  => noahmp%energy%state%ResistanceStomataShade ,& ! out, shaded leaf stomatal resistance [s/m]
+              PhotosynLeafSunlit      => noahmp%biochem%flux%PhotosynLeafSunlit     ,& ! out, sunlit leaf photosynthesis [umol CO2/m2/s]
+              PhotosynLeafShade       => noahmp%biochem%flux%PhotosynLeafShade       & ! out, shaded leaf photosynthesis [umol CO2/m2/s]
+             )
+
+   !$acc parallel loop collapse(2) gang vector default(present) &
    !$acc private(ResistanceVapDef,ResistanceSolar,ResistanceTemp,RadFac,SpecHumidityTmp) &
    !$acc private(MixingRatioTmp,MixingRatioSat,MixingRatioSatTempD,RadPhotoActAbsTmp) &
-   !$acc private(ResistanceStomataTmp,PhotosynLeafTmp)
+   !$acc private(ResistanceStomataTmp,PhotosynLeafTmp) firstprivate(IndexShade)
     do J = noahmp%config%domain%JTS, noahmp%config%domain%JTE
       do I = noahmp%config%domain%ITS, noahmp%config%domain%ITE
 
         if ( .not. ((noahmp%energy%state%VegAreaIndEff(I,J) > 0.0 ) .and. (noahmp%energy%state%VegFrac(I,J) > 0)) ) cycle ! skip non-vegetated surface
 
-    associate(                                                                           &
-              PressureAirRefHeight    => noahmp%forcing%PressureAirRefHeight(I,J)        ,& ! in,  air pressure [Pa] at reference height
-              SoilTranspFacAcc        => noahmp%water%state%SoilTranspFacAcc(I,J)        ,& ! in,  accumulated soil water transpiration factor (0 to 1)
-              RadiationStressFac      => noahmp%energy%param%RadiationStressFac(I,J)     ,& ! in,  Parameter used in radiation stress function
-              ResistanceStomataMin    => noahmp%energy%param%ResistanceStomataMin(I,J)   ,& ! in,  Minimum stomatal resistance [s m-1]
-              ResistanceStomataMax    => noahmp%energy%param%ResistanceStomataMax(I,J)   ,& ! in,  Maximal stomatal resistance [s m-1]
-              AirTempOptimTransp      => noahmp%energy%param%AirTempOptimTransp(I,J)     ,& ! in,  Optimum transpiration air temperature [K]
-              VaporPresDeficitFac     => noahmp%energy%param%VaporPresDeficitFac(I,J)    ,& ! in,  Parameter used in vapor pressure deficit function
-              TemperatureCanopy       => noahmp%energy%state%TemperatureCanopy(I,J)      ,& ! in,  vegetation temperature [K]
-              PressureVaporCanAir     => noahmp%energy%state%PressureVaporCanAir(I,J)    ,& ! in,  canopy air vapor pressure [Pa]
-              VegFrac                 => noahmp%energy%state%VegFrac(I,J)                ,& ! in,  greeness vegetation fraction
-              RadPhotoActAbsSunlit    => noahmp%energy%flux%RadPhotoActAbsSunlit(I,J)    ,& ! in,  average absorbed par for sunlit leaves [W/m2]
-              RadPhotoActAbsShade     => noahmp%energy%flux%RadPhotoActAbsShade(I,J)     ,& ! in,  average absorbed par for shaded leaves [W/m2]
-              ResistanceStomataSunlit => noahmp%energy%state%ResistanceStomataSunlit(I,J),& ! out, sunlit leaf stomatal resistance [s/m]
-              ResistanceStomataShade  => noahmp%energy%state%ResistanceStomataShade(I,J) ,& ! out, shaded leaf stomatal resistance [s/m]
-              PhotosynLeafSunlit      => noahmp%biochem%flux%PhotosynLeafSunlit(I,J)     ,& ! out, sunlit leaf photosynthesis [umol CO2/m2/s]
-              PhotosynLeafShade       => noahmp%biochem%flux%PhotosynLeafShade(I,J)       & ! out, shaded leaf photosynthesis [umol CO2/m2/s]
-             )
-! ----------------------------------------------------------------------
 
     ! initialization
     ResistanceSolar      = 0.0
     ResistanceTemp       = 0.0
     ResistanceVapDef     = 0.0
     ResistanceStomataTmp = 0.0
-    if ( IndexShade == 0 ) RadPhotoActAbsTmp = RadPhotoActAbsSunlit / max(VegFrac,1.0e-6) ! Sunlit case
-    if ( IndexShade == 1 ) RadPhotoActAbsTmp = RadPhotoActAbsShade  / max(VegFrac,1.0e-6) ! Shaded case
+    if ( IndexShade == 0 ) RadPhotoActAbsTmp = RadPhotoActAbsSunlit(I,J) / max(VegFrac(I,J),1.0e-6) ! Sunlit case
+    if ( IndexShade == 1 ) RadPhotoActAbsTmp = RadPhotoActAbsShade(I,J)  / max(VegFrac(I,J),1.0e-6) ! Shaded case
 
     ! compute MixingRatioTmp and MixingRatioSat
-    SpecHumidityTmp = 0.622 * PressureVaporCanAir / (PressureAirRefHeight - 0.378*PressureVaporCanAir) ! specific humidity
+    SpecHumidityTmp = 0.622 * PressureVaporCanAir(I,J) / (PressureAirRefHeight(I,J) - 0.378*PressureVaporCanAir(I,J)) ! specific humidity
     MixingRatioTmp  = SpecHumidityTmp / (1.0 - SpecHumidityTmp)   ! convert to mixing ratio [kg/kg]
-    call HumiditySaturation(TemperatureCanopy, PressureAirRefHeight, MixingRatioSat, MixingRatioSatTempD)
+    call HumiditySaturation(TemperatureCanopy(I,J), PressureAirRefHeight(I,J), MixingRatioSat, MixingRatioSatTempD)
 
     ! contribution due to incoming solar radiation
-    RadFac          = 2.0 * RadPhotoActAbsTmp / RadiationStressFac
-    ResistanceSolar = (RadFac + ResistanceStomataMin/ResistanceStomataMax) / (1.0 + RadFac)
+    RadFac          = 2.0 * RadPhotoActAbsTmp / RadiationStressFac(I,J)
+    ResistanceSolar = (RadFac + ResistanceStomataMin(I,J)/ResistanceStomataMax(I,J)) / (1.0 + RadFac)
     ResistanceSolar = max(ResistanceSolar, 0.0001)
 
     ! contribution due to air temperature
-    ResistanceTemp = 1.0 - 0.0016 * ((AirTempOptimTransp - TemperatureCanopy)**2.0)
+    ResistanceTemp = 1.0 - 0.0016 * ((AirTempOptimTransp(I,J) - TemperatureCanopy(I,J))**2.0)
     ResistanceTemp = max(ResistanceTemp, 0.0001)
 
     ! contribution due to vapor pressure deficit
-    ResistanceVapDef = 1.0 / (1.0 + VaporPresDeficitFac * max(0.0, MixingRatioSat - MixingRatioTmp))
+    ResistanceVapDef = 1.0 / (1.0 + VaporPresDeficitFac(I,J) * max(0.0, MixingRatioSat - MixingRatioTmp))
     ResistanceVapDef = max(ResistanceVapDef, 0.01)
 
     ! determine canopy resistance due to all factors
-    ResistanceStomataTmp = ResistanceStomataMin / (ResistanceSolar * ResistanceTemp * ResistanceVapDef * SoilTranspFacAcc)
+    ResistanceStomataTmp = ResistanceStomataMin(I,J) / (ResistanceSolar * ResistanceTemp * ResistanceVapDef * SoilTranspFacAcc(I,J))
     PhotosynLeafTmp      = -999.99       ! photosynthesis not applied for dynamic carbon
 
     ! assign updated values
     ! Sunlit case
     if ( IndexShade == 0 ) then
-       ResistanceStomataSunlit = ResistanceStomataTmp
-       PhotosynLeafSunlit      = PhotosynLeafTmp
+       ResistanceStomataSunlit(I,J) = ResistanceStomataTmp
+       PhotosynLeafSunlit(I,J)      = PhotosynLeafTmp
     endif
     ! Shaded case
     if ( IndexShade == 1 ) then
-       ResistanceStomataShade  = ResistanceStomataTmp
-       PhotosynLeafShade       = PhotosynLeafTmp
+       ResistanceStomataShade(I,J)  = ResistanceStomataTmp
+       PhotosynLeafShade(I,J)       = PhotosynLeafTmp
     endif
 
-    end associate
 
       end do
     end do
    !$acc end parallel loop
+
+
+    end associate
 
   end subroutine ResistanceCanopyStomataJarvis
 

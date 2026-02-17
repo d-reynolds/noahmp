@@ -36,24 +36,23 @@ contains
     real(kind=kind_noahmp), allocatable, dimension(:,:,:) :: MatLeft3     ! left-hand side term
     integer                                          :: I, J         ! grid indices
     real(kind=kind_noahmp)                           :: RadSwAbsSum  ! temporary variable for sum of absorbed solar radiation by snow and soil layers
-    !$acc parallel loop collapse(2) gang vector present(noahmp)
-    do J = noahmp%config%domain%JTS, noahmp%config%domain%JTE
-      do I = noahmp%config%domain%ITS, noahmp%config%domain%ITE
-! --------------------------------------------------------------------
     associate(                                                                    &
               NumSoilLayer          => noahmp%config%domain%NumSoilLayer         ,& ! in,  number of soil layers
               NumSnowLayerMax       => noahmp%config%domain%NumSnowLayerMax      ,& ! in,  maximum number of snow layers
-              NumSnowLayerNeg       => noahmp%config%domain%NumSnowLayerNeg(I,J)      ,& ! in,  actual number of snow layers (negative)
-              DepthSoilTempBottom   => noahmp%config%domain%DepthSoilTempBottom(I,J)  ,& ! in,  depth [m] from soil surface for soil temp. lower boundary
+              NumSnowLayerNeg       => noahmp%config%domain%NumSnowLayerNeg      ,& ! in,  actual number of snow layers (negative)
+              DepthSoilTempBottom   => noahmp%config%domain%DepthSoilTempBottom  ,& ! in,  depth [m] from soil surface for soil temp. lower boundary
               OptSnowAlbedo         => noahmp%config%nmlist%OptSnowAlbedo        ,& ! in,  options for ground snow surface albedo
-              SnowDepth             => noahmp%water%state%SnowDepth(I,J)              ,& ! in,  snow depth [m]
+              SnowDepth             => noahmp%water%state%SnowDepth              ,& ! in,  snow depth [m]
               RadSwAbsSnowSoilLayer => noahmp%energy%flux%RadSwAbsSnowSoilLayer  ,& ! in,  total absorbed solar radiation by snow for each layer [W/m2]
-              RadSwAbsGrd           => noahmp%energy%flux%RadSwAbsGrd(I,J)            ,& ! in,  solar radiation absorbed by ground [W/m2]
-              DepthSoilTempBotToSno => noahmp%energy%state%DepthSoilTempBotToSno(I,J) ,& ! out, depth [m] of soil temp. lower boundary from snow surface
-              HeatFromSoilBot       => noahmp%energy%flux%HeatFromSoilBot(I,J)        ,& ! out, energy influx from soil bottom during soil timestep [J/m2]
+              RadSwAbsGrd           => noahmp%energy%flux%RadSwAbsGrd            ,& ! in,  solar radiation absorbed by ground [W/m2]
+              DepthSoilTempBotToSno => noahmp%energy%state%DepthSoilTempBotToSno ,& ! out, depth [m] of soil temp. lower boundary from snow surface
+              HeatFromSoilBot       => noahmp%energy%flux%HeatFromSoilBot        ,& ! out, energy influx from soil bottom during soil timestep [J/m2]
               RadSwPenetrateGrd     => noahmp%energy%flux%RadSwPenetrateGrd       & ! out, light penetrating through soil/snow water [W/m2]
              )
-! ----------------------------------------------------------------------
+
+    !$acc parallel loop collapse(2) gang vector default(present) private(IndLoop, RadSwAbsSum)
+    do J = noahmp%config%domain%JTS, noahmp%config%domain%JTE
+      do I = noahmp%config%domain%ITS, noahmp%config%domain%ITE
 
     ! compute solar penetration through snowpack and soil
     !$acc loop seq
@@ -61,7 +60,7 @@ contains
       RadSwPenetrateGrd(I,IndLoop,J) = 0.0
     enddo
 
-    if (OptSnowAlbedo == 3 .and. NumSnowLayerNeg < 0) then
+    if (OptSnowAlbedo == 3 .and. NumSnowLayerNeg(I,J) < 0) then
       ! Check if sum > 0 (replacing sum() intrinsic)
       RadSwAbsSum = 0.0
       !$acc loop seq
@@ -70,9 +69,9 @@ contains
       enddo
           if (RadSwAbsSum > 0.0) then
           !$acc loop seq
-          do IndLoop = NumSnowLayerNeg+1, 1, 1
-             if (IndLoop == NumSnowLayerNeg+1) then
-                RadSwPenetrateGrd(I,IndLoop,J) = RadSwAbsSnowSoilLayer(I,IndLoop,J) - RadSwAbsGrd 
+          do IndLoop = NumSnowLayerNeg(I,J)+1, 1, 1
+             if (IndLoop == NumSnowLayerNeg(I,J)+1) then
+                RadSwPenetrateGrd(I,IndLoop,J) = RadSwAbsSnowSoilLayer(I,IndLoop,J) - RadSwAbsGrd(I,J) 
              else
                 RadSwPenetrateGrd(I,IndLoop,J) = RadSwAbsSnowSoilLayer(I,IndLoop,J)
              endif
@@ -81,9 +80,8 @@ contains
     endif
 
     ! adjust DepthSoilTempBottom from soil surface to DepthSoilTempBotToSno from snow surface
-    DepthSoilTempBotToSno = DepthSoilTempBottom - SnowDepth
+    DepthSoilTempBotToSno(I,J) = DepthSoilTempBottom(I,J) - SnowDepth(I,J)
 
-    end associate
 
       enddo
    enddo
@@ -123,6 +121,9 @@ contains
     deallocate(MatLeft2)
     deallocate(MatLeft3)
 
+
+
+    end associate
 
   end subroutine SoilSnowTemperatureMain
 

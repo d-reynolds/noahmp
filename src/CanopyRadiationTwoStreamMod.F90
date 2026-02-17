@@ -60,43 +60,32 @@ contains
     real(kind=kind_noahmp)           :: Phi1,Phi2,Sigma             ! temporary vars
 
 ! --------------------------------------------------------------------
-   !$acc parallel loop collapse(2) gang vector present(noahmp) &
-   !$acc private(ScatCoeffCan, ScatCoeffLeaf, UpscatCoeffCanDif, UpscatCoeffLeafDif, UpscatCoeffCanDir, UpscatCoeffLeafDir, &
-   !$acc         OpticDepthDir, OpticDepthDif, CosSolarZenithAngleTmp, SingleScatAlb, LeafOrientIndex, &
-   !$acc         RadSwTransDir, RadSwTransDif, RadSwReflTot, VegDensity, RadSwReflCan, RadSwReflGrd, &
-   !$acc         CrownDepth, CrownRadiusVert, SolarAngleTmp, FoliageDensity, VegAreaIndTmp, &
-   !$acc         Tmp0, Tmp1, Tmp2, Tmp3, Tmp4, Tmp5, Tmp6, Tmp7, Tmp8, Tmp9, &
-   !$acc         P1, P2, P3, P4, S1, S2, U1, U2, U3, B, C, D, D1, D2, F, H, H1, H2, H3, H4, H5, H6, H7, H8, H9, H10, &
-   !$acc         Phi1, Phi2, Sigma)
-    do J = noahmp%config%domain%JTS, noahmp%config%domain%JTE
-      do I = noahmp%config%domain%ITS, noahmp%config%domain%ITE
-
     associate(                                                        &
               OptCanopyRadiationTransfer => noahmp%config%nmlist%OptCanopyRadiationTransfer ,& ! in,  options for canopy radiation transfer
-              CosSolarZenithAngle        => noahmp%config%domain%CosSolarZenithAngle(I,J)        ,& ! in,  cosine solar zenith angle
-              CanopyWetFrac              => noahmp%water%state%CanopyWetFrac(I,J)                ,& ! in,  wetted or snowed fraction of the canopy
-              TreeCrownRadius            => noahmp%energy%param%TreeCrownRadius(I,J)             ,& ! in,  tree crown radius [m]
-              HeightCanopyTop            => noahmp%energy%param%HeightCanopyTop(I,J)             ,& ! in,  top of canopy [m]
-              HeightCanopyBot            => noahmp%energy%param%HeightCanopyBot(I,J)             ,& ! in,  bottom of canopy [m]
-              TreeDensity                => noahmp%energy%param%TreeDensity(I,J)                 ,& ! in,  tree density [no. of trunks per m2]
-              CanopyOrientIndex          => noahmp%energy%param%CanopyOrientIndex(I,J)           ,& ! in,  leaf/stem orientation index
+              CosSolarZenithAngle        => noahmp%config%domain%CosSolarZenithAngle        ,& ! in,  cosine solar zenith angle
+              CanopyWetFrac              => noahmp%water%state%CanopyWetFrac                ,& ! in,  wetted or snowed fraction of the canopy
+              TreeCrownRadius            => noahmp%energy%param%TreeCrownRadius             ,& ! in,  tree crown radius [m]
+              HeightCanopyTop            => noahmp%energy%param%HeightCanopyTop             ,& ! in,  top of canopy [m]
+              HeightCanopyBot            => noahmp%energy%param%HeightCanopyBot             ,& ! in,  bottom of canopy [m]
+              TreeDensity                => noahmp%energy%param%TreeDensity                 ,& ! in,  tree density [no. of trunks per m2]
+              CanopyOrientIndex          => noahmp%energy%param%CanopyOrientIndex           ,& ! in,  leaf/stem orientation index
               ScatterCoeffSnow           => noahmp%energy%param%ScatterCoeffSnow            ,& ! in,  Scattering coefficient for snow
-              UpscatterCoeffSnowDir      => noahmp%energy%param%UpscatterCoeffSnowDir(I,J)       ,& ! in,  Upscattering parameters for snow for direct radiation
-              UpscatterCoeffSnowDif      => noahmp%energy%param%UpscatterCoeffSnowDif(I,J)       ,& ! in,  Upscattering parameters for snow for diffuse radiation
-              VegAreaIndEff              => noahmp%energy%state%VegAreaIndEff(I,J)               ,& ! in,  one-sided leaf+stem area index [m2/m2]
-              TemperatureCanopy          => noahmp%energy%state%TemperatureCanopy(I,J)           ,& ! in,  vegetation temperature [K]
+              UpscatterCoeffSnowDir      => noahmp%energy%param%UpscatterCoeffSnowDir       ,& ! in,  Upscattering parameters for snow for direct radiation
+              UpscatterCoeffSnowDif      => noahmp%energy%param%UpscatterCoeffSnowDif       ,& ! in,  Upscattering parameters for snow for diffuse radiation
+              VegAreaIndEff              => noahmp%energy%state%VegAreaIndEff               ,& ! in,  one-sided leaf+stem area index [m2/m2]
+              TemperatureCanopy          => noahmp%energy%state%TemperatureCanopy           ,& ! in,  vegetation temperature [K]
               AlbedoGrdDir               => noahmp%energy%state%AlbedoGrdDir                ,& ! in,  ground albedo (direct beam: vis, nir)
               AlbedoGrdDif               => noahmp%energy%state%AlbedoGrdDif                ,& ! in,  ground albedo (diffuse: vis, nir)
               ReflectanceVeg             => noahmp%energy%state%ReflectanceVeg              ,& ! in,  leaf/stem reflectance weighted by LAI and SAI fraction
               TransmittanceVeg           => noahmp%energy%state%TransmittanceVeg            ,& ! in,  leaf/stem transmittance weighted by LAI and SAI fraction
-              VegFrac                    => noahmp%energy%state%VegFrac(I,J)                     ,& ! in,  greeness vegetation fraction
+              VegFrac                    => noahmp%energy%state%VegFrac                     ,& ! in,  greeness vegetation fraction
               AlbedoSfcDir               => noahmp%energy%state%AlbedoSfcDir                ,& ! out, surface albedo (direct)
               AlbedoSfcDif               => noahmp%energy%state%AlbedoSfcDif                ,& ! out, surface albedo (diffuse)
-              VegAreaProjDir             => noahmp%energy%state%VegAreaProjDir(I,J)              ,& ! out, projected leaf+stem area in solar direction
-              GapBtwCanopy               => noahmp%energy%state%GapBtwCanopy(I,J)                ,& ! out, between canopy gap fraction for beam
-              GapInCanopy                => noahmp%energy%state%GapInCanopy(I,J)                 ,& ! out, within canopy gap fraction for beam
-              GapCanopyDif               => noahmp%energy%state%GapCanopyDif(I,J)                ,& ! out, gap fraction for diffue light
-              GapCanopyDir               => noahmp%energy%state%GapCanopyDir(I,J)                ,& ! out, total gap fraction for beam (<=1-VegFrac)
+              VegAreaProjDir             => noahmp%energy%state%VegAreaProjDir              ,& ! out, projected leaf+stem area in solar direction
+              GapBtwCanopy               => noahmp%energy%state%GapBtwCanopy                ,& ! out, between canopy gap fraction for beam
+              GapInCanopy                => noahmp%energy%state%GapInCanopy                 ,& ! out, within canopy gap fraction for beam
+              GapCanopyDif               => noahmp%energy%state%GapCanopyDif                ,& ! out, gap fraction for diffue light
+              GapCanopyDir               => noahmp%energy%state%GapCanopyDir                ,& ! out, total gap fraction for beam (<=1-VegFrac)
               RadSwAbsVegDir             => noahmp%energy%flux%RadSwAbsVegDir               ,& ! out, flux abs by veg (per unit direct flux)
               RadSwAbsVegDif             => noahmp%energy%flux%RadSwAbsVegDif               ,& ! out, flux abs by veg (per unit diffuse flux)
               RadSwDirTranGrdDir         => noahmp%energy%flux%RadSwDirTranGrdDir           ,& ! out, downward direct flux below veg (per unit dir flux)
@@ -108,34 +97,44 @@ contains
               RadSwReflGrdDir            => noahmp%energy%flux%RadSwReflGrdDir              ,& ! out, flux reflected by ground (per unit direct flux)
               RadSwReflGrdDif            => noahmp%energy%flux%RadSwReflGrdDif               & ! out, flux reflected by ground (per unit diffuse flux)
              )
-! ----------------------------------------------------------------------
 
-    if (CosSolarZenithAngle <= 0.0) cycle
+   !$acc parallel loop collapse(2) gang vector default(present) private(ScatCoeffCan, ScatCoeffLeaf, &
+   !$acc UpscatCoeffCanDif, UpscatCoeffLeafDif, UpscatCoeffCanDir, UpscatCoeffLeafDir, OpticDepthDir, OpticDepthDif, &
+   !$acc CosSolarZenithAngleTmp, SingleScatAlb, LeafOrientIndex, RadSwTransDir, RadSwTransDif, RadSwReflTot, &
+   !$acc VegDensity, RadSwReflCan, RadSwReflGrd, CrownDepth, CrownRadiusVert, SolarAngleTmp, FoliageDensity, &
+   !$acc VegAreaIndTmp, Tmp0, Tmp1, Tmp2, Tmp3, Tmp4, Tmp5, Tmp6, Tmp7, Tmp8, Tmp9, P1, P2, P3, P4, S1, S2, U1, U2, &
+   !$acc U3, B, C, D, D1, D2, F, H, H1, H2, H3, H4, H5, H6, H7, H8, H9, H10, Phi1, Phi2, Sigma) firstprivate(IndSwBnd, &
+   !$acc IndSwDif)
+    do J = noahmp%config%domain%JTS, noahmp%config%domain%JTE
+      do I = noahmp%config%domain%ITS, noahmp%config%domain%ITE
+
+
+    if (CosSolarZenithAngle(I,J) <= 0.0) cycle
     ! compute within and between gaps
-    if ( VegAreaIndEff == 0.0 ) then
-       GapCanopyDir = 1.0
-       GapCanopyDif = 1.0
+    if ( VegAreaIndEff(I,J) == 0.0 ) then
+       GapCanopyDir(I,J) = 1.0
+       GapCanopyDif(I,J) = 1.0
     else
        if ( OptCanopyRadiationTransfer == 1 ) then
-          VegDensity      = -log(max(1.0-VegFrac, 0.01)) / (ConstPI*TreeCrownRadius**2)
-          CrownDepth      = HeightCanopyTop - HeightCanopyBot
+          VegDensity      = -log(max(1.0-VegFrac(I,J), 0.01)) / (ConstPI*TreeCrownRadius(I,J)**2)
+          CrownDepth      = HeightCanopyTop(I,J) - HeightCanopyBot(I,J)
           CrownRadiusVert = 0.5 * CrownDepth
-          SolarAngleTmp   = atan(CrownRadiusVert / TreeCrownRadius * tan(acos(max(0.01, CosSolarZenithAngle))))
+          SolarAngleTmp   = atan(CrownRadiusVert / TreeCrownRadius(I,J) * tan(acos(max(0.01, CosSolarZenithAngle(I,J)))))
          !GapBtwCanopy    = exp(TreeDensity * ConstPI * TreeCrownRadius**2 / cos(SolarAngleTmp))
-          GapBtwCanopy    = exp(-VegDensity * ConstPI * TreeCrownRadius**2 / cos(SolarAngleTmp))
-          FoliageDensity  = VegAreaIndEff / (1.33*ConstPI*TreeCrownRadius**3.0 * (CrownRadiusVert/TreeCrownRadius)*VegDensity)
+          GapBtwCanopy(I,J)    = exp(-VegDensity * ConstPI * TreeCrownRadius(I,J)**2 / cos(SolarAngleTmp))
+          FoliageDensity  = VegAreaIndEff(I,J) / (1.33*ConstPI*TreeCrownRadius(I,J)**3.0 * (CrownRadiusVert/TreeCrownRadius(I,J))*VegDensity)
           VegAreaIndTmp   = CrownDepth * FoliageDensity
-          GapInCanopy     = (1.0 - GapBtwCanopy) * exp(-0.5*VegAreaIndTmp/CosSolarZenithAngle)
-          GapCanopyDir    = min( 1.0-VegFrac, GapBtwCanopy+GapInCanopy )
-          GapCanopyDif    = 0.05
+          GapInCanopy(I,J)     = (1.0 - GapBtwCanopy(I,J)) * exp(-0.5*VegAreaIndTmp/CosSolarZenithAngle(I,J))
+          GapCanopyDir(I,J)    = min( 1.0-VegFrac(I,J), GapBtwCanopy(I,J)+GapInCanopy(I,J) )
+          GapCanopyDif(I,J)    = 0.05
        endif
        if ( OptCanopyRadiationTransfer == 2 ) then
-          GapCanopyDir    = 0.0
-          GapCanopyDif    = 0.0
+          GapCanopyDir(I,J)    = 0.0
+          GapCanopyDif(I,J)    = 0.0
        endif
        if ( OptCanopyRadiationTransfer == 3 ) then
-          GapCanopyDir    = 1.0 - VegFrac
-          GapCanopyDif    = 1.0 - VegFrac
+          GapCanopyDir(I,J)    = 1.0 - VegFrac(I,J)
+          GapCanopyDif(I,J)    = 1.0 - VegFrac(I,J)
        endif
     endif
 
@@ -146,34 +145,34 @@ contains
     ! also, the transmittances and reflectances are linear
     ! weights of leaf and stem values.
 
-    CosSolarZenithAngleTmp  = max( 0.001, CosSolarZenithAngle )
-    LeafOrientIndex         = min( max(CanopyOrientIndex, -0.4), 0.6 )
+    CosSolarZenithAngleTmp  = max( 0.001, CosSolarZenithAngle(I,J) )
+    LeafOrientIndex         = min( max(CanopyOrientIndex(I,J), -0.4), 0.6 )
     if ( abs(LeafOrientIndex) <= 0.01 ) LeafOrientIndex = 0.01
     Phi1               = 0.5 - 0.633 * LeafOrientIndex - 0.330 * LeafOrientIndex * LeafOrientIndex
     Phi2               = 0.877 * (1.0 - 2.0 * Phi1)
-    VegAreaProjDir     = Phi1 + Phi2 * CosSolarZenithAngleTmp
-    OpticDepthDir      = VegAreaProjDir / CosSolarZenithAngleTmp
+    VegAreaProjDir(I,J)     = Phi1 + Phi2 * CosSolarZenithAngleTmp
+    OpticDepthDir      = VegAreaProjDir(I,J) / CosSolarZenithAngleTmp
     OpticDepthDif      = (1.0 - Phi1/Phi2 * log( (Phi1+Phi2) / Phi1 )) / Phi2
     ScatCoeffLeaf      = ReflectanceVeg(I,IndSwBnd,J) + TransmittanceVeg(I,IndSwBnd,J)
-    Tmp0               = VegAreaProjDir + Phi2 * CosSolarZenithAngleTmp
+    Tmp0               = VegAreaProjDir(I,J) + Phi2 * CosSolarZenithAngleTmp
     Tmp1               = Phi1 * CosSolarZenithAngleTmp
-    SingleScatAlb      = 0.5 * ScatCoeffLeaf * VegAreaProjDir / Tmp0 * (1.0 - Tmp1/Tmp0 * log((Tmp1+Tmp0)/Tmp1) )
+    SingleScatAlb      = 0.5 * ScatCoeffLeaf * VegAreaProjDir(I,J) / Tmp0 * (1.0 - Tmp1/Tmp0 * log((Tmp1+Tmp0)/Tmp1) )
     UpscatCoeffLeafDir = (1.0 + OpticDepthDif * OpticDepthDir) / &
                          (ScatCoeffLeaf * OpticDepthDif * OpticDepthDir) * SingleScatAlb
     UpscatCoeffLeafDif = 0.5 * (ReflectanceVeg(I,IndSwBnd,J) + TransmittanceVeg(I,IndSwBnd,J) + &
                          (ReflectanceVeg(I,IndSwBnd,J)-TransmittanceVeg(I,IndSwBnd,J))*((1.0+LeafOrientIndex)/2.0)**2)/ScatCoeffLeaf
 
     ! adjust omega, betad, and betai for intercepted snow
-    if ( TemperatureCanopy > ConstFreezePoint ) then  ! no snow on leaf
+    if ( TemperatureCanopy(I,J) > ConstFreezePoint ) then  ! no snow on leaf
        Tmp0 = ScatCoeffLeaf
        Tmp1 = UpscatCoeffLeafDir
        Tmp2 = UpscatCoeffLeafDif
     else
-       Tmp0 = (1.0 - CanopyWetFrac) * ScatCoeffLeaf + CanopyWetFrac * ScatterCoeffSnow(I,IndSwBnd,J)
-       Tmp1 = ((1.0 - CanopyWetFrac) * ScatCoeffLeaf * UpscatCoeffLeafDir + &
-               CanopyWetFrac * ScatterCoeffSnow(I,IndSwBnd,J) * UpscatterCoeffSnowDir ) / Tmp0 ! direct
-       Tmp2 = ((1.0 - CanopyWetFrac) * ScatCoeffLeaf * UpscatCoeffLeafDif + &
-               CanopyWetFrac * ScatterCoeffSnow(I,IndSwBnd,J) * UpscatterCoeffSnowDif ) / Tmp0 ! diffuse
+       Tmp0 = (1.0 - CanopyWetFrac(I,J)) * ScatCoeffLeaf + CanopyWetFrac(I,J) * ScatterCoeffSnow(I,IndSwBnd,J)
+       Tmp1 = ((1.0 - CanopyWetFrac(I,J)) * ScatCoeffLeaf * UpscatCoeffLeafDir + &
+               CanopyWetFrac(I,J) * ScatterCoeffSnow(I,IndSwBnd,J) * UpscatterCoeffSnowDir(I,J) ) / Tmp0 ! direct
+       Tmp2 = ((1.0 - CanopyWetFrac(I,J)) * ScatCoeffLeaf * UpscatCoeffLeafDif + &
+               CanopyWetFrac(I,J) * ScatterCoeffSnow(I,IndSwBnd,J) * UpscatterCoeffSnowDif(I,J) ) / Tmp0 ! diffuse
     endif
     ScatCoeffCan      = Tmp0
     UpscatCoeffCanDir = Tmp1
@@ -193,8 +192,8 @@ contains
     P2    = B - OpticDepthDif * H
     P3    = B + Tmp0
     P4    = B - Tmp0
-    S1    = exp( -H * VegAreaIndEff )
-    S2    = exp( -OpticDepthDir * VegAreaIndEff )
+    S1    = exp( -H * VegAreaIndEff(I,J) )
+    S2    = exp( -OpticDepthDir * VegAreaIndEff(I,J) )
     if ( IndSwDif == 0 ) then  ! direct
        U1 = B - C / AlbedoGrdDir(I,IndSwBnd,J)
        U2 = B - C * AlbedoGrdDir(I,IndSwBnd,J)
@@ -227,11 +226,11 @@ contains
 
     ! downward direct and diffuse fluxes below vegetation Niu and Yang (2004), JGR.
     if ( IndSwDif == 0 ) then  ! direct
-       RadSwTransDir = S2 * (1.0 - GapCanopyDir) + GapCanopyDir
-       RadSwTransDif = (H4 * S2 / Sigma + H5 * S1 + H6 / S1) * (1.0 - GapCanopyDir)
+       RadSwTransDir = S2 * (1.0 - GapCanopyDir(I,J)) + GapCanopyDir(I,J)
+       RadSwTransDif = (H4 * S2 / Sigma + H5 * S1 + H6 / S1) * (1.0 - GapCanopyDir(I,J))
     else                       ! diffuse
        RadSwTransDir = 0.0
-       RadSwTransDif = (H9 * S1 + H10 / S1) * (1.0 - GapCanopyDif) + GapCanopyDif
+       RadSwTransDif = (H9 * S1 + H10 / S1) * (1.0 - GapCanopyDif(I,J)) + GapCanopyDif(I,J)
     endif
     if ( IndSwDif == 0 ) then  ! direct
        RadSwDirTranGrdDir(I,IndSwBnd,J) = RadSwTransDir
@@ -243,12 +242,12 @@ contains
 
     ! flux reflected by the surface (veg. and ground)
     if ( IndSwDif == 0 ) then ! direct
-       RadSwReflTot = (H1 / Sigma + H2 + H3) * (1.0 - GapCanopyDir) + AlbedoGrdDir(I,IndSwBnd,J) * GapCanopyDir
-       RadSwReflCan = (H1 / Sigma + H2 + H3) * (1.0 - GapCanopyDir)
-       RadSwReflGrd = AlbedoGrdDir(I,IndSwBnd,J) * GapCanopyDir
+       RadSwReflTot = (H1 / Sigma + H2 + H3) * (1.0 - GapCanopyDir(I,J)) + AlbedoGrdDir(I,IndSwBnd,J) * GapCanopyDir(I,J)
+       RadSwReflCan = (H1 / Sigma + H2 + H3) * (1.0 - GapCanopyDir(I,J))
+       RadSwReflGrd = AlbedoGrdDir(I,IndSwBnd,J) * GapCanopyDir(I,J)
     else                      ! diffuse
-       RadSwReflTot = (H7 + H8) * (1.0 - GapCanopyDif) + AlbedoGrdDif(I,IndSwBnd,J) * GapCanopyDif
-       RadSwReflCan = (H7 + H8) * (1.0 - GapCanopyDif) + AlbedoGrdDif(I,IndSwBnd,J) * GapCanopyDif
+       RadSwReflTot = (H7 + H8) * (1.0 - GapCanopyDif(I,J)) + AlbedoGrdDif(I,IndSwBnd,J) * GapCanopyDif(I,J)
+       RadSwReflCan = (H7 + H8) * (1.0 - GapCanopyDif(I,J)) + AlbedoGrdDif(I,IndSwBnd,J) * GapCanopyDif(I,J)
        RadSwReflGrd = 0
     endif
     if ( IndSwDif == 0 ) then ! direct
@@ -270,11 +269,13 @@ contains
                                   (1.0 - AlbedoGrdDif(I,IndSwBnd,J))*RadSwDifTranGrdDif(I,IndSwBnd,J)
     endif
 
-    end associate
 
       end do
     end do
    !$acc end parallel loop
+
+
+    end associate
 
   end subroutine CanopyRadiationTwoStream
 

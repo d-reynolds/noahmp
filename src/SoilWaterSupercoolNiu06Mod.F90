@@ -31,18 +31,8 @@ contains
 ! local variable
     real(kind=kind_noahmp)                :: SoilWatPotFrz                  ! frozen water potential [mm]
 
-! -----------------------------------------------------------------------------
-    associate(                                                                 &
-              SoilExpCoeffB       => noahmp%water%param%SoilExpCoeffB         ,& ! in,  soil B parameter
-              SoilMatPotentialSat => noahmp%water%param%SoilMatPotentialSat   ,& ! in,  saturated soil matric potential [m]
-              SoilMoistureSat     => noahmp%water%param%SoilMoistureSat        & ! in,  saturated value of soil moisture [m3/m3]
-             )
-! -----------------------------------------------------------------------------
-
     SoilWatPotFrz    = ConstLatHeatFusion * (ConstFreezePoint - SoilTemperature) / (ConstGravityAcc * SoilTemperature)
-    SoilWatSupercool = SoilMoistureSat(I,IndSoil,J) * (SoilWatPotFrz / SoilMatPotentialSat(I,IndSoil,J))**(-1.0/SoilExpCoeffB(I,IndSoil,J))
-
-    end associate
+    SoilWatSupercool = noahmp%water%param%SoilMoistureSat(I,IndSoil,J) * (SoilWatPotFrz / noahmp%water%param%SoilMatPotentialSat(I,IndSoil,J))**(-1.0/noahmp%water%param%SoilExpCoeffB(I,IndSoil,J))
 
   end subroutine SoilWaterSupercoolNiu06
 

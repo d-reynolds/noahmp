@@ -36,32 +36,31 @@ contains
     real(kind=kind_noahmp)                            :: MatRightTmp(1:noahmp%config%domain%NumSoilLayer)                ! temporary MatRight matrix coefficient
     real(kind=kind_noahmp)                            :: MatLeft3Tmp(1:noahmp%config%domain%NumSoilLayer)                ! temporary MatLeft3 matrix coefficient
     integer                                           :: I, J                        ! grid indices
-    !$acc parallel loop collapse(2) gang vector present(noahmp, MatLeft1, MatLeft2, MatLeft3, MatRight) &
-    !$acc private(MatRightTmp, MatLeft3Tmp, LoopInd, WatDefiTmp)
-    do J = noahmp%config%domain%JTS, noahmp%config%domain%JTE
-      do I = noahmp%config%domain%ITS, noahmp%config%domain%ITE
-         if ( noahmp%config%domain%IndicatorIceSfc(I,J) == -1 ) cycle  ! skip soil process for ice surface points
-! --------------------------------------------------------------------
     associate(                                                                       &
               NumSoilLayer           => noahmp%config%domain%NumSoilLayer           ,& ! in,    number of soil layers
               DepthSoilLayer         => noahmp%config%domain%DepthSoilLayer         ,& ! in,    depth [m] of layer-bottom from soil surface
               ThicknessSnowSoilLayer => noahmp%config%domain%ThicknessSnowSoilLayer ,& ! in,    thickness of snow/soil layers [m]
               OptRunoffSubsurface    => noahmp%config%nmlist%OptRunoffSubsurface    ,& ! in,    options for drainage and subsurface runoff
               SoilMoistureSat        => noahmp%water%param%SoilMoistureSat          ,& ! in,    saturated value of soil moisture [m3/m3]
-              WaterTableDepth        => noahmp%water%state%WaterTableDepth(I,J)          ,& ! in,    water table depth [m]
+              WaterTableDepth        => noahmp%water%state%WaterTableDepth          ,& ! in,    water table depth [m]
               SoilIce                => noahmp%water%state%SoilIce                  ,& ! in,    soil ice content [m3/m3]
               SoilLiqWater           => noahmp%water%state%SoilLiqWater             ,& ! inout, soil water content [m3/m3]
               SoilMoisture           => noahmp%water%state%SoilMoisture             ,& ! inout, total soil moisture [m3/m3]
-              SoilMoistureToWT       => noahmp%water%state%SoilMoistureToWT(I,J)         ,& ! inout, soil moisture between bottom of soil & water table
-              RechargeGwDeepWT       => noahmp%water%state%RechargeGwDeepWT(I,J)         ,& ! inout, recharge to or from the water table when deep [m]
-              DrainSoilBot           => noahmp%water%flux%DrainSoilBot(I,J)              ,& ! inout, soil bottom drainage (m/s)
+              SoilMoistureToWT       => noahmp%water%state%SoilMoistureToWT         ,& ! inout, soil moisture between bottom of soil & water table
+              RechargeGwDeepWT       => noahmp%water%state%RechargeGwDeepWT         ,& ! inout, recharge to or from the water table when deep [m]
+              DrainSoilBot           => noahmp%water%flux%DrainSoilBot              ,& ! inout, soil bottom drainage (m/s)
               SoilEffPorosity        => noahmp%water%state%SoilEffPorosity               ,& ! out,   soil effective porosity (m3/m3)
-              SoilSaturationExcess   => noahmp%water%state%SoilSaturationExcess(I,J)      & ! out,   saturation excess of the total soil [m]
+              SoilSaturationExcess   => noahmp%water%state%SoilSaturationExcess      & ! out,   saturation excess of the total soil [m]
              )
-! ----------------------------------------------------------------------
+
+    !$acc parallel loop collapse(2) gang vector default(present) private(MatRightTmp, MatLeft3Tmp, LoopInd, &
+    !$acc WatDefiTmp) firstprivate(TimeStep)
+    do J = noahmp%config%domain%JTS, noahmp%config%domain%JTE
+      do I = noahmp%config%domain%ITS, noahmp%config%domain%ITE
+         if ( noahmp%config%domain%IndicatorIceSfc(I,J) == -1 ) cycle  ! skip soil process for ice surface points
 
     ! initialization
-    SoilSaturationExcess = 0.0
+    SoilSaturationExcess(I,J) = 0.0
 
     !$acc loop seq
     do LoopInd = 1, NumSoilLayer
@@ -97,57 +96,59 @@ contains
     ! for MMF scheme, there is soil moisture below NumSoilLayer, to the water table
     if ( OptRunoffSubsurface == 5 ) then
        ! update SoilMoistureToWT
-       if ( WaterTableDepth < (DepthSoilLayer(I,NumSoilLayer,J)-ThicknessSnowSoilLayer(I,NumSoilLayer,J)) ) then
+       if ( WaterTableDepth(I,J) < (DepthSoilLayer(I,NumSoilLayer,J)-ThicknessSnowSoilLayer(I,NumSoilLayer,J)) ) then
           ! accumulate soil drainage to update deep water table and soil moisture later
-          RechargeGwDeepWT           = RechargeGwDeepWT + TimeStep * DrainSoilBot
+          RechargeGwDeepWT(I,J)           = RechargeGwDeepWT(I,J) + TimeStep * DrainSoilBot(I,J)
        else
-          SoilMoistureToWT           = SoilMoistureToWT + &
-                                       TimeStep * DrainSoilBot / ThicknessSnowSoilLayer(I,NumSoilLayer,J)
-          SoilSaturationExcess       = max((SoilMoistureToWT - SoilMoistureSat(I,NumSoilLayer,J)), 0.0) * &
+          SoilMoistureToWT(I,J)           = SoilMoistureToWT(I,J) + &
+                                       TimeStep * DrainSoilBot(I,J) / ThicknessSnowSoilLayer(I,NumSoilLayer,J)
+          SoilSaturationExcess(I,J)       = max((SoilMoistureToWT(I,J) - SoilMoistureSat(I,NumSoilLayer,J)), 0.0) * &
                                        ThicknessSnowSoilLayer(I,NumSoilLayer,J)
-          WatDefiTmp                 = max((1.0e-4 - SoilMoistureToWT), 0.0) * ThicknessSnowSoilLayer(I,NumSoilLayer,J)
-          SoilMoistureToWT           = max(min(SoilMoistureToWT, SoilMoistureSat(I,NumSoilLayer,J)), 1.0e-4)
+          WatDefiTmp                 = max((1.0e-4 - SoilMoistureToWT(I,J)), 0.0) * ThicknessSnowSoilLayer(I,NumSoilLayer,J)
+          SoilMoistureToWT(I,J)           = max(min(SoilMoistureToWT(I,J), SoilMoistureSat(I,NumSoilLayer,J)), 1.0e-4)
           SoilLiqWater(I,NumSoilLayer,J) = SoilLiqWater(I,NumSoilLayer,J) + &
-                                       SoilSaturationExcess / ThicknessSnowSoilLayer(I,NumSoilLayer,J)
+                                       SoilSaturationExcess(I,J) / ThicknessSnowSoilLayer(I,NumSoilLayer,J)
           ! reduce fluxes at the bottom boundaries accordingly
-          DrainSoilBot               = DrainSoilBot - SoilSaturationExcess/TimeStep
-          RechargeGwDeepWT           = RechargeGwDeepWT - WatDefiTmp
+          DrainSoilBot(I,J)               = DrainSoilBot(I,J) - SoilSaturationExcess(I,J)/TimeStep
+          RechargeGwDeepWT(I,J)           = RechargeGwDeepWT(I,J) - WatDefiTmp
        endif
     endif
 
     do LoopInd = NumSoilLayer, 2, -1
        SoilEffPorosity(I,LoopInd,J) = max(1.0e-4, (SoilMoistureSat(I,LoopInd,J) - SoilIce(I,LoopInd,J)))
-       SoilSaturationExcess     = max((SoilLiqWater(I,LoopInd,J)-SoilEffPorosity(I,LoopInd,J)), 0.0) * &
+       SoilSaturationExcess(I,J)     = max((SoilLiqWater(I,LoopInd,J)-SoilEffPorosity(I,LoopInd,J)), 0.0) * &
                                   ThicknessSnowSoilLayer(I,LoopInd,J)
        SoilLiqWater(I,LoopInd,J)    = min(SoilEffPorosity(I,LoopInd,J), SoilLiqWater(I,LoopInd,J) )
-       SoilLiqWater(I,LoopInd-1,J)  = SoilLiqWater(I,LoopInd-1,J) + SoilSaturationExcess / ThicknessSnowSoilLayer(I,LoopInd-1,J)
+       SoilLiqWater(I,LoopInd-1,J)  = SoilLiqWater(I,LoopInd-1,J) + SoilSaturationExcess(I,J) / ThicknessSnowSoilLayer(I,LoopInd-1,J)
     enddo
 
     SoilEffPorosity(I,1,J)   = max(1.0e-4, (SoilMoistureSat(I,1,J)-SoilIce(I,1,J)))
-    SoilSaturationExcess = max((SoilLiqWater(I,1,J)-SoilEffPorosity(I,1,J)), 0.0) * ThicknessSnowSoilLayer(I,1,J)
+    SoilSaturationExcess(I,J) = max((SoilLiqWater(I,1,J)-SoilEffPorosity(I,1,J)), 0.0) * ThicknessSnowSoilLayer(I,1,J)
     SoilLiqWater(I,1,J)      = min(SoilEffPorosity(I,1,J), SoilLiqWater(I,1,J))
 
-    if ( SoilSaturationExcess > 0.0 ) then
-       SoilLiqWater(I,2,J) = SoilLiqWater(I,2,J) + SoilSaturationExcess / ThicknessSnowSoilLayer(I,2,J)
+    if ( SoilSaturationExcess(I,J) > 0.0 ) then
+       SoilLiqWater(I,2,J) = SoilLiqWater(I,2,J) + SoilSaturationExcess(I,J) / ThicknessSnowSoilLayer(I,2,J)
        do LoopInd = 2, NumSoilLayer-1
           SoilEffPorosity(I,LoopInd,J) = max(1.0e-4, (SoilMoistureSat(I,LoopInd,J) - SoilIce(I,LoopInd,J)))
-          SoilSaturationExcess     = max((SoilLiqWater(I,LoopInd,J)-SoilEffPorosity(I,LoopInd,J)), 0.0) * &
+          SoilSaturationExcess(I,J)     = max((SoilLiqWater(I,LoopInd,J)-SoilEffPorosity(I,LoopInd,J)), 0.0) * &
                                      ThicknessSnowSoilLayer(I,LoopInd,J)
           SoilLiqWater(I,LoopInd,J)    = min(SoilEffPorosity(I,LoopInd,J), SoilLiqWater(I,LoopInd,J))
-          SoilLiqWater(I,LoopInd+1,J)  = SoilLiqWater(I,LoopInd+1,J) + SoilSaturationExcess / ThicknessSnowSoilLayer(I,LoopInd+1,J)
+          SoilLiqWater(I,LoopInd+1,J)  = SoilLiqWater(I,LoopInd+1,J) + SoilSaturationExcess(I,J) / ThicknessSnowSoilLayer(I,LoopInd+1,J)
        enddo
        SoilEffPorosity(I,NumSoilLayer,J) = max(1.0e-4, (SoilMoistureSat(I,NumSoilLayer,J) - SoilIce(I,NumSoilLayer,J)))
-       SoilSaturationExcess          = max((SoilLiqWater(I,NumSoilLayer,J)-SoilEffPorosity(I,NumSoilLayer,J)), 0.0) * &
+       SoilSaturationExcess(I,J)          = max((SoilLiqWater(I,NumSoilLayer,J)-SoilEffPorosity(I,NumSoilLayer,J)), 0.0) * &
                                        ThicknessSnowSoilLayer(I,NumSoilLayer,J)
        SoilLiqWater(I,NumSoilLayer,J)    = min(SoilEffPorosity(I,NumSoilLayer,J), SoilLiqWater(I,NumSoilLayer,J))
     endif
 
     SoilMoisture = SoilLiqWater + SoilIce
 
-    end associate
 
       end do
     end do
+
+
+    end associate
 
   end subroutine SoilMoistureSolver
 

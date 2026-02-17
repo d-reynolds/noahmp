@@ -240,17 +240,7 @@ contains
     !$acc enter data copyin(noahmpIO)
 
     ! 2D/3D variables
-    !$acc parallel loop gang vector collapse(2) present(NoahmpIO, &
-    !$acc IVGTYP, ISLTYP, XLAT, TSK, XICE, CROPTYPE, &
-    !$acc SMOIS, SH2O, TSLB, SNOW, SNOWH, CANWAT, CANICEXY, CANLIQXY, TMN, ISNOWXY, ZSNSOXY, TSNOXY, &
-    !$acc SNICEXY, SNLIQXY, TVXY, TGXY, EAHXY, TAHXY, CMXY, CHXY, FWETXY, SNEQVOXY, ALBOLDXY, &
-    !$acc QSNOWXY, QRAINXY, WSLAKEXY, ZWTXY, WAXY, WTXY, LFMASSXY, RTMASSXY, STMASSXY, WOODXY, GRAINXY, &
-    !$acc GDDXY, STBLCPXY, FASTCPXY, LAI, XSAIXY, IRNUMSI, IRNUMMI, IRNUMFI, IRWATSI, &
-    !$acc IRWATMI, IRWATFI, IRELOSS, IRSIVOL, IRMIVOL, IRFIVOL, IRRSPLH, &
-    !$acc T2MVXY, T2MBXY, FSATXY, WSURFXY, SNRDSXY, SNFRXY, BCPHIXY, BCPHOXY, OCPHIXY, OCPHOXY, &
-    !$acc DUST1XY, DUST2XY, DUST3XY, DUST4XY, DUST5XY, MASSCONCBCPHIXY, MASSCONCBCPHOXY, &
-    !$acc MASSCONCOCPHIXY, MASSCONCOCPHOXY, MASSCONCDUST1XY, MASSCONCDUST2XY, MASSCONCDUST3XY, &
-    !$acc MASSCONCDUST4XY, MASSCONCDUST5XY, ALBSOILDIRXY, ALBSOILDIFXY)
+    !$acc parallel loop gang vector collapse(2) default(present)
     do J = jts, jtf
     do I = its, itf
     
@@ -349,109 +339,109 @@ contains
     ! Optional argument copies - must be outside GPU parallel region
     ! because if(present(...)) cannot safely execute on the GPU
     if(present(FDEPTHXY)) then
-      !$acc parallel loop gang vector collapse(2) present(NoahmpIO, FDEPTHXY)
+      !$acc parallel loop gang vector collapse(2) default(present)
       do J = jts, jtf; do I = its, itf
         NoahmpIO%FDEPTHXY(I,J) = FDEPTHXY(I,J)
       enddo; enddo
     endif
     if(present(MSFTX)) then
-      !$acc parallel loop gang vector collapse(2) present(NoahmpIO, MSFTX)
+      !$acc parallel loop gang vector collapse(2) default(present)
       do J = jts, jtf; do I = its, itf
         NoahmpIO%MSFTX(I,J) = MSFTX(I,J)
       enddo; enddo
     endif
     if(present(MSFTY)) then
-      !$acc parallel loop gang vector collapse(2) present(NoahmpIO, MSFTY)
+      !$acc parallel loop gang vector collapse(2) default(present)
       do J = jts, jtf; do I = its, itf
         NoahmpIO%MSFTY(I,J) = MSFTY(I,J)
       enddo; enddo
     endif
     if(present(HT)) then
-      !$acc parallel loop gang vector collapse(2) present(NoahmpIO, HT)
+      !$acc parallel loop gang vector collapse(2) default(present)
       do J = jts, jtf; do I = its, itf
         NoahmpIO%TERRAIN(I,J) = HT(I,J)
       enddo; enddo
     endif
     if(present(RECHCLIM)) then
-      !$acc parallel loop gang vector collapse(2) present(NoahmpIO, RECHCLIM)
+      !$acc parallel loop gang vector collapse(2) default(present)
       do J = jts, jtf; do I = its, itf
         NoahmpIO%RECHCLIM(I,J) = RECHCLIM(I,J)
       enddo; enddo
     endif
     if(present(QTDRAIN)) then
-      !$acc parallel loop gang vector collapse(2) present(NoahmpIO, QTDRAIN)
+      !$acc parallel loop gang vector collapse(2) default(present)
       do J = jts, jtf; do I = its, itf
         NoahmpIO%QTDRAIN(I,J) = QTDRAIN(I,J)
       enddo; enddo
     endif
     if(present(SMCWTDXY)) then
-      !$acc parallel loop gang vector collapse(2) present(NoahmpIO, SMCWTDXY)
+      !$acc parallel loop gang vector collapse(2) default(present)
       do J = jts, jtf; do I = its, itf
         NoahmpIO%SMCWTDXY(I,J) = SMCWTDXY(I,J)
       enddo; enddo
     endif
     if(present(DEEPRECHXY)) then
-      !$acc parallel loop gang vector collapse(2) present(NoahmpIO, DEEPRECHXY)
+      !$acc parallel loop gang vector collapse(2) default(present)
       do J = jts, jtf; do I = its, itf
         NoahmpIO%DEEPRECHXY(I,J) = DEEPRECHXY(I,J)
       enddo; enddo
     endif
     if(present(RECHXY)) then
-      !$acc parallel loop gang vector collapse(2) present(NoahmpIO, RECHXY)
+      !$acc parallel loop gang vector collapse(2) default(present)
       do J = jts, jtf; do I = its, itf
         NoahmpIO%RECHXY(I,J) = RECHXY(I,J)
       enddo; enddo
     endif
     if(present(QRFSXY)) then
-      !$acc parallel loop gang vector collapse(2) present(NoahmpIO, QRFSXY)
+      !$acc parallel loop gang vector collapse(2) default(present)
       do J = jts, jtf; do I = its, itf
         NoahmpIO%QRFSXY(I,J) = QRFSXY(I,J)
       enddo; enddo
     endif
     if(present(QSPRINGSXY)) then
-      !$acc parallel loop gang vector collapse(2) present(NoahmpIO, QSPRINGSXY)
+      !$acc parallel loop gang vector collapse(2) default(present)
       do J = jts, jtf; do I = its, itf
         NoahmpIO%QSPRINGSXY(I,J) = QSPRINGSXY(I,J)
       enddo; enddo
     endif
     if(present(QSLATXY)) then
-      !$acc parallel loop gang vector collapse(2) present(NoahmpIO, QSLATXY)
+      !$acc parallel loop gang vector collapse(2) default(present)
       do J = jts, jtf; do I = its, itf
         NoahmpIO%QSLATXY(I,J) = QSLATXY(I,J)
       enddo; enddo
     endif
     if(present(AREAXY)) then
-      !$acc parallel loop gang vector collapse(2) present(NoahmpIO, AREAXY)
+      !$acc parallel loop gang vector collapse(2) default(present)
       do J = jts, jtf; do I = its, itf
         NoahmpIO%AREAXY(I,J) = AREAXY(I,J)
       enddo; enddo
     endif
     if(present(RIVERBEDXY)) then
-      !$acc parallel loop gang vector collapse(2) present(NoahmpIO, RIVERBEDXY)
+      !$acc parallel loop gang vector collapse(2) default(present)
       do J = jts, jtf; do I = its, itf
         NoahmpIO%RIVERBEDXY(I,J) = RIVERBEDXY(I,J)
       enddo; enddo
     endif
     if(present(EQZWT)) then
-      !$acc parallel loop gang vector collapse(2) present(NoahmpIO, EQZWT)
+      !$acc parallel loop gang vector collapse(2) default(present)
       do J = jts, jtf; do I = its, itf
         NoahmpIO%EQZWT(I,J) = EQZWT(I,J)
       enddo; enddo
     endif
     if(present(RIVERCONDXY)) then
-      !$acc parallel loop gang vector collapse(2) present(NoahmpIO, RIVERCONDXY)
+      !$acc parallel loop gang vector collapse(2) default(present)
       do J = jts, jtf; do I = its, itf
         NoahmpIO%RIVERCONDXY(I,J) = RIVERCONDXY(I,J)
       enddo; enddo
     endif
     if(present(PEXPXY)) then
-      !$acc parallel loop gang vector collapse(2) present(NoahmpIO, PEXPXY)
+      !$acc parallel loop gang vector collapse(2) default(present)
       do J = jts, jtf; do I = its, itf
         NoahmpIO%PEXPXY(I,J) = PEXPXY(I,J)
       enddo; enddo
     endif
     if(present(SMOISEQ)) then
-      !$acc parallel loop gang vector collapse(2) present(NoahmpIO, SMOISEQ)
+      !$acc parallel loop gang vector collapse(2) default(present)
       do J = jts, jtf; do I = its, itf
         NoahmpIO%SMOISEQ(I,:,J) = SMOISEQ(I,:,J)
       enddo; enddo
@@ -464,17 +454,7 @@ contains
     !---------
 
     !--------- initialized NoahmpIO variable mapped to WRF variables
-    !$acc parallel loop gang vector collapse(2) present(NoahmpIO, &
-    !$acc& SMOIS, SH2O, TSLB, SNOW, SNOWH, CANWAT, CANICEXY, CANLIQXY, TMN, ISNOWXY, ZSNSOXY, TSNOXY, &
-    !$acc& SNICEXY, SNLIQXY, TVXY, TGXY, EAHXY, TAHXY, CMXY, CHXY, FWETXY, SNEQVOXY, ALBOLDXY, &
-    !$acc& QSNOWXY, QRAINXY, WSLAKEXY, ZWTXY, WAXY, WTXY, LFMASSXY, RTMASSXY, STMASSXY, WOODXY, GRAINXY, &
-    !$acc& GDDXY, STBLCPXY, FASTCPXY, LAI, XSAIXY, IRNUMSI, IRNUMMI, IRNUMFI, IRWATSI, &
-    !$acc& IRWATMI, IRWATFI, IRELOSS, IRSIVOL, IRMIVOL, IRFIVOL, IRRSPLH, &
-    !$acc& T2MVXY, T2MBXY, ALBSOILDIRXY, ALBSOILDIFXY, &
-    !$acc& FSATXY, WSURFXY, SNRDSXY, SNFRXY, BCPHIXY, BCPHOXY, OCPHIXY, OCPHOXY, &
-    !$acc& DUST1XY, DUST2XY, DUST3XY, DUST4XY, DUST5XY, MASSCONCBCPHIXY, MASSCONCBCPHOXY, &
-    !$acc& MASSCONCOCPHIXY, MASSCONCOCPHOXY, MASSCONCDUST1XY, MASSCONCDUST2XY, MASSCONCDUST3XY, &
-    !$acc& MASSCONCDUST4XY, MASSCONCDUST5XY, CROPCAT)
+    !$acc parallel loop gang vector collapse(2) default(present)
     do J = jts, jtf
     do I = its, itf
 
@@ -489,10 +469,10 @@ contains
     CANLIQXY(I,J)       = NoahmpIO%CANLIQXY(I,J)
     TMN(I,J)            = NoahmpIO%TMN(I,J)
     ISNOWXY(I,J)        = NoahmpIO%ISNOWXY(I,J)
-    ZSNSOXY(I,1:7,J)      = NoahmpIO%ZSNSOXY(I,1:7,J)
-    TSNOXY(I,1:3,J)       = NoahmpIO%TSNOXY(I,1:3,J)
-    SNICEXY(I,1:3,J)      = NoahmpIO%SNICEXY(I,1:3,J)
-    SNLIQXY(I,1:3,J)      = NoahmpIO%SNLIQXY(I,1:3,J)
+    ZSNSOXY(I,1:7,J)      = NoahmpIO%ZSNSOXY(I,:,J)
+    TSNOXY(I,1:3,J)       = NoahmpIO%TSNOXY(I,:,J)
+    SNICEXY(I,1:3,J)      = NoahmpIO%SNICEXY(I,:,J)
+    SNLIQXY(I,1:3,J)      = NoahmpIO%SNLIQXY(I,:,J)
     TVXY(I,J)           = NoahmpIO%TVXY(I,J)
     TGXY(I,J)           = NoahmpIO%TGXY(I,J)
     EAHXY(I,J)          = NoahmpIO%EAHXY(I,J)
@@ -538,26 +518,26 @@ contains
        WSURFXY(I,J)     = NoahmpIO%WSURFXY(I,J)
     endif
     if ( NoahmpIO%IOPT_ALB == 3 ) then
-       SNRDSXY(I,1:3,J)         = NoahmpIO%SNRDSXY(I,1:3,J)
-       SNFRXY(I,1:3,J)          = NoahmpIO%SNFRXY(I,1:3,J)
-       BCPHIXY(I,1:3,J)         = NoahmpIO%BCPHIXY(I,1:3,J)
-       BCPHOXY(I,1:3,J)         = NoahmpIO%BCPHOXY(I,1:3,J)
-       OCPHIXY(I,1:3,J)         = NoahmpIO%OCPHIXY(I,1:3,J)
-       OCPHOXY(I,1:3,J)         = NoahmpIO%OCPHOXY(I,1:3,J)
-       DUST1XY(I,1:3,J)         = NoahmpIO%DUST1XY(I,1:3,J)
-       DUST2XY(I,1:3,J)         = NoahmpIO%DUST2XY(I,1:3,J)
-       DUST3XY(I,1:3,J)         = NoahmpIO%DUST3XY(I,1:3,J)
-       DUST4XY(I,1:3,J)         = NoahmpIO%DUST4XY(I,1:3,J)
-       DUST5XY(I,1:3,J)         = NoahmpIO%DUST5XY(I,1:3,J)
-       MassConcBCPHIXY(I,1:3,J) = NoahmpIO%MassConcBCPHIXY(I,1:3,J)
-       MassConcBCPHOXY(I,1:3,J) = NoahmpIO%MassConcBCPHOXY(I,1:3,J)
-       MassConcOCPHIXY(I,1:3,J) = NoahmpIO%MassConcOCPHIXY(I,1:3,J)
-       MassConcOCPHOXY(I,1:3,J) = NoahmpIO%MassConcOCPHOXY(I,1:3,J)
-       MassConcDUST1XY(I,1:3,J) = NoahmpIO%MassConcDUST1XY(I,1:3,J)
-       MassConcDUST2XY(I,1:3,J) = NoahmpIO%MassConcDUST2XY(I,1:3,J)
-       MassConcDUST3XY(I,1:3,J) = NoahmpIO%MassConcDUST3XY(I,1:3,J)
-       MassConcDUST4XY(I,1:3,J) = NoahmpIO%MassConcDUST4XY(I,1:3,J)
-       MassConcDUST5XY(I,1:3,J) = NoahmpIO%MassConcDUST5XY(I,1:3,J)
+       SNRDSXY(I,1:3,J)         = NoahmpIO%SNRDSXY(I,:,J)
+       SNFRXY(I,1:3,J)          = NoahmpIO%SNFRXY(I,:,J)
+       BCPHIXY(I,1:3,J)         = NoahmpIO%BCPHIXY(I,:,J)
+       BCPHOXY(I,1:3,J)         = NoahmpIO%BCPHOXY(I,:,J)
+       OCPHIXY(I,1:3,J)         = NoahmpIO%OCPHIXY(I,:,J)
+       OCPHOXY(I,1:3,J)         = NoahmpIO%OCPHOXY(I,:,J)
+       DUST1XY(I,1:3,J)         = NoahmpIO%DUST1XY(I,:,J)
+       DUST2XY(I,1:3,J)         = NoahmpIO%DUST2XY(I,:,J)
+       DUST3XY(I,1:3,J)         = NoahmpIO%DUST3XY(I,:,J)
+       DUST4XY(I,1:3,J)         = NoahmpIO%DUST4XY(I,:,J)
+       DUST5XY(I,1:3,J)         = NoahmpIO%DUST5XY(I,:,J)
+       MassConcBCPHIXY(I,1:3,J) = NoahmpIO%MassConcBCPHIXY(I,:,J)
+       MassConcBCPHOXY(I,1:3,J) = NoahmpIO%MassConcBCPHOXY(I,:,J)
+       MassConcOCPHIXY(I,1:3,J) = NoahmpIO%MassConcOCPHIXY(I,:,J)
+       MassConcOCPHOXY(I,1:3,J) = NoahmpIO%MassConcOCPHOXY(I,:,J)
+       MassConcDUST1XY(I,1:3,J) = NoahmpIO%MassConcDUST1XY(I,:,J)
+       MassConcDUST2XY(I,1:3,J) = NoahmpIO%MassConcDUST2XY(I,:,J)
+       MassConcDUST3XY(I,1:3,J) = NoahmpIO%MassConcDUST3XY(I,:,J)
+       MassConcDUST4XY(I,1:3,J) = NoahmpIO%MassConcDUST4XY(I,:,J)
+       MassConcDUST5XY(I,1:3,J) = NoahmpIO%MassConcDUST5XY(I,:,J)
     endif
 
     ! out variables only
@@ -568,79 +548,79 @@ contains
 
     ! Optional argument copies back - must be outside GPU parallel region
     if(present(QTDRAIN)) then
-      !$acc parallel loop gang vector collapse(2) present(NoahmpIO, QTDRAIN)
+      !$acc parallel loop gang vector collapse(2) default(present)
       do J = jts, jtf; do I = its, itf
         QTDRAIN(I,J) = NoahmpIO%QTDRAIN(I,J)
       enddo; enddo
     endif
     if(present(SMCWTDXY)) then
-      !$acc parallel loop gang vector collapse(2) present(NoahmpIO, SMCWTDXY)
+      !$acc parallel loop gang vector collapse(2) default(present)
       do J = jts, jtf; do I = its, itf
         SMCWTDXY(I,J) = NoahmpIO%SMCWTDXY(I,J)
       enddo; enddo
     endif
     if(present(DEEPRECHXY)) then
-      !$acc parallel loop gang vector collapse(2) present(NoahmpIO, DEEPRECHXY)
+      !$acc parallel loop gang vector collapse(2) default(present)
       do J = jts, jtf; do I = its, itf
         DEEPRECHXY(I,J) = NoahmpIO%DEEPRECHXY(I,J)
       enddo; enddo
     endif
     if(present(RECHXY)) then
-      !$acc parallel loop gang vector collapse(2) present(NoahmpIO, RECHXY)
+      !$acc parallel loop gang vector collapse(2) default(present)
       do J = jts, jtf; do I = its, itf
         RECHXY(I,J) = NoahmpIO%RECHXY(I,J)
       enddo; enddo
     endif
     if(present(QRFSXY)) then
-      !$acc parallel loop gang vector collapse(2) present(NoahmpIO, QRFSXY)
+      !$acc parallel loop gang vector collapse(2) default(present)
       do J = jts, jtf; do I = its, itf
         QRFSXY(I,J) = NoahmpIO%QRFSXY(I,J)
       enddo; enddo
     endif
     if(present(QSPRINGSXY)) then
-      !$acc parallel loop gang vector collapse(2) present(NoahmpIO, QSPRINGSXY)
+      !$acc parallel loop gang vector collapse(2) default(present)
       do J = jts, jtf; do I = its, itf
         QSPRINGSXY(I,J) = NoahmpIO%QSPRINGSXY(I,J)
       enddo; enddo
     endif
     if(present(QSLATXY)) then
-      !$acc parallel loop gang vector collapse(2) present(NoahmpIO, QSLATXY)
+      !$acc parallel loop gang vector collapse(2) default(present)
       do J = jts, jtf; do I = its, itf
         QSLATXY(I,J) = NoahmpIO%QSLATXY(I,J)
       enddo; enddo
     endif
     if(present(AREAXY)) then
-      !$acc parallel loop gang vector collapse(2) present(NoahmpIO, AREAXY)
+      !$acc parallel loop gang vector collapse(2) default(present)
       do J = jts, jtf; do I = its, itf
         AREAXY(I,J) = NoahmpIO%AREAXY(I,J)
       enddo; enddo
     endif
     if(present(RIVERBEDXY)) then
-      !$acc parallel loop gang vector collapse(2) present(NoahmpIO, RIVERBEDXY)
+      !$acc parallel loop gang vector collapse(2) default(present)
       do J = jts, jtf; do I = its, itf
         RIVERBEDXY(I,J) = NoahmpIO%RIVERBEDXY(I,J)
       enddo; enddo
     endif
     if(present(EQZWT)) then
-      !$acc parallel loop gang vector collapse(2) present(NoahmpIO, EQZWT)
+      !$acc parallel loop gang vector collapse(2) default(present)
       do J = jts, jtf; do I = its, itf
         EQZWT(I,J) = NoahmpIO%EQZWT(I,J)
       enddo; enddo
     endif
     if(present(RIVERCONDXY)) then
-      !$acc parallel loop gang vector collapse(2) present(NoahmpIO, RIVERCONDXY)
+      !$acc parallel loop gang vector collapse(2) default(present)
       do J = jts, jtf; do I = its, itf
         RIVERCONDXY(I,J) = NoahmpIO%RIVERCONDXY(I,J)
       enddo; enddo
     endif
     if(present(PEXPXY)) then
-      !$acc parallel loop gang vector collapse(2) present(NoahmpIO, PEXPXY)
+      !$acc parallel loop gang vector collapse(2) default(present)
       do J = jts, jtf; do I = its, itf
         PEXPXY(I,J) = NoahmpIO%PEXPXY(I,J)
       enddo; enddo
     endif
     if(present(SMOISEQ)) then
-      !$acc parallel loop gang vector collapse(2) present(NoahmpIO, SMOISEQ)
+      !$acc parallel loop gang vector collapse(2) default(present)
       do J = jts, jtf; do I = its, itf
         SMOISEQ(I,:,J) = NoahmpIO%SMOISEQ(I,:,J)
       enddo; enddo

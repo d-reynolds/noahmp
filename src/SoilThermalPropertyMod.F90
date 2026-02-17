@@ -39,28 +39,29 @@ contains
     real(kind=kind_noahmp)           :: SoilIceTmp                    ! temporal soil ice
 
 ! --------------------------------------------------------------------
-    !$acc parallel loop collapse(2) gang vector present(noahmp)
-    do J = noahmp%config%domain%JTS, noahmp%config%domain%JTE
-      do I = noahmp%config%domain%ITS, noahmp%config%domain%ITE
-
         associate(                                                          &
                   NumSoilLayer     => noahmp%config%domain%NumSoilLayer    ,& ! in,  number of soil layers
                   SoilMoistureSat  => noahmp%water%param%SoilMoistureSat   ,& ! in,  saturated value of soil moisture [m3/m3] (3D)
-                  SoilHeatCapacity => noahmp%energy%param%SoilHeatCapacity(I,J) ,& ! in,  soil volumetric specific heat [J/m3/K]
+                  SoilHeatCapacity => noahmp%energy%param%SoilHeatCapacity ,& ! in,  soil volumetric specific heat [J/m3/K]
                   SoilQuartzFrac   => noahmp%energy%param%SoilQuartzFrac   ,& ! in,  soil quartz content (3D)
                   SoilMoisture     => noahmp%water%state%SoilMoisture      ,& ! in,  total soil moisture [m3/m3] (3D)
                   SoilLiqWater     => noahmp%water%state%SoilLiqWater      ,& ! in,  soil water content [m3/m3] (3D)
                   HeatCapacVolSoil => noahmp%energy%state%HeatCapacVolSoil ,& ! out, soil layer volumetric specific heat [J/m3/K] (3D)
                   ThermConductSoil => noahmp%energy%state%ThermConductSoil  & ! out, soil layer thermal conductivity [W/m/K] (3D)
                  )
-! ----------------------------------------------------------------------
+
+    !$acc parallel loop collapse(2) gang vector default(present) private(KerstenFac, LoopInd, SoilGamFac, SoilIceTmp, &
+    !$acc SoilSatRatio, SoilWatFrac, SoilWatFracSat, ThermConductSoilDry, ThermConductSoilSat, ThermConductSolid)
+    do J = noahmp%config%domain%JTS, noahmp%config%domain%JTE
+      do I = noahmp%config%domain%ITS, noahmp%config%domain%ITE
+
         !$acc loop seq
         do LoopInd = 1, NumSoilLayer
 
            ! ==== soil heat capacity
            SoilIceTmp                        = SoilMoisture(I,LoopInd,J) - SoilLiqWater(I,LoopInd,J)
            HeatCapacVolSoil(I,LoopInd,J) = SoilLiqWater(I,LoopInd,J) * ConstHeatCapacWater +                            &
-                                       (1.0 - SoilMoistureSat(I,LoopInd,J)) * SoilHeatCapacity +                    &
+                                       (1.0 - SoilMoistureSat(I,LoopInd,J)) * SoilHeatCapacity(I,J) +                    &
                                        (SoilMoistureSat(I,LoopInd,J) - SoilMoisture(I,LoopInd,J)) * ConstHeatCapacAir + &
                                        SoilIceTmp * ConstHeatCapacIce
 
@@ -104,11 +105,13 @@ contains
 
         enddo ! LoopInd
 
-        end associate
 
       end do
     end do
     !$acc end parallel loop
+
+
+        end associate
 
   end subroutine SoilThermalProperty
 

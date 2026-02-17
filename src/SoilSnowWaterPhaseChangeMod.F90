@@ -39,20 +39,14 @@ contains
     real(kind=kind_noahmp) :: MassWatIceTmp(-noahmp%config%domain%NumSnowLayerMax+1:noahmp%config%domain%NumSoilLayer)      ! soil/snow ice mass [mm]
     real(kind=kind_noahmp) :: MassWatLiqTmp(-noahmp%config%domain%NumSnowLayerMax+1:noahmp%config%domain%NumSoilLayer)      ! soil/snow liquid water mass [mm]
     integer                               :: I, J                           ! grid indices
-    !$acc parallel loop collapse(2) gang vector present(noahmp) private(LoopInd, EnergyResLeft, SnowWaterPrev, SnowWaterRatio, HeatLhTotPhsChg) &
-    !$acc                                                       private(EnergyRes, WaterPhaseChg, MassWatTotInit, MassWatIceInit, MassWatLiqInit, MassWatIceTmp, MassWatLiqTmp)
-    do J = noahmp%config%domain%JTS, noahmp%config%domain%JTE
-      do I = noahmp%config%domain%ITS, noahmp%config%domain%ITE
-         if ( noahmp%config%domain%IndicatorIceSfc(I,J) == -1 ) cycle  ! skip land ice points
-! --------------------------------------------------------------------
     associate(                                                                       &
               OptSnowAlbedo          => noahmp%config%nmlist%OptSnowAlbedo          ,& ! in,    options for ground snow surface albedo
               OptSoilSupercoolWater  => noahmp%config%nmlist%OptSoilSupercoolWater  ,& ! in,    options for soil supercooled liquid water
               NumSoilLayer           => noahmp%config%domain%NumSoilLayer           ,& ! in,    number of soil layers
               NumSnowLayerMax        => noahmp%config%domain%NumSnowLayerMax        ,& ! in,    maximum number of snow layers
-              NumSnowLayerNeg        => noahmp%config%domain%NumSnowLayerNeg(I,J)        ,& ! in,    actual number of snow layers (negative)
+              NumSnowLayerNeg        => noahmp%config%domain%NumSnowLayerNeg        ,& ! in,    actual number of snow layers (negative)
               MainTimeStep           => noahmp%config%domain%MainTimeStep           ,& ! in,    main noahmp timestep [s]
-              SurfaceType            => noahmp%config%domain%SurfaceType(I,J)            ,& ! in,    surface type 1-soil; 2-lake
+              SurfaceType            => noahmp%config%domain%SurfaceType            ,& ! in,    surface type 1-soil; 2-lake
               ThicknessSnowSoilLayer => noahmp%config%domain%ThicknessSnowSoilLayer ,& ! in,    thickness of snow/soil layers [m]
               PhaseChgFacSoilSnow    => noahmp%energy%state%PhaseChgFacSoilSnow     ,& ! in,    energy factor for soil & snow phase change
               TemperatureSoilSnow    => noahmp%energy%state%TemperatureSoilSnow     ,& ! inout, snow and soil layer temperature [K]
@@ -60,19 +54,24 @@ contains
               SoilMoisture           => noahmp%water%state%SoilMoisture             ,& ! inout, total soil moisture [m3/m3]
               SnowIce                => noahmp%water%state%SnowIce                  ,& ! inout, snow layer ice [mm]
               SnowLiqWater           => noahmp%water%state%SnowLiqWater             ,& ! inout, snow layer liquid water [mm]
-              SnowDepth              => noahmp%water%state%SnowDepth(I,J)                ,& ! inout, snow depth [m]
-              SnowWaterEquiv         => noahmp%water%state%SnowWaterEquiv(I,J)           ,& ! inout, snow water equivalent [mm]
+              SnowDepth              => noahmp%water%state%SnowDepth                ,& ! inout, snow depth [m]
+              SnowWaterEquiv         => noahmp%water%state%SnowWaterEquiv           ,& ! inout, snow water equivalent [mm]
               IndexPhaseChange       => noahmp%water%state%IndexPhaseChange         ,& ! out,   phase change index [0-none;1-melt;2-refreeze]
               SoilSupercoolWater     => noahmp%water%state%SoilSupercoolWater       ,& ! out,   supercooled water in soil [kg/m2]
-              PondSfcThinSnwMelt     => noahmp%water%state%PondSfcThinSnwMelt(I,J)       ,& ! out,   surface ponding [mm] from melt when thin snow w/o layer
-              MeltGroundSnow         => noahmp%water%flux%MeltGroundSnow(I,J)            ,& ! out,   ground snowmelt rate [mm/s]
+              PondSfcThinSnwMelt     => noahmp%water%state%PondSfcThinSnwMelt       ,& ! out,   surface ponding [mm] from melt when thin snow w/o layer
+              MeltGroundSnow         => noahmp%water%flux%MeltGroundSnow            ,& ! out,   ground snowmelt rate [mm/s]
               SnowFreezeRate         => noahmp%water%flux%SnowFreezeRate             & ! out,   rate of snow freezing [mm/s]
              )
-! ----------------------------------------------------------------------
+
+    !$acc parallel loop collapse(2) gang vector default(present) private(LoopInd, EnergyResLeft, SnowWaterPrev, SnowWaterRatio, HeatLhTotPhsChg) &
+    !$acc                                                       private(EnergyRes, WaterPhaseChg, MassWatTotInit, MassWatIceInit, MassWatLiqInit, MassWatIceTmp, MassWatLiqTmp)
+    do J = noahmp%config%domain%JTS, noahmp%config%domain%JTE
+      do I = noahmp%config%domain%ITS, noahmp%config%domain%ITE
+         if ( noahmp%config%domain%IndicatorIceSfc(I,J) == -1 ) cycle  ! skip land ice points
 
     !--- Initialization
-    MeltGroundSnow     = 0.0
-    PondSfcThinSnwMelt = 0.0
+    MeltGroundSnow(I,J)     = 0.0
+    PondSfcThinSnwMelt(I,J) = 0.0
     HeatLhTotPhsChg    = 0.0
 
     ! supercooled water content
@@ -93,7 +92,7 @@ contains
 
     ! snow layer water mass
     !$acc loop seq
-    do LoopInd = NumSnowLayerNeg+1, 0
+    do LoopInd = NumSnowLayerNeg(I,J)+1, 0
        MassWatIceTmp(LoopInd) = SnowIce(I,LoopInd,J)
        MassWatLiqTmp(LoopInd) = SnowLiqWater(I,LoopInd,J)
     enddo
@@ -107,7 +106,7 @@ contains
 
     ! other required variables
     !$acc loop seq
-    do LoopInd = NumSnowLayerNeg+1, NumSoilLayer
+    do LoopInd = NumSnowLayerNeg(I,J)+1, NumSoilLayer
        IndexPhaseChange(I,LoopInd,J) = 0
        EnergyRes(LoopInd)        = 0.0
        WaterPhaseChg(LoopInd)    = 0.0
@@ -117,7 +116,7 @@ contains
     enddo
 
     !--- compute soil supercool water content
-    if ( SurfaceType == 1 ) then ! land points
+    if ( SurfaceType(I,J) == 1 ) then ! land points
        !$acc loop seq
        do LoopInd = 1, NumSoilLayer
           if ( OptSoilSupercoolWater == 1 ) then
@@ -138,7 +137,7 @@ contains
 
     !--- determine melting or freezing state
     !$acc loop seq
-    do LoopInd = NumSnowLayerNeg+1, NumSoilLayer
+    do LoopInd = NumSnowLayerNeg(I,J)+1, NumSoilLayer
        if ( (MassWatIceTmp(LoopInd) > 0.0) .and. (TemperatureSoilSnow(I,LoopInd,J) >= ConstFreezePoint) ) then
           IndexPhaseChange(I,LoopInd,J) = 1  ! melting
        endif
@@ -147,7 +146,7 @@ contains
           IndexPhaseChange(I,LoopInd,J) = 2  ! freezing
        endif
        ! If snow exists, but its thickness is not enough to create a layer
-       if ( (NumSnowLayerNeg == 0) .and. (SnowWaterEquiv > 0.0) .and. (LoopInd == 1) ) then
+       if ( (NumSnowLayerNeg(I,J) == 0) .and. (SnowWaterEquiv(I,J) > 0.0) .and. (LoopInd == 1) ) then
           if ( TemperatureSoilSnow(I,LoopInd,J) >= ConstFreezePoint ) then
              IndexPhaseChange(I,LoopInd,J) = 1
           endif
@@ -156,7 +155,7 @@ contains
 
     !--- Calculate the energy surplus and loss for melting and freezing
     !$acc loop seq
-    do LoopInd = NumSnowLayerNeg+1, NumSoilLayer
+    do LoopInd = NumSnowLayerNeg(I,J)+1, NumSoilLayer
        if ( IndexPhaseChange(I,LoopInd,J) > 0 ) then
           EnergyRes(LoopInd)           = (TemperatureSoilSnow(I,LoopInd,J)-ConstFreezePoint) / PhaseChgFacSoilSnow(I,LoopInd,J)
           TemperatureSoilSnow(I,LoopInd,J) = ConstFreezePoint
@@ -173,13 +172,13 @@ contains
     enddo
 
     !--- The rate of melting for snow without a layer, needs more work.
-    if ( (NumSnowLayerNeg == 0) .and. (SnowWaterEquiv > 0.0) .and. (WaterPhaseChg(1) > 0.0) ) then
-       SnowWaterPrev  = SnowWaterEquiv
-       SnowWaterEquiv = max(0.0, SnowWaterPrev-WaterPhaseChg(1))
-       SnowWaterRatio = SnowWaterEquiv / SnowWaterPrev
-       SnowDepth      = max(0.0, SnowWaterRatio*SnowDepth )
-       SnowDepth      = min(max(SnowDepth,SnowWaterEquiv/500.0), SnowWaterEquiv/50.0)      ! limit adjustment to a reasonable density
-       EnergyResLeft  = EnergyRes(1) - ConstLatHeatFusion * (SnowWaterPrev - SnowWaterEquiv) / MainTimeStep
+    if ( (NumSnowLayerNeg(I,J) == 0) .and. (SnowWaterEquiv(I,J) > 0.0) .and. (WaterPhaseChg(1) > 0.0) ) then
+       SnowWaterPrev  = SnowWaterEquiv(I,J)
+       SnowWaterEquiv(I,J) = max(0.0, SnowWaterPrev-WaterPhaseChg(1))
+       SnowWaterRatio = SnowWaterEquiv(I,J) / SnowWaterPrev
+       SnowDepth(I,J)      = max(0.0, SnowWaterRatio*SnowDepth(I,J) )
+       SnowDepth(I,J)      = min(max(SnowDepth(I,J),SnowWaterEquiv(I,J)/500.0), SnowWaterEquiv(I,J)/50.0)      ! limit adjustment to a reasonable density
+       EnergyResLeft  = EnergyRes(1) - ConstLatHeatFusion * (SnowWaterPrev - SnowWaterEquiv(I,J)) / MainTimeStep
        if ( EnergyResLeft > 0.0 ) then
           WaterPhaseChg(1) = EnergyResLeft * MainTimeStep / ConstLatHeatFusion
           EnergyRes(1)     = EnergyResLeft
@@ -187,14 +186,14 @@ contains
           WaterPhaseChg(1) = 0.0
           EnergyRes(1)     = 0.0
        endif
-       MeltGroundSnow     = max(0.0, (SnowWaterPrev-SnowWaterEquiv)) / MainTimeStep
-       HeatLhTotPhsChg    = ConstLatHeatFusion * MeltGroundSnow
-       PondSfcThinSnwMelt = SnowWaterPrev - SnowWaterEquiv
+       MeltGroundSnow(I,J)     = max(0.0, (SnowWaterPrev-SnowWaterEquiv(I,J))) / MainTimeStep
+       HeatLhTotPhsChg    = ConstLatHeatFusion * MeltGroundSnow(I,J)
+       PondSfcThinSnwMelt(I,J) = SnowWaterPrev - SnowWaterEquiv(I,J)
     endif
 
     ! The rate of melting and freezing for multi-layer snow and soil
     !$acc loop seq
-    do LoopInd = NumSnowLayerNeg+1, NumSoilLayer
+    do LoopInd = NumSnowLayerNeg(I,J)+1, NumSoilLayer
        if ( (IndexPhaseChange(I,LoopInd,J) > 0) .and. (abs(EnergyRes(LoopInd)) > 0.0) ) then
           EnergyResLeft = 0.0
           if ( WaterPhaseChg(LoopInd) > 0.0 ) then
@@ -235,7 +234,7 @@ contains
                             (MassWatIceInit(LoopInd) - MassWatIceTmp(LoopInd)) / MainTimeStep
           ! snow melting rate
           if ( LoopInd < 1 ) then
-             MeltGroundSnow = MeltGroundSnow + max(0.0, (MassWatIceInit(LoopInd)-MassWatIceTmp(LoopInd))) / MainTimeStep
+             MeltGroundSnow(I,J) = MeltGroundSnow(I,J) + max(0.0, (MassWatIceInit(LoopInd)-MassWatIceTmp(LoopInd))) / MainTimeStep
              if (OptSnowAlbedo == 3) then
                 SnowFreezeRate(I,LoopInd,J) = max(0.0, (MassWatIceTmp(LoopInd)-MassWatIceInit(LoopInd))) / MainTimeStep
              endif
@@ -245,7 +244,7 @@ contains
 
     !--- update snow and soil ice and liquid content
     !$acc loop seq
-    do LoopInd = NumSnowLayerNeg+1, 0     ! snow
+    do LoopInd = NumSnowLayerNeg(I,J)+1, 0     ! snow
        SnowLiqWater(I,LoopInd,J) = MassWatLiqTmp(LoopInd)
        SnowIce(I,LoopInd,J)      = MassWatIceTmp(LoopInd)
     enddo
@@ -255,10 +254,12 @@ contains
        SoilMoisture(I,LoopInd,J) = (MassWatLiqTmp(LoopInd)+MassWatIceTmp(LoopInd)) / (1000.0*ThicknessSnowSoilLayer(I,LoopInd,J))
     enddo
 
-    end associate
    end do
    end do
 
+
+
+    end associate
 
   end subroutine SoilSnowWaterPhaseChange
 

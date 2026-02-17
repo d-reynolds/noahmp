@@ -28,30 +28,32 @@ contains
     integer                          :: I, J      ! grid indices
 
 ! --------------------------------------------------------------------
-   !$acc parallel loop collapse(2) gang vector present(noahmp)
+    associate(                                                             &
+              EmissivitySnow   => noahmp%energy%param%EmissivitySnow  ,& ! in,  snow emissivity
+              EmissivityIceSfc => noahmp%energy%param%EmissivityIceSfc,& ! in,  emissivity ice surface
+              SnowCoverFrac    => noahmp%water%state%SnowCoverFrac    ,& ! in,  snow cover fraction
+              EmissivityGrd    => noahmp%energy%state%EmissivityGrd   ,& ! out, ground emissivity
+              EmissivitySfc    => noahmp%energy%state%EmissivitySfc    & ! out, surface emissivity
+             )
+
+   !$acc parallel loop collapse(2) gang vector default(present)
     do J = noahmp%config%domain%JTS, noahmp%config%domain%JTE
       do I = noahmp%config%domain%ITS, noahmp%config%domain%ITE
 
-    associate(                                                             &
-              EmissivitySnow   => noahmp%energy%param%EmissivitySnow(I,J)  ,& ! in,  snow emissivity
-              EmissivityIceSfc => noahmp%energy%param%EmissivityIceSfc(I,J),& ! in,  emissivity ice surface
-              SnowCoverFrac    => noahmp%water%state%SnowCoverFrac(I,J)    ,& ! in,  snow cover fraction
-              EmissivityGrd    => noahmp%energy%state%EmissivityGrd(I,J)   ,& ! out, ground emissivity
-              EmissivitySfc    => noahmp%energy%state%EmissivitySfc(I,J)    & ! out, surface emissivity
-             )
-! ----------------------------------------------------------------------
 
     ! ground emissivity
-    EmissivityGrd = EmissivityIceSfc * (1.0 - SnowCoverFrac) + EmissivitySnow * SnowCoverFrac
+    EmissivityGrd(I,J) = EmissivityIceSfc(I,J) * (1.0 - SnowCoverFrac(I,J)) + EmissivitySnow(I,J) * SnowCoverFrac(I,J)
 
     ! surface emissivity
-    EmissivitySfc = EmissivityGrd
+    EmissivitySfc(I,J) = EmissivityGrd(I,J)
 
-    end associate
 
       end do
     end do
    !$acc end parallel loop
+
+
+    end associate
 
   end subroutine SurfaceEmissivityGlacier
 

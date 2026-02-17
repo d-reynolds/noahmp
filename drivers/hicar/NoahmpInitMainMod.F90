@@ -48,7 +48,7 @@ contains
        if ( .not. NoahmpIO%FNDSNOWH ) then
           ! If no SNOWH do the following
          !  print*, 'SNOW HEIGHT NOT FOUND - VALUE DEFINED IN LSMINIT'
-          !$acc parallel loop collapse(2) gang vector present(NoahmpIO)
+          !$acc parallel loop collapse(2) gang vector default(present)
           do J = jts, jtf
              do I = its, itf
                 NoahmpIO%SNOWH(I,J) = NoahmpIO%SNOW(I,J) * 0.005  ! SNOW in mm and SNOWH in m
@@ -58,7 +58,7 @@ contains
    
        ! Check if snow/snowh are consistent and cap SWE at 5000mm
        ! the Noah-MP code does it internally but if we don't do it here, problems ensue
-       !$acc parallel loop collapse(2) gang vector present(NoahmpIO)
+       !$acc parallel loop collapse(2) gang vector default(present)
        do J = jts, jtf
           do I = its, itf
              if ( NoahmpIO%SNOW(I,J)  < 0.0 ) NoahmpIO%SNOW(I,J)  = 0.0 
@@ -77,14 +77,14 @@ contains
        ! Given the soil layer thicknesses (in DZS), initialize the soil layer
        ! depths from the surface.
        NoahmpIO%ZSOIL(1) = -NoahmpIO%DZS(1)          ! negative
-       !$acc parallel loop gang vector present(NoahmpIO) 
+       !$acc parallel loop gang vector default(present) 
        do NS = 2, NoahmpIO%NSOIL
           NoahmpIO%ZSOIL(NS) = NoahmpIO%ZSOIL(NS-1) - NoahmpIO%DZS(NS)
        enddo
 
        ! check soil type
        errflag = 0
-       !$acc parallel loop collapse(2) gang vector present(NoahmpIO) 
+       !$acc parallel loop collapse(2) gang vector default(present) firstprivate(errflag)
        do J = jts, jtf
           do I = its, itf
              if ( NoahmpIO%ISLTYP(I,J) < 1 ) then
@@ -96,7 +96,7 @@ contains
        enddo
 
        ! initialize soil liquid water content SH2O
-       !$acc parallel loop collapse(2) gang vector present(NoahmpIO)
+       !$acc parallel loop collapse(2) gang vector default(present) private(BEXP, FK, PSISAT, SMCMAX) firstprivate(NS)
        do J = jts , jtf
           do I = its , itf
              if ( (NoahmpIO%IVGTYP(I,J) == NoahmpIO%ISICE_TABLE) .and. &
@@ -137,7 +137,7 @@ contains
        enddo    ! J
 
        ! initilize other quantities
-       !$acc parallel loop collapse(2) gang vector present(NoahmpIO)
+       !$acc parallel loop collapse(2) gang vector default(present) private(urbanpt_flag)
        do J = jts, jtf
           do I = its, itf
              NoahmpIO%QTDRAIN(I,J)  = 0.0
@@ -283,7 +283,7 @@ contains
     endif ! NoahmpIO%restart_flag
 
     if ( NoahmpIO%IOPT_ALB == 3 ) then ! initialize SNICAR aerosol content in snow
-      !$acc parallel loop collapse(3) gang vector present(NoahmpIO)
+      !$acc parallel loop collapse(3) gang vector default(present)
        do J = jts, jtf
           do I = its, itf
              do IZ = -NoahmpIO%NSNOW+1, 0

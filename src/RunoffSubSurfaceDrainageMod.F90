@@ -27,25 +27,27 @@ contains
     integer                          :: I, J      ! grid indices
 
 ! --------------------------------------------------------------------
-   !$acc parallel loop collapse(2) gang vector present(noahmp)
+    associate(                                                           &
+              DrainSoilBot     => noahmp%water%flux%DrainSoilBot    ,& ! in,    soil bottom drainage [mm/s]
+              RunoffSubsurface => noahmp%water%flux%RunoffSubsurface & ! inout, subsurface runoff [mm/s]
+             )
+
+   !$acc parallel loop collapse(2) gang vector default(present)
     do J = noahmp%config%domain%JTS, noahmp%config%domain%JTE
       do I = noahmp%config%domain%ITS, noahmp%config%domain%ITE
          if ( noahmp%config%domain%IndicatorIceSfc(I,J) == -1 ) cycle  ! skip soil process for ice surface points
 
-    associate(                                                           &
-              DrainSoilBot     => noahmp%water%flux%DrainSoilBot(I,J)    ,& ! in,    soil bottom drainage [mm/s]
-              RunoffSubsurface => noahmp%water%flux%RunoffSubsurface(I,J) & ! inout, subsurface runoff [mm/s]
-             )
-! ----------------------------------------------------------------------
 
     ! compuate subsurface runoff mm/s
-    RunoffSubsurface = RunoffSubsurface + DrainSoilBot
+    RunoffSubsurface(I,J) = RunoffSubsurface(I,J) + DrainSoilBot(I,J)
 
-    end associate
 
       end do
     end do
    !$acc end parallel loop
+
+
+    end associate
 
   end subroutine RunoffSubSurfaceDrainage
 

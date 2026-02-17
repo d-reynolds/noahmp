@@ -33,42 +33,44 @@ contains
     real(kind=kind_noahmp)           :: Tmax   ! end of linear ramp
 
 ! --------------------------------------------------------------------
-   !$acc parallel loop collapse(2) gang vector present(noahmp) private(Tmin,Tmax)
+    associate(                                                                      &
+              TemperatureAirRefHeight => noahmp%forcing%TemperatureAirRefHeight,& ! in,  air temperature [K] at reference height
+              SnowRadiusMin           => noahmp%water%param%SnowRadiusMin      ,& ! in,  minimum allowed snow effective radius (also cold "fresh snow" value) [microns]
+              FreshSnowRadiusMax      => noahmp%water%param%FreshSnowRadiusMax ,& ! in,  maximum warm fresh snow effective radius [microns]
+              SnowRadiusFresh         => noahmp%water%state%SnowRadiusFresh     & ! out, fresh snow radius [microns]
+             )
+
+   !$acc parallel loop collapse(2) gang vector default(present) private(Tmin,Tmax)
     do J = noahmp%config%domain%JTS, noahmp%config%domain%JTE
       do I = noahmp%config%domain%ITS, noahmp%config%domain%ITE
 
         ! solar radiation process is only done if there is light
         if ( noahmp%config%domain%CosSolarZenithAngle(I,J) <= 0 ) cycle
 
-    associate(                                                                      &
-              TemperatureAirRefHeight => noahmp%forcing%TemperatureAirRefHeight(I,J),& ! in,  air temperature [K] at reference height
-              SnowRadiusMin           => noahmp%water%param%SnowRadiusMin(I,J)      ,& ! in,  minimum allowed snow effective radius (also cold "fresh snow" value) [microns]
-              FreshSnowRadiusMax      => noahmp%water%param%FreshSnowRadiusMax(I,J) ,& ! in,  maximum warm fresh snow effective radius [microns]
-              SnowRadiusFresh         => noahmp%water%state%SnowRadiusFresh(I,J)     & ! out, fresh snow radius [microns]
-             )
-! ----------------------------------------------------------------------
 
     Tmin = ConstFreezePoint - 30.0
     Tmax = ConstFreezePoint
 
-    if ( FreshSnowRadiusMax <= SnowRadiusMin )then
-        SnowRadiusFresh = SnowRadiusMin
+    if ( FreshSnowRadiusMax(I,J) <= SnowRadiusMin(I,J) )then
+        SnowRadiusFresh(I,J) = SnowRadiusMin(I,J)
     else
-        if (TemperatureAirRefHeight < Tmin) then
-            SnowRadiusFresh = SnowRadiusMin
-        else if (TemperatureAirRefHeight > Tmax) then
-            SnowRadiusFresh = FreshSnowRadiusMax
+        if (TemperatureAirRefHeight(I,J) < Tmin) then
+            SnowRadiusFresh(I,J) = SnowRadiusMin(I,J)
+        else if (TemperatureAirRefHeight(I,J) > Tmax) then
+            SnowRadiusFresh(I,J) = FreshSnowRadiusMax(I,J)
         else
-            SnowRadiusFresh = (Tmax - TemperatureAirRefHeight) / (Tmax - Tmin) * SnowRadiusMin + &
-                              (TemperatureAirRefHeight - Tmin) / (Tmax - Tmin) * FreshSnowRadiusMax
+            SnowRadiusFresh(I,J) = (Tmax - TemperatureAirRefHeight(I,J)) / (Tmax - Tmin) * SnowRadiusMin(I,J) + &
+                              (TemperatureAirRefHeight(I,J) - Tmin) / (Tmax - Tmin) * FreshSnowRadiusMax(I,J)
         end if
     end if
 
-    end associate
 
       end do
     end do
    !$acc end parallel loop
+
+
+    end associate
 
   end subroutine SnowFreshRadius
 

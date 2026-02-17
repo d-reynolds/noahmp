@@ -38,26 +38,26 @@ contains
     real(kind=kind_noahmp)                :: RunoffSfcImp        ! impervious surface runoff [m]
     real(kind=kind_noahmp)                :: RunoffSfcPerv       ! pervious surface runoff [m]
 
-    !$acc parallel loop collapse(2) gang vector present(noahmp)
-    do J = noahmp%config%domain%JTS, noahmp%config%domain%JTE
-      do I = noahmp%config%domain%ITS, noahmp%config%domain%ITE
-         if ( noahmp%config%domain%IndicatorIceSfc(I,J) == -1 ) cycle  ! skip soil process for ice surface points
-! --------------------------------------------------------------------
     associate(                                                                 &
               NumSoilLayer         => noahmp%config%domain%NumSoilLayer       ,& ! in,  number of soil layers
               DepthSoilLayer       => noahmp%config%domain%DepthSoilLayer     ,& ! in,  depth [m] of layer-bottom from soil surface
               SoilMoisture         => noahmp%water%state%SoilMoisture         ,& ! in,  total soil moisture [m3/m3]
               SoilImpervFrac       => noahmp%water%state%SoilImpervFrac       ,& ! in,  fraction of imperviousness due to frozen soil
-              SoilSfcInflowMean    => noahmp%water%flux%SoilSfcInflowMean(I,J)     ,& ! in,  mean water input on soil surface [m/s]
+              SoilSfcInflowMean    => noahmp%water%flux%SoilSfcInflowMean     ,& ! in,  mean water input on soil surface [m/s]
               SoilMoistureSat      => noahmp%water%param%SoilMoistureSat      ,& ! in,  saturated value of soil moisture [m3/m3]
               SoilMoistureFieldCap => noahmp%water%param%SoilMoistureFieldCap ,& ! in,  reference soil moisture (field capacity) [m3/m3]
-              TensionWatDistrInfl  => noahmp%water%param%TensionWatDistrInfl(I,J)  ,& ! in,  Tension water distribution inflection parameter
-              TensionWatDistrShp   => noahmp%water%param%TensionWatDistrShp(I,J)   ,& ! in,  Tension water distribution shape parameter
-              FreeWatDistrShp      => noahmp%water%param%FreeWatDistrShp(I,J)      ,& ! in,  Free water distribution shape parameter
-              RunoffSurface        => noahmp%water%flux%RunoffSurface(I,J)         ,& ! out, surface runoff [m/s]
-              InfilRateSfc         => noahmp%water%flux%InfilRateSfc(I,J)           & ! out, infiltration rate at surface [m/s]
+              TensionWatDistrInfl  => noahmp%water%param%TensionWatDistrInfl  ,& ! in,  Tension water distribution inflection parameter
+              TensionWatDistrShp   => noahmp%water%param%TensionWatDistrShp   ,& ! in,  Tension water distribution shape parameter
+              FreeWatDistrShp      => noahmp%water%param%FreeWatDistrShp      ,& ! in,  Free water distribution shape parameter
+              RunoffSurface        => noahmp%water%flux%RunoffSurface         ,& ! out, surface runoff [m/s]
+              InfilRateSfc         => noahmp%water%flux%InfilRateSfc           & ! out, infiltration rate at surface [m/s]
              )
-! ----------------------------------------------------------------------
+
+    !$acc parallel loop collapse(2) gang vector default(present) private(LoopInd, RunoffSfcImp, RunoffSfcPerv, &
+    !$acc SoilWaterFree, SoilWaterFreeMax, SoilWaterMax, SoilWaterTmp) firstprivate(TimeStep)
+    do J = noahmp%config%domain%JTS, noahmp%config%domain%JTE
+      do I = noahmp%config%domain%ITS, noahmp%config%domain%ITE
+         if ( noahmp%config%domain%IndicatorIceSfc(I,J) == -1 ) cycle  ! skip soil process for ice surface points
 
     ! initialization 
     SoilWaterTmp     = 0.0
@@ -66,8 +66,8 @@ contains
     SoilWaterFreeMax = 0.0
     RunoffSfcImp     = 0.0
     RunoffSfcPerv    = 0.0
-    RunoffSurface    = 0.0
-    InfilRateSfc     = 0.0
+    RunoffSurface(I,J)    = 0.0
+    InfilRateSfc(I,J)     = 0.0
 
     do LoopInd = 1, NumSoilLayer-2
        if ( (SoilMoisture(I,LoopInd,J)-SoilMoistureFieldCap(I,LoopInd,J)) > 0.0 ) then   ! soil moisture greater than field capacity
@@ -85,33 +85,35 @@ contains
     SoilWaterFree = min(SoilWaterFree, SoilWaterFreeMax) ! free water [m]
 
     ! impervious surface runoff R_IMP    
-    RunoffSfcImp = SoilImpervFrac(I,1,J) * SoilSfcInflowMean * TimeStep
+    RunoffSfcImp = SoilImpervFrac(I,1,J) * SoilSfcInflowMean(I,J) * TimeStep
 
     ! solve pervious surface runoff (m) based on Eq. (310)
-    if ( (SoilWaterTmp/SoilWaterMax) <= (0.5-TensionWatDistrInfl) ) then
-       RunoffSfcPerv = (1.0-SoilImpervFrac(I,1,J)) * SoilSfcInflowMean * TimeStep * &
-                       ((0.5-TensionWatDistrInfl)**(1.0-TensionWatDistrShp)) * &
-                       ((SoilWaterTmp/SoilWaterMax)**TensionWatDistrShp)
+    if ( (SoilWaterTmp/SoilWaterMax) <= (0.5-TensionWatDistrInfl(I,J)) ) then
+       RunoffSfcPerv = (1.0-SoilImpervFrac(I,1,J)) * SoilSfcInflowMean(I,J) * TimeStep * &
+                       ((0.5-TensionWatDistrInfl(I,J))**(1.0-TensionWatDistrShp(I,J))) * &
+                       ((SoilWaterTmp/SoilWaterMax)**TensionWatDistrShp(I,J))
     else
-       RunoffSfcPerv = (1.0-SoilImpervFrac(I,1,J)) * SoilSfcInflowMean * TimeStep * &
-                       (1.0-(((0.5+TensionWatDistrInfl)**(1.0-TensionWatDistrShp)) * &
-                       ((1.0-(SoilWaterTmp/SoilWaterMax))**TensionWatDistrShp)))
+       RunoffSfcPerv = (1.0-SoilImpervFrac(I,1,J)) * SoilSfcInflowMean(I,J) * TimeStep * &
+                       (1.0-(((0.5+TensionWatDistrInfl(I,J))**(1.0-TensionWatDistrShp(I,J))) * &
+                       ((1.0-(SoilWaterTmp/SoilWaterMax))**TensionWatDistrShp(I,J))))
     endif
 
     ! estimate surface runoff based on Eq. (313)
-    if ( SoilSfcInflowMean == 0.0 ) then
-      RunoffSurface = 0.0
+    if ( SoilSfcInflowMean(I,J) == 0.0 ) then
+      RunoffSurface(I,J) = 0.0
     else
-      RunoffSurface = RunoffSfcPerv * (1.0-((1.0-(SoilWaterFree/SoilWaterFreeMax))**FreeWatDistrShp)) + RunoffSfcImp
+      RunoffSurface(I,J) = RunoffSfcPerv * (1.0-((1.0-(SoilWaterFree/SoilWaterFreeMax))**FreeWatDistrShp(I,J))) + RunoffSfcImp
     endif
-    RunoffSurface = RunoffSurface / TimeStep
-    RunoffSurface = max(0.0,RunoffSurface)
-    RunoffSurface = min(SoilSfcInflowMean, RunoffSurface)
-    InfilRateSfc  = SoilSfcInflowMean - RunoffSurface
+    RunoffSurface(I,J) = RunoffSurface(I,J) / TimeStep
+    RunoffSurface(I,J) = max(0.0,RunoffSurface(I,J))
+    RunoffSurface(I,J) = min(SoilSfcInflowMean(I,J), RunoffSurface(I,J))
+    InfilRateSfc(I,J)  = SoilSfcInflowMean(I,J) - RunoffSurface(I,J)
 
-    end associate
       end do
     end do
+
+
+    end associate
 
   end subroutine RunoffSurfaceXinAnJiang
 

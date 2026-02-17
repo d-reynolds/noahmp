@@ -27,53 +27,55 @@ contains
     integer :: I, J  ! grid indices
 
 ! --------------------------------------------------------------------
-    !$acc parallel loop collapse(2) gang vector present(noahmp)
+        associate(                                                                     &
+                  PressureAirRefHeight => noahmp%forcing%PressureAirRefHeight   ,& ! in,  air pressure [Pa] at reference height
+                  TemperatureCanopy    => noahmp%energy%state%TemperatureCanopy ,& ! in,  vegetation temperature [K]
+                  TemperatureGrd       => noahmp%energy%state%TemperatureGrd    ,& ! in,  ground temperature [K]
+                  LatHeatVapCanopy     => noahmp%energy%state%LatHeatVapCanopy  ,& ! out, latent heat of vaporization/subli [J/kg], canopy
+                  LatHeatVapGrd        => noahmp%energy%state%LatHeatVapGrd     ,& ! out, latent heat of vaporization/subli [J/kg], ground
+                  FlagFrozenCanopy     => noahmp%energy%state%FlagFrozenCanopy  ,& ! out, used to define latent heat pathway
+                  FlagFrozenGround     => noahmp%energy%state%FlagFrozenGround  ,& ! out, frozen ground (logical) to define latent heat pathway
+                  PsychConstCanopy     => noahmp%energy%state%PsychConstCanopy  ,& ! out, psychrometric constant [Pa/K], canopy
+                  PsychConstGrd        => noahmp%energy%state%PsychConstGrd      & ! out, psychrometric constant [Pa/K], ground
+                 )
+
+    !$acc parallel loop collapse(2) gang vector default(present)
     do J = noahmp%config%domain%JTS, noahmp%config%domain%JTE
       do I = noahmp%config%domain%ITS, noahmp%config%domain%ITE
 
-        associate(                                                                     &
-                  PressureAirRefHeight => noahmp%forcing%PressureAirRefHeight(I,J)   ,& ! in,  air pressure [Pa] at reference height
-                  TemperatureCanopy    => noahmp%energy%state%TemperatureCanopy(I,J) ,& ! in,  vegetation temperature [K]
-                  TemperatureGrd       => noahmp%energy%state%TemperatureGrd(I,J)    ,& ! in,  ground temperature [K]
-                  LatHeatVapCanopy     => noahmp%energy%state%LatHeatVapCanopy(I,J)  ,& ! out, latent heat of vaporization/subli [J/kg], canopy
-                  LatHeatVapGrd        => noahmp%energy%state%LatHeatVapGrd(I,J)     ,& ! out, latent heat of vaporization/subli [J/kg], ground
-                  FlagFrozenCanopy     => noahmp%energy%state%FlagFrozenCanopy(I,J)  ,& ! out, used to define latent heat pathway
-                  FlagFrozenGround     => noahmp%energy%state%FlagFrozenGround(I,J)  ,& ! out, frozen ground (logical) to define latent heat pathway
-                  PsychConstCanopy     => noahmp%energy%state%PsychConstCanopy(I,J)  ,& ! out, psychrometric constant [Pa/K], canopy
-                  PsychConstGrd        => noahmp%energy%state%PsychConstGrd(I,J)      & ! out, psychrometric constant [Pa/K], ground
-                 )
-! ----------------------------------------------------------------------
 
     if (noahmp%config%domain%IndicatorIceSfc(I,J) == 0) then
 
       ! for canopy  ! Barlage: add distinction between ground and vegetation in v3.6
-      if ( TemperatureCanopy > ConstFreezePoint ) then
-        LatHeatVapCanopy = ConstLatHeatEvap
-        FlagFrozenCanopy = .false.
+      if ( TemperatureCanopy(I,J) > ConstFreezePoint ) then
+        LatHeatVapCanopy(I,J) = ConstLatHeatEvap
+        FlagFrozenCanopy(I,J) = .false.
       else
-        LatHeatVapCanopy = ConstLatHeatSublim
-        FlagFrozenCanopy = .true.
+        LatHeatVapCanopy(I,J) = ConstLatHeatSublim
+        FlagFrozenCanopy(I,J) = .true.
       endif
-      PsychConstCanopy    = ConstHeatCapacAir * PressureAirRefHeight / (0.622*LatHeatVapCanopy)
+      PsychConstCanopy(I,J)    = ConstHeatCapacAir * PressureAirRefHeight(I,J) / (0.622*LatHeatVapCanopy(I,J))
 
       ! for ground
-      if ( TemperatureGrd > ConstFreezePoint ) then
-        LatHeatVapGrd    = ConstLatHeatEvap
-        FlagFrozenGround = .false.
+      if ( TemperatureGrd(I,J) > ConstFreezePoint ) then
+        LatHeatVapGrd(I,J)    = ConstLatHeatEvap
+        FlagFrozenGround(I,J) = .false.
       else
-        LatHeatVapGrd    = ConstLatHeatSublim
-        FlagFrozenGround = .true.
+        LatHeatVapGrd(I,J)    = ConstLatHeatSublim
+        FlagFrozenGround(I,J) = .true.
       endif
-      PsychConstGrd       = ConstHeatCapacAir * PressureAirRefHeight / (0.622*LatHeatVapGrd)
+      PsychConstGrd(I,J)       = ConstHeatCapacAir * PressureAirRefHeight(I,J) / (0.622*LatHeatVapGrd(I,J))
     else if (noahmp%config%domain%IndicatorIceSfc(I,J) == -1) then ! glacier ice surface
-      LatHeatVapGrd = ConstLatHeatSublim
-      PsychConstGrd = ConstHeatCapacAir * PressureAirRefHeight / (0.622 * LatHeatVapGrd)
+      LatHeatVapGrd(I,J) = ConstLatHeatSublim
+      PsychConstGrd(I,J) = ConstHeatCapacAir * PressureAirRefHeight(I,J) / (0.622 * LatHeatVapGrd(I,J))
     endif
-        end associate
 
       end do
     end do
     !$acc end parallel loop
+
+
+        end associate
 
   end subroutine PsychrometricVariable
 

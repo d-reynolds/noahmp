@@ -38,17 +38,17 @@ contains
     real(kind=kind_noahmp) :: MatLeft3Tmp(-noahmp%config%domain%NumSnowLayerMax+1:noahmp%config%domain%NumSoilLayer)              ! temporary MatLeft3 matrix coefficient
 
 
-    !$acc parallel loop collapse(2) gang vector present(noahmp, MatRight, MatLeft1, MatLeft2, MatLeft3) private(LoopInd, MatRightTmp, MatLeft3Tmp)
-    do J = noahmp%config%domain%JTS, noahmp%config%domain%JTE
-      do I = noahmp%config%domain%ITS, noahmp%config%domain%ITE
-! --------------------------------------------------------------------
     associate(                                                                &
               NumSoilLayer        => noahmp%config%domain%NumSoilLayer       ,& ! in,    number of glacier/soil layers
               NumSnowLayerMax     => noahmp%config%domain%NumSnowLayerMax    ,& ! in,    maximum number of snow layers
-              NumSnowLayerNeg     => noahmp%config%domain%NumSnowLayerNeg(I,J)    ,& ! in,    actual number of snow layers (negative)
+              NumSnowLayerNeg     => noahmp%config%domain%NumSnowLayerNeg    ,& ! in,    actual number of snow layers (negative)
               TemperatureSoilSnow => noahmp%energy%state%TemperatureSoilSnow  & ! inout, snow and glacier layer temperature [K]
              )
-! ----------------------------------------------------------------------
+
+    !$acc parallel loop collapse(2) gang vector default(present) private(LoopInd, MatRightTmp, MatLeft3Tmp) &
+    !$acc firstprivate(TimeStep)
+    do J = noahmp%config%domain%JTS, noahmp%config%domain%JTE
+      do I = noahmp%config%domain%ITS, noahmp%config%domain%ITE
 
     ! initialization
       !$acc loop seq
@@ -59,7 +59,7 @@ contains
 
     ! update tri-diagonal matrix elements
     !$acc loop seq
-    do LoopInd = NumSnowLayerNeg+1, NumSoilLayer
+    do LoopInd = NumSnowLayerNeg(I,J)+1, NumSoilLayer
        MatRight(I,LoopInd,J) =       MatRight(I,LoopInd,J) * TimeStep
        MatLeft1(I,LoopInd,J) =       MatLeft1(I,LoopInd,J) * TimeStep
        MatLeft2(I,LoopInd,J) = 1.0 + MatLeft2(I,LoopInd,J) * TimeStep
@@ -71,20 +71,22 @@ contains
 
     ! solve the tri-diagonal matrix equation
     call MatrixSolverTriDiagonal(MatLeft3(I,:,J),MatLeft1(I,:,J),MatLeft2(I,:,J),MatLeft3Tmp,MatRightTmp,MatRight(I,:,J),&
-                                 NumSnowLayerNeg+1,NumSoilLayer,NumSnowLayerMax)
+                                 NumSnowLayerNeg(I,J)+1,NumSoilLayer,NumSnowLayerMax)
 
     ! update snow & glacier temperature
     !$acc loop seq
-    do LoopInd = NumSnowLayerNeg+1, NumSoilLayer
+    do LoopInd = NumSnowLayerNeg(I,J)+1, NumSoilLayer
        TemperatureSoilSnow(I,LoopInd,J) = TemperatureSoilSnow(I,LoopInd,J) + MatLeft3(I,LoopInd,J)
     enddo
 
-    end associate
 
       end do
     end do
     !$acc end parallel loop
 
+
+
+    end associate
 
   end subroutine GlacierTemperatureSolver
 

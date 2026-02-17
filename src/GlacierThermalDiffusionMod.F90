@@ -44,30 +44,30 @@ contains
     real(kind=kind_noahmp)                :: EnergyExcess     (-noahmp%config%domain%NumSnowLayerMax+1:noahmp%config%domain%NumSoilLayer)  ! energy flux excess in soil/snow [W/m2]
 
 ! --------------------------------------------------------------------
-    ! !$acc parallel loop collapse(2) gang vector present(noahmp, MatRight, MatLeft1, MatLeft2, MatLeft3) &
+        associate(                                                                                &
+                  NumSoilLayer             => noahmp%config%domain%NumSoilLayer                  ,& ! in,  number of soil layers
+                  NumSnowLayerMax          => noahmp%config%domain%NumSnowLayerMax               ,& ! in,  maximum number of snow layers
+                  NumSnowLayerNeg          => noahmp%config%domain%NumSnowLayerNeg          ,& ! in,  actual number of snow layers (negative)
+                  DepthSnowSoilLayer       => noahmp%config%domain%DepthSnowSoilLayer            ,& ! in,  depth of snow/soil layer-bottom [m]
+                  OptSoilTemperatureBottom => noahmp%config%nmlist%OptSoilTemperatureBottom      ,& ! in,  options for lower boundary condition of soil temperature
+                  OptSnowSoilTempTime      => noahmp%config%nmlist%OptSnowSoilTempTime           ,& ! in,  options for snow/soil temperature time scheme
+                  TemperatureSoilBottom    => noahmp%forcing%TemperatureSoilBottom          ,& ! in,  bottom boundary soil temperature [K]
+                  DepthSoilTempBotToSno    => noahmp%energy%state%DepthSoilTempBotToSno     ,& ! in,  depth of lower boundary condition [m] from snow surface
+                  TemperatureSoilSnow      => noahmp%energy%state%TemperatureSoilSnow            ,& ! inout, snow and soil layer temperature [K]
+                  ThermConductSoilSnow     => noahmp%energy%state%ThermConductSoilSnow           ,& ! in,  thermal conductivity [W/m/K] for all soil & snow
+                  HeatCapacSoilSnow        => noahmp%energy%state%HeatCapacSoilSnow              ,& ! in,  heat capacity [J/m3/K] for all soil & snow
+                  HeatGroundTot            => noahmp%energy%flux%HeatGroundTot              ,& ! in,  total ground heat flux [W/m2] (+ to soil/snow)
+                  RadSwPenetrateGrd        => noahmp%energy%flux%RadSwPenetrateGrd               ,& ! in,  light penetrating through soil/snow water [W/m2]
+                  HeatFromSoilBot          => noahmp%energy%flux%HeatFromSoilBot             & ! out, energy influx from soil bottom [W/m2]
+                 )
+
+    ! !$acc parallel loop collapse(2) gang vector default(present) &
     ! !$acc private(LoopInd,DepthSnowSoilTmp,DepthSnowSoilInv,HeatCapacPerArea) &
     ! !$acc private(TempGradDepth,EnergyExcess) &
     ! !$acc private(MatLeft3Tmp,MatRightTmp,MatSolution)
     do J = noahmp%config%domain%JTS, noahmp%config%domain%JTE
       do I = noahmp%config%domain%ITS, noahmp%config%domain%ITE
 
-        associate(                                                                                &
-                  NumSoilLayer             => noahmp%config%domain%NumSoilLayer                  ,& ! in,  number of soil layers
-                  NumSnowLayerMax          => noahmp%config%domain%NumSnowLayerMax               ,& ! in,  maximum number of snow layers
-                  NumSnowLayerNeg          => noahmp%config%domain%NumSnowLayerNeg(I,J)          ,& ! in,  actual number of snow layers (negative)
-                  DepthSnowSoilLayer       => noahmp%config%domain%DepthSnowSoilLayer            ,& ! in,  depth of snow/soil layer-bottom [m]
-                  OptSoilTemperatureBottom => noahmp%config%nmlist%OptSoilTemperatureBottom      ,& ! in,  options for lower boundary condition of soil temperature
-                  OptSnowSoilTempTime      => noahmp%config%nmlist%OptSnowSoilTempTime           ,& ! in,  options for snow/soil temperature time scheme
-                  TemperatureSoilBottom    => noahmp%forcing%TemperatureSoilBottom(I,J)          ,& ! in,  bottom boundary soil temperature [K]
-                  DepthSoilTempBotToSno    => noahmp%energy%state%DepthSoilTempBotToSno(I,J)     ,& ! in,  depth of lower boundary condition [m] from snow surface
-                  TemperatureSoilSnow      => noahmp%energy%state%TemperatureSoilSnow            ,& ! inout, snow and soil layer temperature [K]
-                  ThermConductSoilSnow     => noahmp%energy%state%ThermConductSoilSnow           ,& ! in,  thermal conductivity [W/m/K] for all soil & snow
-                  HeatCapacSoilSnow        => noahmp%energy%state%HeatCapacSoilSnow              ,& ! in,  heat capacity [J/m3/K] for all soil & snow
-                  HeatGroundTot            => noahmp%energy%flux%HeatGroundTot(I,J)              ,& ! in,  total ground heat flux [W/m2] (+ to soil/snow)
-                  RadSwPenetrateGrd        => noahmp%energy%flux%RadSwPenetrateGrd               ,& ! in,  light penetrating through soil/snow water [W/m2]
-                  HeatFromSoilBot          => noahmp%energy%flux%HeatFromSoilBot(I,J)             & ! out, energy influx from soil bottom [W/m2]
-                 )
-! ----------------------------------------------------------------------
 
         ! initialization
         ! !$acc loop seq
@@ -84,14 +84,14 @@ contains
 
         ! compute gradient and flux of glacier/snow thermal diffusion
         ! !$acc loop seq
-        do LoopInd = NumSnowLayerNeg+1, NumSoilLayer
-           if ( LoopInd == (NumSnowLayerNeg+1) ) then
+        do LoopInd = NumSnowLayerNeg(I,J)+1, NumSoilLayer
+           if ( LoopInd == (NumSnowLayerNeg(I,J)+1) ) then
               HeatCapacPerArea(LoopInd) = - DepthSnowSoilLayer(I,LoopInd,J) * HeatCapacSoilSnow(I,LoopInd,J)
               DepthSnowSoilTmp          = - DepthSnowSoilLayer(I,LoopInd+1,J)
               DepthSnowSoilInv(LoopInd) = 2.0 / DepthSnowSoilTmp
               TempGradDepth(LoopInd)    = 2.0 * (TemperatureSoilSnow(I,LoopInd,J) - TemperatureSoilSnow(I,LoopInd+1,J)) / DepthSnowSoilTmp
               EnergyExcess(LoopInd)     = ThermConductSoilSnow(I,LoopInd,J) * TempGradDepth(LoopInd) - &
-                                          HeatGroundTot - RadSwPenetrateGrd(I,LoopInd,J)
+                                          HeatGroundTot(I,J) - RadSwPenetrateGrd(I,LoopInd,J)
            elseif ( LoopInd < NumSoilLayer ) then
               HeatCapacPerArea(LoopInd) = (DepthSnowSoilLayer(I,LoopInd-1,J) - DepthSnowSoilLayer(I,LoopInd,J)) * HeatCapacSoilSnow(I,LoopInd,J)
               DepthSnowSoilTmp          = DepthSnowSoilLayer(I,LoopInd-1,J) - DepthSnowSoilLayer(I,LoopInd+1,J)
@@ -103,22 +103,22 @@ contains
               HeatCapacPerArea(LoopInd) = (DepthSnowSoilLayer(I,LoopInd-1,J) - DepthSnowSoilLayer(I,LoopInd,J)) * HeatCapacSoilSnow(I,LoopInd,J)
               DepthSnowSoilTmp          =  DepthSnowSoilLayer(I,LoopInd-1,J) - DepthSnowSoilLayer(I,LoopInd,J)
               if ( OptSoilTemperatureBottom == 1 ) then
-                 HeatFromSoilBot        = 0.0
+                 HeatFromSoilBot(I,J)        = 0.0
               endif
               if ( OptSoilTemperatureBottom == 2 ) then
-                 TempGradDepth(LoopInd) = (TemperatureSoilSnow(I,LoopInd,J) - TemperatureSoilBottom) / &
-                                          (0.5 * (DepthSnowSoilLayer(I,LoopInd-1,J)+DepthSnowSoilLayer(I,LoopInd,J)) - DepthSoilTempBotToSno)
-                 HeatFromSoilBot        = -ThermConductSoilSnow(I,LoopInd,J) * TempGradDepth(LoopInd)
+                 TempGradDepth(LoopInd) = (TemperatureSoilSnow(I,LoopInd,J) - TemperatureSoilBottom(I,J)) / &
+                                          (0.5 * (DepthSnowSoilLayer(I,LoopInd-1,J)+DepthSnowSoilLayer(I,LoopInd,J)) - DepthSoilTempBotToSno(I,J))
+                 HeatFromSoilBot(I,J)        = -ThermConductSoilSnow(I,LoopInd,J) * TempGradDepth(LoopInd)
               endif
-              EnergyExcess(LoopInd)     = (-HeatFromSoilBot - ThermConductSoilSnow(I,LoopInd-1,J)*TempGradDepth(LoopInd-1)) - &
+              EnergyExcess(LoopInd)     = (-HeatFromSoilBot(I,J) - ThermConductSoilSnow(I,LoopInd-1,J)*TempGradDepth(LoopInd-1)) - &
                                           RadSwPenetrateGrd(I,LoopInd,J)
            endif
         enddo
 
         ! prepare the matrix coefficients for the tri-diagonal matrix
         ! !$acc loop seq
-        do LoopInd = NumSnowLayerNeg+1, NumSoilLayer
-           if ( LoopInd == (NumSnowLayerNeg+1) ) then
+        do LoopInd = NumSnowLayerNeg(I,J)+1, NumSoilLayer
+           if ( LoopInd == (NumSnowLayerNeg(I,J)+1) ) then
               MatLeft1(I,LoopInd,J)    = 0.0
               MatLeft3(I,LoopInd,J)    = - ThermConductSoilSnow(I,LoopInd,J) * DepthSnowSoilInv(LoopInd) / HeatCapacPerArea(LoopInd)
               if ( (OptSnowSoilTempTime == 1) .or. (OptSnowSoilTempTime == 3) ) then
@@ -141,11 +141,13 @@ contains
         enddo
 
 
-        end associate
 
       end do
     end do
     ! !$acc end parallel loop
+
+
+        end associate
 
   end subroutine GlacierThermalDiffusion
 

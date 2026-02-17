@@ -45,40 +45,32 @@ contains
     real(kind=kind_noahmp)           :: FluxOutDust5                  ! flux of dust species 5 out of layer [kg/s]
     integer                          :: I, J                          ! grid indices
 
-    !$acc parallel loop collapse(2) gang vector present(noahmp) &
-    !$acc private(LoopInd, SnowMass, FluxInBChydrophi, FluxOutBChydrophi, FluxInBChydropho, FluxOutBChydropho) &
-    !$acc private(FluxInOChydrophi, FluxOutOChydrophi, FluxInOChydropho, FluxOutOChydropho) &
-    !$acc private(FluxInDust1, FluxOutDust1, FluxInDust2, FluxOutDust2, FluxInDust3, FluxOutDust3) &
-    !$acc private(FluxInDust4, FluxOutDust4, FluxInDust5, FluxOutDust5)
-    do J = noahmp%config%domain%JTS, noahmp%config%domain%JTE
-      do I = noahmp%config%domain%ITS, noahmp%config%domain%ITE
-! --------------------------------------------------------------------
     associate(                                                                          &
               MainTimeStep           => noahmp%config%domain%MainTimeStep              ,& ! in,    noahmp main time step [s]
               NumSnowLayerMax        => noahmp%config%domain%NumSnowLayerMax           ,& ! in,    maximum number of snow layers
-              NumSnowLayerNeg        => noahmp%config%domain%NumSnowLayerNeg(I,J)           ,& ! in,    actual number of snow layers (negative)
-              DepBChydropho          => noahmp%forcing%DepBChydropho(I,J)                   ,& ! in,    hydrophobic Black Carbon deposition [kg m-2 s-1] 
-              DepBChydrophi          => noahmp%forcing%DepBChydrophi(I,J)                   ,& ! in,    hydrophillic Black Carbon deposition [kg m-2 s-1]
-              DepOChydropho          => noahmp%forcing%DepOChydropho(I,J)                   ,& ! in,    hydrophobic Organic Carbon deposition [kg m-2 s-1]
-              DepOChydrophi          => noahmp%forcing%DepOChydrophi(I,J)                   ,& ! in,    hydrophillic Organic Carbon deposition [kg m-2 s-1]
-              DepDust1               => noahmp%forcing%DepDust1(I,J)                        ,& ! in,    dust species 1 deposition [kg m-2 s-1]
-              DepDust2               => noahmp%forcing%DepDust2(I,J)                        ,& ! in,    dust species 2 deposition [kg m-2 s-1]
-              DepDust3               => noahmp%forcing%DepDust3(I,J)                        ,& ! in,    dust species 3 deposition [kg m-2 s-1]
-              DepDust4               => noahmp%forcing%DepDust4(I,J)                        ,& ! in,    dust species 4 deposition [kg m-2 s-1]
-              DepDust5               => noahmp%forcing%DepDust5(I,J)                        ,& ! in,    dust species 5 deposition [kg m-2 s-1]
-              ScavEffMeltScale       => noahmp%water%param%ScavEffMeltScale(I,J)            ,& ! in,    Scaling factor modifying scavenging factors for aerosol in meltwater (-)
-              ScavEffMeltBCphi       => noahmp%water%param%ScavEffMeltBCphi(I,J)            ,& ! in,    scavenging factor for hydrophillic BC inclusion in meltwater [frc]
-              ScavEffMeltBCpho       => noahmp%water%param%ScavEffMeltBCpho(I,J)            ,& ! in,    scavenging factor for hydrophobic BC inclusion in meltwater  [frc]
-              ScavEffMeltOCphi       => noahmp%water%param%ScavEffMeltOCphi(I,J)            ,& ! in,    scavenging factor for hydrophillic OC inclusion in meltwater [frc]
-              ScavEffMeltOCpho       => noahmp%water%param%ScavEffMeltOCpho(I,J)            ,& ! in,    scavenging factor for hydrophobic OC inclusion in meltwater  [frc]
-              ScavEffMeltDust1       => noahmp%water%param%ScavEffMeltDust1(I,J)            ,& ! in,    scavenging factor for dust species 1 inclusion in meltwater  [frc]
-              ScavEffMeltDust2       => noahmp%water%param%ScavEffMeltDust2(I,J)            ,& ! in,    scavenging factor for dust species 2 inclusion in meltwater  [frc]
-              ScavEffMeltDust3       => noahmp%water%param%ScavEffMeltDust3(I,J)            ,& ! in,    scavenging factor for dust species 3 inclusion in meltwater  [frc]
-              ScavEffMeltDust4       => noahmp%water%param%ScavEffMeltDust4(I,J)            ,& ! in,    scavenging factor for dust species 4 inclusion in meltwater  [frc]
-              ScavEffMeltDust5       => noahmp%water%param%ScavEffMeltDust5(I,J)            ,& ! in,    scavenging factor for dust species 5 inclusion in meltwater  [frc]
+              NumSnowLayerNeg        => noahmp%config%domain%NumSnowLayerNeg           ,& ! in,    actual number of snow layers (negative)
+              DepBChydropho          => noahmp%forcing%DepBChydropho                   ,& ! in,    hydrophobic Black Carbon deposition [kg m-2 s-1] 
+              DepBChydrophi          => noahmp%forcing%DepBChydrophi                   ,& ! in,    hydrophillic Black Carbon deposition [kg m-2 s-1]
+              DepOChydropho          => noahmp%forcing%DepOChydropho                   ,& ! in,    hydrophobic Organic Carbon deposition [kg m-2 s-1]
+              DepOChydrophi          => noahmp%forcing%DepOChydrophi                   ,& ! in,    hydrophillic Organic Carbon deposition [kg m-2 s-1]
+              DepDust1               => noahmp%forcing%DepDust1                        ,& ! in,    dust species 1 deposition [kg m-2 s-1]
+              DepDust2               => noahmp%forcing%DepDust2                        ,& ! in,    dust species 2 deposition [kg m-2 s-1]
+              DepDust3               => noahmp%forcing%DepDust3                        ,& ! in,    dust species 3 deposition [kg m-2 s-1]
+              DepDust4               => noahmp%forcing%DepDust4                        ,& ! in,    dust species 4 deposition [kg m-2 s-1]
+              DepDust5               => noahmp%forcing%DepDust5                        ,& ! in,    dust species 5 deposition [kg m-2 s-1]
+              ScavEffMeltScale       => noahmp%water%param%ScavEffMeltScale            ,& ! in,    Scaling factor modifying scavenging factors for aerosol in meltwater (-)
+              ScavEffMeltBCphi       => noahmp%water%param%ScavEffMeltBCphi            ,& ! in,    scavenging factor for hydrophillic BC inclusion in meltwater [frc]
+              ScavEffMeltBCpho       => noahmp%water%param%ScavEffMeltBCpho            ,& ! in,    scavenging factor for hydrophobic BC inclusion in meltwater  [frc]
+              ScavEffMeltOCphi       => noahmp%water%param%ScavEffMeltOCphi            ,& ! in,    scavenging factor for hydrophillic OC inclusion in meltwater [frc]
+              ScavEffMeltOCpho       => noahmp%water%param%ScavEffMeltOCpho            ,& ! in,    scavenging factor for hydrophobic OC inclusion in meltwater  [frc]
+              ScavEffMeltDust1       => noahmp%water%param%ScavEffMeltDust1            ,& ! in,    scavenging factor for dust species 1 inclusion in meltwater  [frc]
+              ScavEffMeltDust2       => noahmp%water%param%ScavEffMeltDust2            ,& ! in,    scavenging factor for dust species 2 inclusion in meltwater  [frc]
+              ScavEffMeltDust3       => noahmp%water%param%ScavEffMeltDust3            ,& ! in,    scavenging factor for dust species 3 inclusion in meltwater  [frc]
+              ScavEffMeltDust4       => noahmp%water%param%ScavEffMeltDust4            ,& ! in,    scavenging factor for dust species 4 inclusion in meltwater  [frc]
+              ScavEffMeltDust5       => noahmp%water%param%ScavEffMeltDust5            ,& ! in,    scavenging factor for dust species 5 inclusion in meltwater  [frc]
               SnowIce                => noahmp%water%state%SnowIce                     ,& ! in,    snow layer ice [mm]
               SnowLiqWater           => noahmp%water%state%SnowLiqWater                ,& ! in,    snow layer liquid water [mm]
-              SnowWaterEquiv         => noahmp%water%state%SnowWaterEquiv(I,J)              ,& ! in,    snow water equivalent [mm]
+              SnowWaterEquiv         => noahmp%water%state%SnowWaterEquiv              ,& ! in,    snow water equivalent [mm]
               OutflowSnowLayer       => noahmp%water%flux%OutflowSnowLayer             ,& ! in,    water flow out of each snow layer [mm/s]
               MassBChydropho         => noahmp%water%state%MassBChydropho              ,& ! inout, mass of hydrophobic Black Carbon in snow [kg m-2]
               MassBChydrophi         => noahmp%water%state%MassBChydrophi              ,& ! inout, mass of hydrophillic Black Carbon in snow [kg m-2]
@@ -99,7 +91,14 @@ contains
               MassConcDust4          => noahmp%water%state%MassConcDust4               ,& ! inout, mass concentration of dust species 4 in snow [kg/kg]
               MassConcDust5          => noahmp%water%state%MassConcDust5                & ! inout, mass concentration of dust species 5 in snow [kg/kg]
              )
-! ----------------------------------------------------------------------
+
+    !$acc parallel loop collapse(2) gang vector default(present) &
+    !$acc private(LoopInd, SnowMass, FluxInBChydrophi, FluxOutBChydrophi, FluxInBChydropho, FluxOutBChydropho) &
+    !$acc private(FluxInOChydrophi, FluxOutOChydrophi, FluxInOChydropho, FluxOutOChydropho) &
+    !$acc private(FluxInDust1, FluxOutDust1, FluxInDust2, FluxOutDust2, FluxInDust3, FluxOutDust3) &
+    !$acc private(FluxInDust4, FluxOutDust4, FluxInDust5, FluxOutDust5)
+    do J = noahmp%config%domain%JTS, noahmp%config%domain%JTE
+      do I = noahmp%config%domain%ITS, noahmp%config%domain%ITE
 
     ! initialize
     FluxInBChydropho  = 0.0
@@ -127,7 +126,7 @@ contains
 
        SnowMass = SnowLiqWater(I,LoopInd,J) + SnowIce(I,LoopInd,J)
 
-       if (LoopInd >= NumSnowLayerNeg+1 .and. SnowMass > 0.0) then
+       if (LoopInd >= NumSnowLayerNeg(I,J)+1 .and. SnowMass > 0.0) then
 
           MassBChydropho(I,LoopInd,J) =  MassBChydropho (I,LoopInd,J) + FluxInBChydropho * MainTimeStep
           MassBChydrophi(I,LoopInd,J) =  MassBChydrophi (I,LoopInd,J) + FluxInBChydrophi * MainTimeStep
@@ -140,8 +139,8 @@ contains
           MassDust5(I,LoopInd,J)      =  MassDust5 (I,LoopInd,J)      + FluxInDust5 * MainTimeStep
 
           !BCPHO
-          FluxOutBChydropho = OutflowSnowLayer(I,LoopInd,J) * ScavEffMeltScale * &
-                              ScavEffMeltBCpho * (MassBChydropho(I,LoopInd,J) / SnowMass)
+          FluxOutBChydropho = OutflowSnowLayer(I,LoopInd,J) * ScavEffMeltScale(I,J) * &
+                              ScavEffMeltBCpho(I,J) * (MassBChydropho(I,LoopInd,J) / SnowMass)
           if (FluxOutBChydropho * MainTimeStep > MassBChydropho(I,LoopInd,J)) then
              FluxOutBChydropho = MassBChydropho(I,LoopInd,J) / MainTimeStep
              MassBChydropho(I,LoopInd,J) = 0.0
@@ -151,8 +150,8 @@ contains
           FluxInBChydropho = FluxOutBChydropho
 
           !BCPHI
-          FluxOutBChydrophi = OutflowSnowLayer(I,LoopInd,J) * ScavEffMeltScale * &
-                              ScavEffMeltBCphi * (MassBChydrophi(I,LoopInd,J) / SnowMass)
+          FluxOutBChydrophi = OutflowSnowLayer(I,LoopInd,J) * ScavEffMeltScale(I,J) * &
+                              ScavEffMeltBCphi(I,J) * (MassBChydrophi(I,LoopInd,J) / SnowMass)
           if (FluxOutBChydrophi * MainTimeStep > MassBChydrophi(I,LoopInd,J)) then
              FluxOutBChydrophi = MassBChydrophi(I,LoopInd,J) / MainTimeStep
              MassBChydrophi(I,LoopInd,J) = 0.0
@@ -162,8 +161,8 @@ contains
           FluxInBChydrophi = FluxOutBChydrophi
 
           !OCPHO
-          FluxOutOChydropho = OutflowSnowLayer(I,LoopInd,J) * ScavEffMeltScale * &
-                              ScavEffMeltOCpho * (MassOChydropho(I,LoopInd,J) / SnowMass)
+          FluxOutOChydropho = OutflowSnowLayer(I,LoopInd,J) * ScavEffMeltScale(I,J) * &
+                              ScavEffMeltOCpho(I,J) * (MassOChydropho(I,LoopInd,J) / SnowMass)
           if (FluxOutOChydropho * MainTimeStep > MassOChydropho(I,LoopInd,J)) then
              FluxOutOChydropho = MassOChydropho(I,LoopInd,J) / MainTimeStep
              MassOChydropho(I,LoopInd,J) = 0.0
@@ -173,8 +172,8 @@ contains
           FluxInOChydropho = FluxOutOChydropho
 
           !OCPHI
-          FluxOutOChydrophi = OutflowSnowLayer(I,LoopInd,J) * ScavEffMeltScale * &
-                              ScavEffMeltOCphi * (MassOChydrophi(I,LoopInd,J) / SnowMass)
+          FluxOutOChydrophi = OutflowSnowLayer(I,LoopInd,J) * ScavEffMeltScale(I,J) * &
+                              ScavEffMeltOCphi(I,J) * (MassOChydrophi(I,LoopInd,J) / SnowMass)
           if (FluxOutOChydrophi * MainTimeStep > MassOChydrophi(I,LoopInd,J)) then
              FluxOutOChydrophi = MassOChydrophi(I,LoopInd,J) / MainTimeStep
              MassOChydrophi(I,LoopInd,J) = 0.0
@@ -184,8 +183,8 @@ contains
           FluxInOChydrophi = FluxOutOChydrophi
 
           !Dust 1
-          FluxOutDust1 = OutflowSnowLayer(I,LoopInd,J) * ScavEffMeltScale * &
-                         ScavEffMeltDust1 * (MassDust1(I,LoopInd,J) / SnowMass)
+          FluxOutDust1 = OutflowSnowLayer(I,LoopInd,J) * ScavEffMeltScale(I,J) * &
+                         ScavEffMeltDust1(I,J) * (MassDust1(I,LoopInd,J) / SnowMass)
           if (FluxOutDust1 * MainTimeStep > MassDust1(I,LoopInd,J)) then
              FluxOutDust1 = MassDust1(I,LoopInd,J) / MainTimeStep
              MassDust1(I,LoopInd,J) = 0.0
@@ -195,8 +194,8 @@ contains
           FluxInDust1 = FluxOutDust1
 
           !Dust 2
-          FluxOutDust2 = OutflowSnowLayer(I,LoopInd,J) * ScavEffMeltScale * &
-                         ScavEffMeltDust2 * (MassDust2(I,LoopInd,J) / SnowMass)
+          FluxOutDust2 = OutflowSnowLayer(I,LoopInd,J) * ScavEffMeltScale(I,J) * &
+                         ScavEffMeltDust2(I,J) * (MassDust2(I,LoopInd,J) / SnowMass)
           if (FluxOutDust2 * MainTimeStep > MassDust2(I,LoopInd,J)) then
              FluxOutDust2 = MassDust2(I,LoopInd,J) / MainTimeStep
              MassDust2(I,LoopInd,J) = 0.0
@@ -206,8 +205,8 @@ contains
           FluxInDust2 = FluxOutDust2
 
           !Dust 3
-          FluxOutDust3 = OutflowSnowLayer(I,LoopInd,J) * ScavEffMeltScale * &
-                         ScavEffMeltDust3 * (MassDust3(I,LoopInd,J) / SnowMass)
+          FluxOutDust3 = OutflowSnowLayer(I,LoopInd,J) * ScavEffMeltScale(I,J) * &
+                         ScavEffMeltDust3(I,J) * (MassDust3(I,LoopInd,J) / SnowMass)
           if (FluxOutDust3 * MainTimeStep > MassDust3(I,LoopInd,J)) then
              FluxOutDust3 = MassDust3(I,LoopInd,J) / MainTimeStep
              MassDust3(I,LoopInd,J) = 0.0
@@ -217,8 +216,8 @@ contains
           FluxInDust3 = FluxOutDust3
 
           !Dust 4
-          FluxOutDust4 = OutflowSnowLayer(I,LoopInd,J) * ScavEffMeltScale * &
-                         ScavEffMeltDust4 * (MassDust4(I,LoopInd,J) / SnowMass)
+          FluxOutDust4 = OutflowSnowLayer(I,LoopInd,J) * ScavEffMeltScale(I,J) * &
+                         ScavEffMeltDust4(I,J) * (MassDust4(I,LoopInd,J) / SnowMass)
           if (FluxOutDust4 * MainTimeStep > MassDust4(I,LoopInd,J)) then
              FluxOutDust4 = MassDust4(I,LoopInd,J) / MainTimeStep
              MassDust4(I,LoopInd,J) = 0.0
@@ -228,8 +227,8 @@ contains
           FluxInDust4 = FluxOutDust4
 
           !Dust 5
-          FluxOutDust5 = OutflowSnowLayer(I,LoopInd,J) * ScavEffMeltScale * &
-                         ScavEffMeltDust5 * (MassDust5(I,LoopInd,J) / SnowMass)
+          FluxOutDust5 = OutflowSnowLayer(I,LoopInd,J) * ScavEffMeltScale(I,J) * &
+                         ScavEffMeltDust5(I,J) * (MassDust5(I,LoopInd,J) / SnowMass)
           if (FluxOutDust5 * MainTimeStep > MassDust5(I,LoopInd,J)) then
              FluxOutDust5 = MassDust5(I,LoopInd,J) / MainTimeStep
              MassDust5(I,LoopInd,J) = 0.0
@@ -272,16 +271,16 @@ contains
     enddo
 
     ! update aerosol mass for the top snow layer from atmos deposition flux
-    if (NumSnowLayerNeg < 0 ) then
-       MassBChydropho(I,NumSnowLayerNeg+1,J) =  MassBChydropho(I,NumSnowLayerNeg+1,J) +  DepBChydropho * MainTimeStep
-       MassBChydrophi(I,NumSnowLayerNeg+1,J) =  MassBChydrophi(I,NumSnowLayerNeg+1,J) +  DepBChydrophi * MainTimeStep
-       MassOChydropho(I,NumSnowLayerNeg+1,J) =  MassOChydropho(I,NumSnowLayerNeg+1,J) +  DepOChydropho * MainTimeStep
-       MassOChydrophi(I,NumSnowLayerNeg+1,J) =  MassOChydrophi(I,NumSnowLayerNeg+1,J) +  DepOChydrophi * MainTimeStep
-       MassDust1(I,NumSnowLayerNeg+1,J)      =  MassDust1(I,NumSnowLayerNeg+1,J)      +  DepDust1 * MainTimeStep
-       MassDust2(I,NumSnowLayerNeg+1,J)      =  MassDust2(I,NumSnowLayerNeg+1,J)      +  DepDust2 * MainTimeStep
-       MassDust3(I,NumSnowLayerNeg+1,J)      =  MassDust3(I,NumSnowLayerNeg+1,J)      +  DepDust3 * MainTimeStep
-       MassDust4(I,NumSnowLayerNeg+1,J)      =  MassDust4(I,NumSnowLayerNeg+1,J)      +  DepDust4 * MainTimeStep
-       MassDust5(I,NumSnowLayerNeg+1,J)      =  MassDust5(I,NumSnowLayerNeg+1,J)      +  DepDust5 * MainTimeStep
+    if (NumSnowLayerNeg(I,J) < 0 ) then
+       MassBChydropho(I,NumSnowLayerNeg(I,J)+1,J) =  MassBChydropho(I,NumSnowLayerNeg(I,J)+1,J) +  DepBChydropho(I,J) * MainTimeStep
+       MassBChydrophi(I,NumSnowLayerNeg(I,J)+1,J) =  MassBChydrophi(I,NumSnowLayerNeg(I,J)+1,J) +  DepBChydrophi(I,J) * MainTimeStep
+       MassOChydropho(I,NumSnowLayerNeg(I,J)+1,J) =  MassOChydropho(I,NumSnowLayerNeg(I,J)+1,J) +  DepOChydropho(I,J) * MainTimeStep
+       MassOChydrophi(I,NumSnowLayerNeg(I,J)+1,J) =  MassOChydrophi(I,NumSnowLayerNeg(I,J)+1,J) +  DepOChydrophi(I,J) * MainTimeStep
+       MassDust1(I,NumSnowLayerNeg(I,J)+1,J)      =  MassDust1(I,NumSnowLayerNeg(I,J)+1,J)      +  DepDust1(I,J) * MainTimeStep
+       MassDust2(I,NumSnowLayerNeg(I,J)+1,J)      =  MassDust2(I,NumSnowLayerNeg(I,J)+1,J)      +  DepDust2(I,J) * MainTimeStep
+       MassDust3(I,NumSnowLayerNeg(I,J)+1,J)      =  MassDust3(I,NumSnowLayerNeg(I,J)+1,J)      +  DepDust3(I,J) * MainTimeStep
+       MassDust4(I,NumSnowLayerNeg(I,J)+1,J)      =  MassDust4(I,NumSnowLayerNeg(I,J)+1,J)      +  DepDust4(I,J) * MainTimeStep
+       MassDust5(I,NumSnowLayerNeg(I,J)+1,J)      =  MassDust5(I,NumSnowLayerNeg(I,J)+1,J)      +  DepDust5(I,J) * MainTimeStep
     endif
 
     ! update aerosol mass concentration in snow for each layer
@@ -290,7 +289,7 @@ contains
 
        SnowMass = SnowLiqWater(I,LoopInd,J) + SnowIce(I,LoopInd,J) 
 
-       if (LoopInd >= NumSnowLayerNeg+1 .and. SnowMass > 0.0) then
+       if (LoopInd >= NumSnowLayerNeg(I,J)+1 .and. SnowMass > 0.0) then
           MassConcBChydropho(I,LoopInd,J) =  MassBChydropho(I,LoopInd,J) / SnowMass
           MassConcBChydrophi(I,LoopInd,J) =  MassBChydrophi(I,LoopInd,J) / SnowMass
           MassConcOChydropho(I,LoopInd,J) =  MassOChydropho(I,LoopInd,J) / SnowMass
@@ -324,20 +323,20 @@ contains
     enddo
 
     ! special treatment for very shallow snowpack (NumSnowLayerNeg = 0 and SnowMass > 0.0)
-    if ( NumSnowLayerNeg == 0 ) then
+    if ( NumSnowLayerNeg(I,J) == 0 ) then
 
-       SnowMass = SnowWaterEquiv
+       SnowMass = SnowWaterEquiv(I,J)
 
        if ( SnowMass > 0.1 ) then ! set minimum threshold (0.1 mm SWE) for computing aerosol-snow albedo
-          MassBChydropho(I,0,J)     =  MassBChydropho (I,0,J) +  DepBChydropho * MainTimeStep
-          MassBChydrophi(I,0,J)     =  MassBChydrophi (I,0,J) +  DepBChydrophi * MainTimeStep
-          MassOChydropho(I,0,J)     =  MassOChydropho (I,0,J) +  DepOChydropho * MainTimeStep
-          MassOChydrophi(I,0,J)     =  MassOChydrophi (I,0,J) +  DepOChydrophi * MainTimeStep
-          MassDust1(I,0,J)          =  MassDust1 (I,0,J)      +  DepDust1 * MainTimeStep
-          MassDust2(I,0,J)          =  MassDust2 (I,0,J)      +  DepDust2 * MainTimeStep
-          MassDust3(I,0,J)          =  MassDust3 (I,0,J)      +  DepDust3 * MainTimeStep
-          MassDust4(I,0,J)          =  MassDust4 (I,0,J)      +  DepDust4 * MainTimeStep
-          MassDust5(I,0,J)          =  MassDust5 (I,0,J)      +  DepDust5 * MainTimeStep
+          MassBChydropho(I,0,J)     =  MassBChydropho (I,0,J) +  DepBChydropho(I,J) * MainTimeStep
+          MassBChydrophi(I,0,J)     =  MassBChydrophi (I,0,J) +  DepBChydrophi(I,J) * MainTimeStep
+          MassOChydropho(I,0,J)     =  MassOChydropho (I,0,J) +  DepOChydropho(I,J) * MainTimeStep
+          MassOChydrophi(I,0,J)     =  MassOChydrophi (I,0,J) +  DepOChydrophi(I,J) * MainTimeStep
+          MassDust1(I,0,J)          =  MassDust1 (I,0,J)      +  DepDust1(I,J) * MainTimeStep
+          MassDust2(I,0,J)          =  MassDust2 (I,0,J)      +  DepDust2(I,J) * MainTimeStep
+          MassDust3(I,0,J)          =  MassDust3 (I,0,J)      +  DepDust3(I,J) * MainTimeStep
+          MassDust4(I,0,J)          =  MassDust4 (I,0,J)      +  DepDust4(I,J) * MainTimeStep
+          MassDust5(I,0,J)          =  MassDust5 (I,0,J)      +  DepDust5(I,J) * MainTimeStep
           MassConcBChydropho(I,0,J) =  MassBChydropho(I,0,J) / SnowMass
           MassConcBChydrophi(I,0,J) =  MassBChydrophi(I,0,J) / SnowMass
           MassConcOChydropho(I,0,J) =  MassOChydropho(I,0,J) / SnowMass
@@ -370,11 +369,13 @@ contains
 
     endif
 
-    end associate
 
       end do
     end do
     !$acc end parallel loop
+
+
+    end associate
 
   end subroutine SnowAerosolSnicar
 

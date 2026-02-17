@@ -42,7 +42,7 @@ contains
     itf = min0(NoahmpIO%ite, NoahmpIO%ide-1)
     jtf = min0(NoahmpIO%jte, NoahmpIO%jde-1)
 
-    !$acc parallel loop collapse(2) gang vector present(NoahmpIO) private(I,J,IZ,DZSNO,DZSNSO)
+    !$acc parallel loop collapse(2) gang vector default(present) private(I,J,IZ,DZSNO,DZSNSO)
     do J = NoahmpIO%jts, jtf
        do I = NoahmpIO%its, itf
 

@@ -66,15 +66,32 @@ contains
     real(kind=kind_noahmp), allocatable, dimension(:,:)   :: DrainSoilBotAcc2D
     real(kind=kind_noahmp), allocatable, dimension(:,:)   :: RunoffSurfaceAcc2D
 
-! --------------------------------------------------------------------
-    associate(                                                                       &
-              NumSoilLayer           => noahmp%config%domain%NumSoilLayer           ,& ! in,    number of soil layers
-              SoilTimeStep           => noahmp%config%domain%SoilTimeStep           ,& ! in,    noahmp soil time step [s]
-              OptRunoffSurface       => noahmp%config%nmlist%OptRunoffSurface       ,& ! in,    options for surface runoff
-              OptRunoffSubsurface    => noahmp%config%nmlist%OptRunoffSubsurface    ,& ! in,    options for subsurface runoff
-              OptTileDrainage        => noahmp%config%nmlist%OptTileDrainage        ,& ! in,    options for tile drainage
-              OptWetlandModel        => noahmp%config%nmlist%OptWetlandModel         & ! in,    options for wetland model
+    associate(                                                                      &
+              NumSoilLayer           => noahmp%config%domain%NumSoilLayer ,& ! in,    number of soil layers
+              SoilTimeStep           => noahmp%config%domain%SoilTimeStep ,& ! in,    noahmp soil time step [s]
+              OptRunoffSurface       => noahmp%config%nmlist%OptRunoffSurface ,& ! in,    options for surface runoff
+              OptRunoffSubsurface    => noahmp%config%nmlist%OptRunoffSubsurface ,& ! in,    options for subsurface runoff
+              OptTileDrainage        => noahmp%config%nmlist%OptTileDrainage ,& ! in,    options for tile drainage
+              OptWetlandModel        => noahmp%config%nmlist%OptWetlandModel ,& ! in,    options for wetland model
+                  ThicknessSnowSoilLayer => noahmp%config%domain%ThicknessSnowSoilLayer ,& ! in,    thickness of snow/soil layers [m]
+                  SoilMoistureSat        => noahmp%water%param%SoilMoistureSat ,& ! in,    saturated value of soil moisture [m3/m3]
+                  SoilIce                => noahmp%water%state%SoilIce ,& ! in,    soil ice content [m3/m3]
+                  SoilLiqWater           => noahmp%water%state%SoilLiqWater ,& ! inout, soil water content [m3/m3]
+                  RunoffSurface          => noahmp%water%flux%RunoffSurface ,& ! out,   surface runoff [mm per soil timestep]
+                  RunoffSubsurface       => noahmp%water%flux%RunoffSubsurface ,& ! out,   subsurface runoff [mm per soil timestep]
+                  InfilRateSfc           => noahmp%water%flux%InfilRateSfc ,& ! out,   infiltration rate at surface [m/s]
+                  TileDrain              => noahmp%water%flux%TileDrain ,& ! out,   tile drainage [mm per soil timestep]
+                  SoilEffPorosity        => noahmp%water%state%SoilEffPorosity ,& ! out,   soil effective porosity [m3/m3]
+                  SoilIceFrac            => noahmp%water%state%SoilIceFrac ,& ! out,   ice fraction in frozen soil
+                  SoilImpervFrac         => noahmp%water%state%SoilImpervFrac ,& ! out,   impervious fraction due to frozen soil
+                  SoilIceMax             => noahmp%water%state%SoilIceMax ,& ! out,   maximum soil ice content [m3/m3]
+                  SoilImpervFracMax      => noahmp%water%state%SoilImpervFracMax ,& ! out,   maximum soil imperviousness fraction
+                  SoilLiqWaterMin        => noahmp%water%state%SoilLiqWaterMin ,& ! out,   minimum soil liquid water content [m3/m3]
+                  SoilMoisture           => noahmp%water%state%SoilMoisture ,& ! inout, total soil moisture [m3/m3]
+                  RechargeGwDeepWT       => noahmp%water%state%RechargeGwDeepWT ,& ! inout, recharge to or from water table when deep [m]
+                  SoilWatConductivity    => noahmp%water%state%SoilWatConductivity  & ! in,    soil hydraulic conductivity [m/s]
              )
+
 
     ! allocate 3D matrix arrays (I, NumSoilLayer, J) for passing to subroutines
     if (.not. allocated(MatRight)) &
@@ -109,29 +126,11 @@ contains
     !$acc             SoilSatExcAcc2D, DrainSoilBotAcc2D, RunoffSurfaceAcc2D)
 
     ! ===== Region 1: Initialization and soil property computation =====
-    !$acc parallel loop collapse(2) gang vector present(noahmp, MatRight, MatLeft1, MatLeft2, MatLeft3, &
-    !$acc                                               SoilSatExcAcc2D) &
-    !$acc private(LoopInd1, SoilSatExcAcc)
+    !$acc parallel loop collapse(2) gang vector default(present) private(LoopInd1, SoilSatExcAcc) private(InfilSfcAcc)
     do J = noahmp%config%domain%JTS, noahmp%config%domain%JTE
       do I = noahmp%config%domain%ITS, noahmp%config%domain%ITE
          if ( noahmp%config%domain%IndicatorIceSfc(I,J) == -1 ) cycle  ! skip soil process for ice surface points
 
-        associate(                                                                         &
-                  ThicknessSnowSoilLayer => noahmp%config%domain%ThicknessSnowSoilLayer   ,& ! in,    thickness of snow/soil layers [m]
-                  SoilMoistureSat        => noahmp%water%param%SoilMoistureSat            ,& ! in,    saturated value of soil moisture [m3/m3]
-                  SoilIce                => noahmp%water%state%SoilIce                    ,& ! in,    soil ice content [m3/m3]
-                  SoilLiqWater           => noahmp%water%state%SoilLiqWater               ,& ! inout, soil water content [m3/m3]
-                  RunoffSurface          => noahmp%water%flux%RunoffSurface(I,J)          ,& ! out,   surface runoff [mm per soil timestep]
-                  RunoffSubsurface       => noahmp%water%flux%RunoffSubsurface(I,J)       ,& ! out,   subsurface runoff [mm per soil timestep]
-                  InfilRateSfc           => noahmp%water%flux%InfilRateSfc(I,J)           ,& ! out,   infiltration rate at surface [m/s]
-                  TileDrain              => noahmp%water%flux%TileDrain(I,J)              ,& ! out,   tile drainage [mm per soil timestep]
-                  SoilEffPorosity        => noahmp%water%state%SoilEffPorosity            ,& ! out,   soil effective porosity [m3/m3]
-                  SoilIceFrac            => noahmp%water%state%SoilIceFrac                ,& ! out,   ice fraction in frozen soil
-                  SoilImpervFrac         => noahmp%water%state%SoilImpervFrac             ,& ! out,   impervious fraction due to frozen soil
-                  SoilIceMax             => noahmp%water%state%SoilIceMax(I,J)            ,& ! out,   maximum soil ice content [m3/m3]
-                  SoilImpervFracMax      => noahmp%water%state%SoilImpervFracMax(I,J)     ,& ! out,   maximum soil imperviousness fraction
-                  SoilLiqWaterMin        => noahmp%water%state%SoilLiqWaterMin(I,J)        & ! out,   minimum soil liquid water content [m3/m3]
-                 )
 
         ! initialization
         !$acc loop seq
@@ -141,9 +140,9 @@ contains
            MatLeft2(I,LoopInd1,J) = 0.0
            MatLeft3(I,LoopInd1,J) = 0.0
         enddo
-         RunoffSurface    = 0.0
-         RunoffSubsurface = 0.0
-         InfilRateSfc     = 0.0
+         RunoffSurface(I,J)    = 0.0
+         RunoffSubsurface(I,J) = 0.0
+         InfilRateSfc(I,J)     = 0.0
          SoilSatExcAcc    = 0.0
          InfilSfcAcc      = 1.0e-06
 
@@ -166,17 +165,16 @@ contains
         enddo
 
         ! maximum soil ice content and minimum liquid water of all layers
-        SoilIceMax        = 0.0
-        SoilImpervFracMax = 0.0
-        SoilLiqWaterMin   = SoilMoistureSat(I,1,J)
+        SoilIceMax(I,J)        = 0.0
+        SoilImpervFracMax(I,J) = 0.0
+        SoilLiqWaterMin(I,J)   = SoilMoistureSat(I,1,J)
         !$acc loop seq
         do LoopInd1 = 1, NumSoilLayer
-           if ( SoilIce(I,LoopInd1,J) > SoilIceMax )               SoilIceMax        = SoilIce(I,LoopInd1,J)
-           if ( SoilImpervFrac(I,LoopInd1,J) > SoilImpervFracMax ) SoilImpervFracMax = SoilImpervFrac(I,LoopInd1,J)
-           if ( SoilLiqWater(I,LoopInd1,J) < SoilLiqWaterMin )     SoilLiqWaterMin   = SoilLiqWater(I,LoopInd1,J)
+           if ( SoilIce(I,LoopInd1,J) > SoilIceMax(I,J) )               SoilIceMax(I,J)        = SoilIce(I,LoopInd1,J)
+           if ( SoilImpervFrac(I,LoopInd1,J) > SoilImpervFracMax(I,J) ) SoilImpervFracMax(I,J) = SoilImpervFrac(I,LoopInd1,J)
+           if ( SoilLiqWater(I,LoopInd1,J) < SoilLiqWaterMin(I,J) )     SoilLiqWaterMin(I,J)   = SoilLiqWater(I,LoopInd1,J)
         enddo
 
-        end associate
 
       end do
     end do
@@ -215,7 +213,7 @@ contains
 
     ! solve soil moisture
     InfilSfcAcc      = 1.0e-06
-    !$acc parallel loop collapse(2) gang vector present(noahmp, DrainSoilBotAcc2D, RunoffSurfaceAcc2D)
+    !$acc parallel loop collapse(2) gang vector default(present)
     do J = noahmp%config%domain%JTS, noahmp%config%domain%JTE
       do I = noahmp%config%domain%ITS, noahmp%config%domain%ITE
         DrainSoilBotAcc2D(I,J)  = 0.0
@@ -235,7 +233,7 @@ contains
        call SoilWaterDiffusionRichards(noahmp, MatLeft1, MatLeft2, MatLeft3, MatRight)
        call SoilMoistureSolver(noahmp, TimeStepFine, MatLeft1, MatLeft2, MatLeft3, MatRight)
 
-       !$acc parallel loop collapse(2) gang vector present(noahmp, SoilSatExcAcc2D, DrainSoilBotAcc2D, RunoffSurfaceAcc2D)
+       !$acc parallel loop collapse(2) gang vector default(present)
        do J = noahmp%config%domain%JTS, noahmp%config%domain%JTE
          do I = noahmp%config%domain%ITS, noahmp%config%domain%ITE
            SoilSatExcAcc2D(I,J)    = SoilSatExcAcc2D(I,J)    + noahmp%water%state%SoilSaturationExcess(I,J)
@@ -247,7 +245,7 @@ contains
 
     enddo  ! IndIter
 
-    !$acc parallel loop collapse(2) gang vector present(noahmp, SoilSatExcAcc2D, DrainSoilBotAcc2D, RunoffSurfaceAcc2D)
+    !$acc parallel loop collapse(2) gang vector default(present) firstprivate(NumIterSoilWat)
     do J = noahmp%config%domain%JTS, noahmp%config%domain%JTE
       do I = noahmp%config%domain%ITS, noahmp%config%domain%ITE
          if ( noahmp%config%domain%IndicatorIceSfc(I,J) == -1 ) cycle  ! skip soil process for ice surface points
@@ -268,23 +266,12 @@ contains
     endif
 
 
-    !$acc parallel loop collapse(2) gang vector present(noahmp) &
+    !$acc parallel loop collapse(2) gang vector default(present) &
     !$acc private(LoopInd1, LoopInd2, SoilWatConductAcc, WaterRemove, SoilWatRem, SoilWaterMin, SoilLiqTmp)
     do J = noahmp%config%domain%JTS, noahmp%config%domain%JTE
       do I = noahmp%config%domain%ITS, noahmp%config%domain%ITE
          if ( noahmp%config%domain%IndicatorIceSfc(I,J) == -1 ) cycle  ! skip soil process for ice surface points
 
-        associate(                                                                         &
-                  ThicknessSnowSoilLayer => noahmp%config%domain%ThicknessSnowSoilLayer   ,& ! in,    thickness of snow/soil layers [m]
-                  SoilIce                => noahmp%water%state%SoilIce                    ,& ! in,    soil ice content [m3/m3]
-                  SoilLiqWater           => noahmp%water%state%SoilLiqWater               ,& ! inout, soil water content [m3/m3]
-                  SoilMoisture           => noahmp%water%state%SoilMoisture               ,& ! inout, total soil moisture [m3/m3]
-                  RechargeGwDeepWT       => noahmp%water%state%RechargeGwDeepWT(I,J)      ,& ! inout, recharge to or from water table when deep [m]
-                  SoilWatConductivity    => noahmp%water%state%SoilWatConductivity        ,& ! in,    soil hydraulic conductivity [m/s]
-                  RunoffSubsurface       => noahmp%water%flux%RunoffSubsurface(I,J)       ,& ! inout, subsurface runoff [mm per soil timestep]
-                  RunoffSurface          => noahmp%water%flux%RunoffSurface(I,J)          ,& ! inout, surface runoff [mm per soil timestep]
-                  TileDrain              => noahmp%water%flux%TileDrain(I,J)               & ! inout, tile drainage [mm per soil timestep]
-                 )
 
         !$acc loop seq
         do LoopInd1 = 1, NumSoilLayer
@@ -300,7 +287,7 @@ contains
            enddo
            !$acc loop seq
            do LoopInd1 = 1, NumSoilLayer
-              WaterRemove = RunoffSubsurface * SoilTimeStep * &
+              WaterRemove = RunoffSubsurface(I,J) * SoilTimeStep * &
                             (SoilWatConductivity(I,LoopInd1,J)*ThicknessSnowSoilLayer(I,LoopInd1,J)) / SoilWatConductAcc
               SoilLiqWater(I,LoopInd1,J) = SoilLiqWater(I,LoopInd1,J) - &
                                             WaterRemove / (ThicknessSnowSoilLayer(I,LoopInd1,J)*1000.0)
@@ -333,9 +320,9 @@ contains
                SoilWatRem = 0.0
            endif
            SoilLiqTmp(LoopInd2) = SoilLiqTmp(LoopInd2) + SoilWatRem
-           RunoffSubsurface     = RunoffSubsurface - SoilWatRem/SoilTimeStep
+           RunoffSubsurface(I,J)     = RunoffSubsurface(I,J) - SoilWatRem/SoilTimeStep
 
-           if ( OptRunoffSubsurface == 5 ) RechargeGwDeepWT = RechargeGwDeepWT - SoilWatRem * 1.0e-3
+           if ( OptRunoffSubsurface == 5 ) RechargeGwDeepWT(I,J) = RechargeGwDeepWT(I,J) - SoilWatRem * 1.0e-3
 
            !$acc loop seq
            do LoopInd2 = 1, NumSoilLayer
@@ -344,7 +331,6 @@ contains
            enddo
         endif ! OptRunoffSubsurface /= 1
 
-        end associate
 
       end do
     end do
@@ -359,19 +345,11 @@ contains
          call RunoffSubSurfaceDrainage(noahmp)
     endif
 
-    !$acc parallel loop collapse(2) gang vector present(noahmp) private(LoopInd2)
+    !$acc parallel loop collapse(2) gang vector default(present) private(LoopInd2)
     do J = noahmp%config%domain%JTS, noahmp%config%domain%JTE
       do I = noahmp%config%domain%ITS, noahmp%config%domain%ITE
          if ( noahmp%config%domain%IndicatorIceSfc(I,J) == -1 ) cycle  ! skip soil process for ice surface points
 
-        associate(                                                                         &
-                  SoilIce                => noahmp%water%state%SoilIce                    ,& ! in,    soil ice content [m3/m3]
-                  SoilLiqWater           => noahmp%water%state%SoilLiqWater               ,& ! in,    soil water content [m3/m3]
-                  SoilMoisture           => noahmp%water%state%SoilMoisture               ,& ! inout, total soil moisture [m3/m3]
-                  RunoffSurface          => noahmp%water%flux%RunoffSurface(I,J)          ,& ! inout, surface runoff [mm per soil timestep]
-                  RunoffSubsurface       => noahmp%water%flux%RunoffSubsurface(I,J)       ,& ! inout, subsurface runoff [mm per soil timestep]
-                  TileDrain              => noahmp%water%flux%TileDrain(I,J)               & ! inout, tile drainage [mm per soil timestep]
-                 )
 
         ! update soil moisture
         !$acc loop seq
@@ -379,7 +357,6 @@ contains
             SoilMoisture(I,LoopInd2,J) = SoilLiqWater(I,LoopInd2,J) + SoilIce(I,LoopInd2,J)
         enddo
 
-        end associate
 
       end do
     end do
@@ -389,7 +366,7 @@ contains
     if ( OptRunoffSubsurface == 5 ) call RunoffSubSurfaceShallowWaterMMF(noahmp)
 
     ! accumulated water flux over soil timestep [mm]
-    !$acc parallel loop collapse(2) gang vector present(noahmp)
+    !$acc parallel loop collapse(2) gang vector default(present)
     do J = noahmp%config%domain%JTS, noahmp%config%domain%JTE
       do I = noahmp%config%domain%ITS, noahmp%config%domain%ITE
          if ( noahmp%config%domain%IndicatorIceSfc(I,J) == -1 ) cycle  ! skip soil process for ice surface points
@@ -410,6 +387,8 @@ contains
     deallocate(SoilSatExcAcc2D)
     deallocate(DrainSoilBotAcc2D)
     deallocate(RunoffSurfaceAcc2D)
+
+
 
     end associate
 

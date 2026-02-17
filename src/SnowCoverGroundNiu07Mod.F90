@@ -29,32 +29,34 @@ contains
     real(kind=kind_noahmp)           :: MeltFac        ! melting factor for snow cover frac
 
 ! --------------------------------------------------------------------
-    !$acc parallel loop collapse(2) gang vector present(noahmp)
+        associate(                                                         &
+                  SnowMeltFac    => noahmp%water%param%SnowMeltFac        ,& ! in,  snowmelt m parameter
+                  SnowCoverFac   => noahmp%water%param%SnowCoverFac       ,& ! in,  snow cover factor [m]
+                  SnowDepth      => noahmp%water%state%SnowDepth     ,& ! in,  snow depth [m]
+                  SnowWaterEquiv => noahmp%water%state%SnowWaterEquiv,& ! in,  snow water equivalent [mm]
+                  SnowCoverFrac  => noahmp%water%state%SnowCoverFrac  & ! out, snow cover fraction
+                 )
+
+    !$acc parallel loop collapse(2) gang vector default(present) private(MeltFac, SnowDensBulk)
     do J = noahmp%config%domain%JTS, noahmp%config%domain%JTE
       do I = noahmp%config%domain%ITS, noahmp%config%domain%ITE
 
-        associate(                                                         &
-                  SnowMeltFac    => noahmp%water%param%SnowMeltFac(I,J)        ,& ! in,  snowmelt m parameter
-                  SnowCoverFac   => noahmp%water%param%SnowCoverFac(I,J)       ,& ! in,  snow cover factor [m]
-                  SnowDepth      => noahmp%water%state%SnowDepth(I,J)     ,& ! in,  snow depth [m]
-                  SnowWaterEquiv => noahmp%water%state%SnowWaterEquiv(I,J),& ! in,  snow water equivalent [mm]
-                  SnowCoverFrac  => noahmp%water%state%SnowCoverFrac(I,J)  & ! out, snow cover fraction
-                 )
-! ----------------------------------------------------------------------
 
-        SnowCoverFrac = 0.0
-        if ( SnowDepth > 0.0 ) then
-             SnowDensBulk  = SnowWaterEquiv / SnowDepth
-             MeltFac       = (SnowDensBulk / 100.0)**SnowMeltFac
+        SnowCoverFrac(I,J) = 0.0
+        if ( SnowDepth(I,J) > 0.0 ) then
+             SnowDensBulk  = SnowWaterEquiv(I,J) / SnowDepth(I,J)
+             MeltFac       = (SnowDensBulk / 100.0)**SnowMeltFac(I,J)
             !SnowCoverFrac = tanh( SnowDepth /(2.5 * Z0 * MeltFac))
-             SnowCoverFrac = tanh( SnowDepth /(SnowCoverFac * MeltFac)) ! C.He: bring hard-coded 2.5*z0 to MPTABLE
+             SnowCoverFrac(I,J) = tanh( SnowDepth(I,J) /(SnowCoverFac(I,J) * MeltFac)) ! C.He: bring hard-coded 2.5*z0 to MPTABLE
         endif
 
-        end associate
 
       end do
     end do
     !$acc end parallel loop
+
+
+        end associate
 
   end subroutine SnowCoverGroundNiu07
 

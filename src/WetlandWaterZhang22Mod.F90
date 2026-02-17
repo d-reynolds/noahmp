@@ -32,80 +32,82 @@ contains
     real(kind=kind_noahmp)                :: EvapLatentHeat ! evaporation heat from surface [W/m2]
     real(kind=kind_noahmp)                :: EvapWaterFlux  ! evaporation water from surface [mm/s]
 
-    !$acc parallel loop collapse(2) gang vector present(noahmp)
+    associate(                                                                &
+              TemperatureSfc      => noahmp%energy%state%TemperatureSfc      ,& ! in,    surface air temperature [K]
+              RadSwAbsSfc         => noahmp%energy%flux%RadSwAbsSfc          ,& ! in,    total absorbed solar radiation [W/m2]
+              RadSwReflSfc        => noahmp%energy%flux%RadSwReflSfc         ,& ! in,    total reflected solar radiation [W/m2]
+              RadLwNetSfc         => noahmp%energy%flux%RadLwNetSfc          ,& ! in,    total net longwave rad [W/m2] (+ to atm)
+              HeatGroundTot       => noahmp%energy%flux%HeatGroundTot        ,& ! in,    total ground heat flux [W/m2] (+ to soil/snow)
+              HeatSensibleSfc     => noahmp%energy%flux%HeatSensibleSfc      ,& ! in,    total sensible heat [W/m2] (+ to atm)
+              SoilSaturateFrac    => noahmp%water%state%SoilSaturateFrac     ,& ! in,    fractional saturated area for soil moisture
+              WetlandCapMax       => noahmp%water%param%WetlandCapMax        ,& ! in,    maximum wetland capacity [m]
+              WaterStorageWetland => noahmp%water%state%WaterStorageWetland  ,& ! inout, wetland water storage [mm] 
+              RunoffSurface       => noahmp%water%flux%RunoffSurface         ,& ! inout, surface runoff [mm] per soil timestep
+              EvapGroundNet       => noahmp%water%flux%EvapGroundNet         ,& ! inout, accumulated net ground evaporation per soil timestep [mm]
+              HeatLatentGrd       => noahmp%energy%flux%HeatLatentGrd         & ! inout, ground evaporation heat flux [W/m2] (+ to atm)
+             )
+
+    !$acc parallel loop collapse(2) gang vector default(present) private(EvapLatentHeat, EvapWaterFlux, LatHeatPot, &
+    !$acc LatHeatSpec, PsychroConst, VapPresSlope) firstprivate(TimeStep)
     do J = noahmp%config%domain%JTS, noahmp%config%domain%JTE
       do I = noahmp%config%domain%ITS, noahmp%config%domain%ITE
 
          if ( noahmp%config%domain%IndicatorIceSfc(I,J) == -1 ) cycle  ! skip wetland process for ice surface points
-! --------------------------------------------------------------------
-    associate(                                                                &
-              TemperatureSfc      => noahmp%energy%state%TemperatureSfc(I,J)      ,& ! in,    surface air temperature [K]
-              RadSwAbsSfc         => noahmp%energy%flux%RadSwAbsSfc(I,J)          ,& ! in,    total absorbed solar radiation [W/m2]
-              RadSwReflSfc        => noahmp%energy%flux%RadSwReflSfc(I,J)         ,& ! in,    total reflected solar radiation [W/m2]
-              RadLwNetSfc         => noahmp%energy%flux%RadLwNetSfc(I,J)          ,& ! in,    total net longwave rad [W/m2] (+ to atm)
-              HeatGroundTot       => noahmp%energy%flux%HeatGroundTot(I,J)        ,& ! in,    total ground heat flux [W/m2] (+ to soil/snow)
-              HeatSensibleSfc     => noahmp%energy%flux%HeatSensibleSfc(I,J)      ,& ! in,    total sensible heat [W/m2] (+ to atm)
-              SoilSaturateFrac    => noahmp%water%state%SoilSaturateFrac(I,J)     ,& ! in,    fractional saturated area for soil moisture
-              WetlandCapMax       => noahmp%water%param%WetlandCapMax(I,J)        ,& ! in,    maximum wetland capacity [m]
-              WaterStorageWetland => noahmp%water%state%WaterStorageWetland(I,J)  ,& ! inout, wetland water storage [mm] 
-              RunoffSurface       => noahmp%water%flux%RunoffSurface(I,J)         ,& ! inout, surface runoff [mm] per soil timestep
-              EvapGroundNet       => noahmp%water%flux%EvapGroundNet(I,J)         ,& ! inout, accumulated net ground evaporation per soil timestep [mm]
-              HeatLatentGrd       => noahmp%energy%flux%HeatLatentGrd(I,J)         & ! inout, ground evaporation heat flux [W/m2] (+ to atm)
-             )
-! ----------------------------------------------------------------------
 
     ! set initial value
     EvapWaterFlux  = 0.0
     EvapLatentHeat = 0.0
 
     ! set psychrometric constant and VapPresSlope
-    if ( TemperatureSfc > ConstFreezePoint ) then
+    if ( TemperatureSfc(I,J) > ConstFreezePoint ) then
        LatHeatSpec = ConstLatHeatEvap
     else
        LatHeatSpec = ConstLatHeatSublim
     endif
 
     ! determine psychrometic constant
-    if ( TemperatureSfc < (273.15+26.85) ) then
+    if ( TemperatureSfc(I,J) < (273.15+26.85) ) then
        PsychroConst = 0.00040
     else 
        PsychroConst = 0.00041
     endif
 
     ! calculate slope VapPresSlope based on surface temperature
-    if ( TemperatureSfc < (273.15+6.85) ) then
+    if ( TemperatureSfc(I,J) < (273.15+6.85) ) then
        VapPresSlope = 0.00022
-    elseif ( TemperatureSfc < (273.15+16.85) ) then
+    elseif ( TemperatureSfc(I,J) < (273.15+16.85) ) then
        VapPresSlope = 0.00042
-    elseif ( TemperatureSfc < (273.15+26.85) ) then
+    elseif ( TemperatureSfc(I,J) < (273.15+26.85) ) then
        VapPresSlope = 0.00078 
     else 
        VapPresSlope = 0.00132
     endif 
 
     ! compute wetland water balance
-    LatHeatPot = 1.26 * VapPresSlope * (RadSwAbsSfc - RadLwNetSfc - HeatGroundTot) / &
+    LatHeatPot = 1.26 * VapPresSlope * (RadSwAbsSfc(I,J) - RadLwNetSfc(I,J) - HeatGroundTot(I,J)) / &
                  (VapPresSlope + PsychroConst)                                           ! LatHeatPot Potential latent heat W/m2 P-T method
-    WaterStorageWetland = WaterStorageWetland + RunoffSurface     
-    if ( WaterStorageWetland > (LatHeatPot*TimeStep/LatHeatSpec*SoilSaturateFrac) ) then ! if current wetland storage is larger than PET rate 
-       EvapWaterFlux = max(LatHeatPot / LatHeatSpec * SoilSaturateFrac, 0.0)             ! evaporation rate mm/s
+    WaterStorageWetland(I,J) = WaterStorageWetland(I,J) + RunoffSurface(I,J)     
+    if ( WaterStorageWetland(I,J) > (LatHeatPot*TimeStep/LatHeatSpec*SoilSaturateFrac(I,J)) ) then ! if current wetland storage is larger than PET rate 
+       EvapWaterFlux = max(LatHeatPot / LatHeatSpec * SoilSaturateFrac(I,J), 0.0)             ! evaporation rate mm/s
     else                                                                                 ! if current wetland storage is less than PET rate
-       EvapWaterFlux = max(WaterStorageWetland/TimeStep, 0.0)                            ! use all of it
+       EvapWaterFlux = max(WaterStorageWetland(I,J)/TimeStep, 0.0)                            ! use all of it
     endif 
-    WaterStorageWetland = max(WaterStorageWetland-EvapWaterFlux*TimeStep,0.0)            ! adjust surface wetland storage
+    WaterStorageWetland(I,J) = max(WaterStorageWetland(I,J)-EvapWaterFlux*TimeStep,0.0)            ! adjust surface wetland storage
 
     ! adjuest energy and water balance 
     EvapLatentHeat      = EvapWaterFlux * LatHeatSpec                                    ! convert evaporation to latent heat flux 
-    HeatSensibleSfc     = HeatSensibleSfc - EvapLatentHeat                               ! reduce sensible heat flux
-    HeatLatentGrd       = HeatLatentGrd + EvapLatentHeat                                 ! increase direct evaporation
-    RunoffSurface       = max(WaterStorageWetland - WetlandCapMax*1000.0, 0.0)           ! excessive storage becomes runoff
-    EvapGroundNet       = EvapGroundNet + EvapWaterFlux                                  ! increase direct evaporation
-    WaterStorageWetland = min(WetlandCapMax*1000.0, WaterStorageWetland)
+    HeatSensibleSfc(I,J)     = HeatSensibleSfc(I,J) - EvapLatentHeat                               ! reduce sensible heat flux
+    HeatLatentGrd(I,J)       = HeatLatentGrd(I,J) + EvapLatentHeat                                 ! increase direct evaporation
+    RunoffSurface(I,J)       = max(WaterStorageWetland(I,J) - WetlandCapMax(I,J)*1000.0, 0.0)           ! excessive storage becomes runoff
+    EvapGroundNet(I,J)       = EvapGroundNet(I,J) + EvapWaterFlux                                  ! increase direct evaporation
+    WaterStorageWetland(I,J) = min(WetlandCapMax(I,J)*1000.0, WaterStorageWetland(I,J))
 
-    end associate
 
    enddo
 enddo
+
+
+    end associate
 
   end subroutine WetlandWaterZhang22
 

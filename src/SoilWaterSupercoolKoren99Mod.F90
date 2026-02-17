@@ -51,21 +51,14 @@ contains
     real(kind=kind_noahmp), parameter     :: SoilExpBMax = 5.5    ! limit of B soil parameter
     real(kind=kind_noahmp), parameter     :: ErrorThr    = 0.005  ! error threshold
 
-! --------------------------------------------------------------------
-    associate(                                                               &
-              SoilExpCoeffB       => noahmp%water%param%SoilExpCoeffB       ,& ! in, soil B parameter
-              SoilMatPotentialSat => noahmp%water%param%SoilMatPotentialSat ,& ! in, saturated soil matric potential [m]
-              SoilMoistureSat     => noahmp%water%param%SoilMoistureSat      & ! in, saturated value of soil moisture [m3/m3]
-             )
-! ----------------------------------------------------------------------
 
     ! limit on parameter B: B < 5.5  (use parameter SoilExpBMax)
     ! simulations showed if B > 5.5 unfrozen water content is
     ! non-realistically high at very low temperatures
-    SoilExpB = SoilExpCoeffB(I,IndSoil,J)
+    SoilExpB = noahmp%water%param%SoilExpCoeffB(I,IndSoil,J)
 
     ! initializing iterations counter and interative solution flag
-    if ( SoilExpCoeffB(I,IndSoil,J) > SoilExpBMax ) SoilExpB = SoilExpBMax
+    if ( noahmp%water%param%SoilExpCoeffB(I,IndSoil,J) > SoilExpBMax ) SoilExpB = SoilExpBMax
     NumIter = 0
 
     ! if soil temperature not largely below freezing point, SoilLiqWater = SoilMoisture
@@ -83,8 +76,8 @@ contains
           if ( SoilIce < 0.0 ) SoilIce = 0.0
           do while ((NumIter < 10) .and. (IndCnt == 0) )
           NumIter = NumIter +1
-          DF = log((SoilMatPotentialSat(I,IndSoil,J)*ConstGravityAcc/ConstLatHeatFusion) * &
-               ((1.0 + CK*SoilIce)**2.0) * (SoilMoistureSat(I,IndSoil,J)/(SoilMoisture - SoilIce))**SoilExpB) - &
+          DF = log((noahmp%water%param%SoilMatPotentialSat(I,IndSoil,J)*ConstGravityAcc/ConstLatHeatFusion) * &
+               ((1.0 + CK*SoilIce)**2.0) * (noahmp%water%param%SoilMoistureSat(I,IndSoil,J)/(SoilMoisture - SoilIce))**SoilExpB) - &
                log(-(SoilTemperature - ConstFreezePoint) / SoilTemperature)
           Denom      = 2.0 * CK / (1.0 + CK * SoilIce) + SoilExpB / (SoilMoisture - SoilIce)
           SoilIceTmp = SoilIce - DF / Denom
@@ -112,16 +105,14 @@ contains
 #ifndef _OPENACC
           print*, 'Flerchinger used in NEW version. Iterations=', NumIter
 #endif
-          FlerFac = (((ConstLatHeatFusion / (ConstGravityAcc * (-SoilMatPotentialSat(I,IndSoil,J)))) * &
-                    ((SoilTemperature-ConstFreezePoint) / SoilTemperature))**(-1.0/SoilExpB)) * SoilMoistureSat(I,IndSoil,J)
+          FlerFac = (((ConstLatHeatFusion / (ConstGravityAcc * (-noahmp%water%param%SoilMatPotentialSat(I,IndSoil,J)))) * &
+                    ((SoilTemperature-ConstFreezePoint) / SoilTemperature))**(-1.0/SoilExpB)) * noahmp%water%param%SoilMoistureSat(I,IndSoil,J)
           if ( FlerFac < 0.02 ) FlerFac = 0.02
           SoilWatSupercool = min(FlerFac, SoilMoisture)
        endif
        !--- End Option 2
 
     endif
-
-    end associate
 
   end subroutine SoilWaterSupercoolKoren99
 

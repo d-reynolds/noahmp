@@ -37,28 +37,17 @@ contains
     real(kind=kind_noahmp)                :: SoilPreFac             ! pre-factor
     !$acc routine seq
 
-! --------------------------------------------------------------------
-    associate(                                                                     &
-              SoilMoistureSat        => noahmp%water%param%SoilMoistureSat        ,& ! in, saturated value of soil moisture [m3/m3] (3D)
-              SoilExpCoeffB          => noahmp%water%param%SoilExpCoeffB          ,& ! in, soil B parameter (3D)
-              SoilWatDiffusivitySat  => noahmp%water%param%SoilWatDiffusivitySat  ,& ! in, saturated soil hydraulic diffusivity [m2/s] (3D)
-              SoilWatConductivitySat => noahmp%water%param%SoilWatConductivitySat  & ! in, saturated soil hydraulic conductivity [m/s] (3D)
-             )
-! ----------------------------------------------------------------------
-
-    SoilPreFac = max(0.01, SoilMoisture/SoilMoistureSat(I,IndLayer,J))
+    SoilPreFac = max(0.01, SoilMoisture/noahmp%water%param%SoilMoistureSat(I,IndLayer,J))
 
     ! soil water diffusivity
-    SoilExpTmp         = SoilExpCoeffB(I,IndLayer,J) + 2.0
-    SoilWatDiffusivity = SoilWatDiffusivitySat(I,IndLayer,J) * SoilPreFac ** SoilExpTmp
+    SoilExpTmp         = noahmp%water%param%SoilExpCoeffB(I,IndLayer,J) + 2.0
+    SoilWatDiffusivity = noahmp%water%param%SoilWatDiffusivitySat(I,IndLayer,J) * SoilPreFac ** SoilExpTmp
     SoilWatDiffusivity = SoilWatDiffusivity * (1.0 - SoilImpervFrac)
 
     ! soil hydraulic conductivity
-    SoilExpTmp          = 2.0 * SoilExpCoeffB(I,IndLayer,J) + 3.0
-    SoilWatConductivity = SoilWatConductivitySat(I,IndLayer,J) * SoilPreFac ** SoilExpTmp
+    SoilExpTmp          = 2.0 * noahmp%water%param%SoilExpCoeffB(I,IndLayer,J) + 3.0
+    SoilWatConductivity = noahmp%water%param%SoilWatConductivitySat(I,IndLayer,J) * SoilPreFac ** SoilExpTmp
     SoilWatConductivity = SoilWatConductivity * (1.0 - SoilImpervFrac)
-
-    end associate
 
   end subroutine SoilDiffusivityConductivityOpt1
 
@@ -91,33 +80,22 @@ contains
     real(kind=kind_noahmp)                :: SoilIceWgt            ! weights
     !$acc routine seq
 
-! --------------------------------------------------------------------
-    associate(                                                                     &
-              SoilMoistureSat        => noahmp%water%param%SoilMoistureSat        ,& ! in, saturated value of soil moisture [m3/m3] (3D)
-              SoilExpCoeffB          => noahmp%water%param%SoilExpCoeffB          ,& ! in, soil B parameter (3D)
-              SoilWatDiffusivitySat  => noahmp%water%param%SoilWatDiffusivitySat  ,& ! in, saturated soil hydraulic diffusivity [m2/s] (3D)
-              SoilWatConductivitySat => noahmp%water%param%SoilWatConductivitySat  & ! in, saturated soil hydraulic conductivity [m/s] (3D)
-             )
-! ----------------------------------------------------------------------
-
-    SoilPreFac1 = 0.05 / SoilMoistureSat(I,IndLayer,J)
-    SoilPreFac2 = max(0.01, SoilMoisture/SoilMoistureSat(I,IndLayer,J))
+    SoilPreFac1 = 0.05 / noahmp%water%param%SoilMoistureSat(I,IndLayer,J)
+    SoilPreFac2 = max(0.01, SoilMoisture/noahmp%water%param%SoilMoistureSat(I,IndLayer,J))
     SoilPreFac1 = min(SoilPreFac1, SoilPreFac2)
 
     ! soil water diffusivity
-    SoilExpTmp         = SoilExpCoeffB(I,IndLayer,J) + 2.0
-    SoilWatDiffusivity = SoilWatDiffusivitySat(I,IndLayer,J) * SoilPreFac2 ** SoilExpTmp
+    SoilExpTmp         = noahmp%water%param%SoilExpCoeffB(I,IndLayer,J) + 2.0
+    SoilWatDiffusivity = noahmp%water%param%SoilWatDiffusivitySat(I,IndLayer,J) * SoilPreFac2 ** SoilExpTmp
     if ( SoilIce > 0.0 ) then
        SoilIceWgt         = 1.0 / (1.0 + (500.0 * SoilIce)**3.0)
        SoilWatDiffusivity = SoilIceWgt * SoilWatDiffusivity + &
-                            (1.0-SoilIceWgt) * SoilWatDiffusivitySat(I,IndLayer,J) * SoilPreFac1**SoilExpTmp
+                            (1.0-SoilIceWgt) * noahmp%water%param%SoilWatDiffusivitySat(I,IndLayer,J) * SoilPreFac1**SoilExpTmp
     endif
 
     ! soil hydraulic conductivity
-    SoilExpTmp          = 2.0 * SoilExpCoeffB(I,IndLayer,J) + 3.0
-    SoilWatConductivity = SoilWatConductivitySat(I,IndLayer,J) * SoilPreFac2 ** SoilExpTmp
-
-    end associate
+    SoilExpTmp          = 2.0 * noahmp%water%param%SoilExpCoeffB(I,IndLayer,J) + 3.0
+    SoilWatConductivity = noahmp%water%param%SoilWatConductivitySat(I,IndLayer,J) * SoilPreFac2 ** SoilExpTmp
 
   end subroutine SoilDiffusivityConductivityOpt2
 

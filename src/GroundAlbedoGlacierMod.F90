@@ -28,18 +28,9 @@ contains
     integer                          :: IndSwBnd      ! solar radiation band index
 
 ! --------------------------------------------------------------------
-   !$acc parallel loop collapse(2) gang vector present(noahmp) private(IndSwBnd)
-    do J = noahmp%config%domain%JTS, noahmp%config%domain%JTE
-      do I = noahmp%config%domain%ITS, noahmp%config%domain%ITE
-
-        if (noahmp%config%domain%IndicatorIceSfc(I,J) /= -1) cycle
-
-      ! solar radiation process is only done if there is light
-      if ( noahmp%config%domain%CosSolarZenithAngle(I,J) <= 0 ) cycle
-
     associate(                                                           &
               NumSwRadBand  => noahmp%config%domain%NumSwRadBand         ,& ! in,  number of solar radiation wave bands
-              SnowCoverFrac => noahmp%water%state%SnowCoverFrac(I,J)     ,& ! in,  snow cover fraction
+              SnowCoverFrac => noahmp%water%state%SnowCoverFrac     ,& ! in,  snow cover fraction
               AlbedoLandIce => noahmp%energy%param%AlbedoLandIce         ,& ! in,  albedo land ice: 1=vis, 2=nir
               AlbedoSnowDir => noahmp%energy%state%AlbedoSnowDir         ,& ! in,  snow albedo for direct(1=vis, 2=nir)
               AlbedoSnowDif => noahmp%energy%state%AlbedoSnowDif         ,& ! in,  snow albedo for diffuse(1=vis, 2=nir)
@@ -48,23 +39,34 @@ contains
               AlbedoSfcDir  => noahmp%energy%state%AlbedoSfcDir          ,& ! out, surface albedo (direct beam: vis, nir)
               AlbedoSfcDif  => noahmp%energy%state%AlbedoSfcDif           & ! out, surface albedo (diffuse: vis, nir)
              )
-! ----------------------------------------------------------------------
+
+   !$acc parallel loop collapse(2) gang vector default(present) private(IndSwBnd)
+    do J = noahmp%config%domain%JTS, noahmp%config%domain%JTE
+      do I = noahmp%config%domain%ITS, noahmp%config%domain%ITE
+
+        if (noahmp%config%domain%IndicatorIceSfc(I,J) /= -1) cycle
+
+      ! solar radiation process is only done if there is light
+      if ( noahmp%config%domain%CosSolarZenithAngle(I,J) <= 0 ) cycle
+
 
     !$acc loop seq
     do IndSwBnd = 1, NumSwRadBand
 
-       AlbedoGrdDir(I,IndSwBnd,J) = AlbedoLandIce(I,IndSwBnd,J)*(1.0-SnowCoverFrac) + AlbedoSnowDir(I,IndSwBnd,J)*SnowCoverFrac
-       AlbedoGrdDif(I,IndSwBnd,J) = AlbedoLandIce(I,IndSwBnd,J)*(1.0-SnowCoverFrac) + AlbedoSnowDif(I,IndSwBnd,J)*SnowCoverFrac
+       AlbedoGrdDir(I,IndSwBnd,J) = AlbedoLandIce(I,IndSwBnd,J)*(1.0-SnowCoverFrac(I,J)) + AlbedoSnowDir(I,IndSwBnd,J)*SnowCoverFrac(I,J)
+       AlbedoGrdDif(I,IndSwBnd,J) = AlbedoLandIce(I,IndSwBnd,J)*(1.0-SnowCoverFrac(I,J)) + AlbedoSnowDif(I,IndSwBnd,J)*SnowCoverFrac(I,J)
        AlbedoSfcDir(I,IndSwBnd,J) = AlbedoGrdDir(I,IndSwBnd,J)
        AlbedoSfcDif(I,IndSwBnd,J) = AlbedoGrdDif(I,IndSwBnd,J)
 
     enddo
 
-    end associate
 
       end do
     end do
    !$acc end parallel loop
+
+
+    end associate
 
   end subroutine GroundAlbedoGlacier
 

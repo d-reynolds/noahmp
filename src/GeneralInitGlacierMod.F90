@@ -27,34 +27,35 @@ contains
     integer                          :: I, J      ! grid indices
     integer                          :: LoopInd   ! loop index
 
-   !$acc parallel loop collapse(2) gang vector present(noahmp) private(LoopInd)
-    do J = noahmp%config%domain%JTS, noahmp%config%domain%JTE
-      do I = noahmp%config%domain%ITS, noahmp%config%domain%ITE
-
-! --------------------------------------------------------------------
     associate(                                                                       &
               NumSoilLayer           => noahmp%config%domain%NumSoilLayer            ,& ! in,  number of soil layers
-              NumSnowLayerNeg        => noahmp%config%domain%NumSnowLayerNeg(I,J)    ,& ! in,  actual number of snow layers (negative)
+              NumSnowLayerNeg        => noahmp%config%domain%NumSnowLayerNeg    ,& ! in,  actual number of snow layers (negative)
               DepthSnowSoilLayer     => noahmp%config%domain%DepthSnowSoilLayer      ,& ! in,  depth of snow/soil layer-bottom [m]
               ThicknessSnowSoilLayer => noahmp%config%domain%ThicknessSnowSoilLayer   & ! out, thickness of snow/soil layers [m]
              )
-! ----------------------------------------------------------------------
+
+   !$acc parallel loop collapse(2) gang vector default(present) private(LoopInd)
+    do J = noahmp%config%domain%JTS, noahmp%config%domain%JTE
+      do I = noahmp%config%domain%ITS, noahmp%config%domain%ITE
+
 
     ! initialize snow/soil layer thickness
     !$acc loop seq
-    do LoopInd = NumSnowLayerNeg+1, NumSoilLayer
-       if ( LoopInd == (NumSnowLayerNeg+1) ) then
+    do LoopInd = NumSnowLayerNeg(I,J)+1, NumSoilLayer
+       if ( LoopInd == (NumSnowLayerNeg(I,J)+1) ) then
           ThicknessSnowSoilLayer(I,LoopInd,J) = - DepthSnowSoilLayer(I,LoopInd,J)
        else
           ThicknessSnowSoilLayer(I,LoopInd,J) = DepthSnowSoilLayer(I,LoopInd-1,J) - DepthSnowSoilLayer(I,LoopInd,J)
        endif
     enddo
 
-    end associate
 
       end do
     end do
    !$acc end parallel loop
+
+
+    end associate
 
   end subroutine GeneralInitGlacier
 
