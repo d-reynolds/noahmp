@@ -77,7 +77,7 @@ contains
        if ( SoilMoisture(I,IndWatTbl,J) > SoilMoistureEqui(I,IndWatTbl,J) ) then
           if ( SoilMoisture(I,IndWatTbl,J) == SoilMoistureSat(I,IndWatTbl,J) ) then ! wtd went to the layer above
              WaterTableDepth(I,J)     = DepthSoilLayer0(I,IndAbvWatTbl,J)
-             RechargeGwShallowWT = -(WatTblDepthOld - WaterTableDepth(I,J)) * &
+             RechargeGwShallowWT(I,J) = -(WatTblDepthOld - WaterTableDepth(I,J)) * &
                                    (SoilMoistureSat(I,IndWatTbl,J) - SoilMoistureEqui(I,IndWatTbl,J))
              IndAbvWatTbl        = IndAbvWatTbl-1
              IndWatTbl           = IndWatTbl-1
@@ -89,7 +89,7 @@ contains
                                               SoilMoistureSat(I,IndWatTbl,J)*DepthSoilLayer0(I,IndWatTbl,J)) /    &
                                              (SoilMoistureSat(I,IndWatTbl,J)-SoilMoistureEqui(I,IndWatTbl,J)),    &
                                              DepthSoilLayer0(I,IndAbvWatTbl,J) )
-                   RechargeGwShallowWT = RechargeGwShallowWT - (WatTblDepthOld-WaterTableDepth(I,J)) * &
+                   RechargeGwShallowWT(I,J) = RechargeGwShallowWT(I,J) - (WatTblDepthOld-WaterTableDepth(I,J)) * &
                                          (SoilMoistureSat(I,IndWatTbl,J)-SoilMoistureEqui(I,IndWatTbl,J))
                 endif
              endif
@@ -99,12 +99,12 @@ contains
                                     SoilMoistureSat(I,IndWatTbl,J)*DepthSoilLayer0(I,IndWatTbl,J) ) /   &
                                    (SoilMoistureSat(I,IndWatTbl,J)-SoilMoistureEqui(I,IndWatTbl,J)),    &
                                    DepthSoilLayer0(I,IndAbvWatTbl,J))
-             RechargeGwShallowWT = -(WatTblDepthOld-WaterTableDepth(I,J)) * &
+             RechargeGwShallowWT(I,J) = -(WatTblDepthOld-WaterTableDepth(I,J)) * &
                                     (SoilMoistureSat(I,IndWatTbl,J) - SoilMoistureEqui(I,IndWatTbl,J))
           endif
        else   ! water table depth has gone down to the layer below
           WaterTableDepth(I,J)     = DepthSoilLayer0(I,IndWatTbl,J)
-          RechargeGwShallowWT = -(WatTblDepthOld-WaterTableDepth(I,J)) * &
+          RechargeGwShallowWT(I,J) = -(WatTblDepthOld-WaterTableDepth(I,J)) * &
                                  (SoilMoistureSat(I,IndWatTbl,J) - SoilMoistureEqui(I,IndWatTbl,J))
           IndWatTbl           = IndWatTbl + 1
           IndAbvWatTbl        = IndAbvWatTbl + 1
@@ -120,7 +120,7 @@ contains
              else
                 WaterTableDepth(I,J)  = DepthSoilLayer0(I,IndWatTbl,J)
              endif
-             RechargeGwShallowWT = RechargeGwShallowWT - (WatTblDepthOld-WaterTableDepth(I,J)) *         &
+             RechargeGwShallowWT(I,J) = RechargeGwShallowWT(I,J) - (WatTblDepthOld-WaterTableDepth(I,J)) *         &
                                    (SoilMoistureSat(I,IndWatTbl,J) - SoilMoistureEqui(I,IndWatTbl,J))
           else
              WatTblDepthOld      = WaterTableDepth(I,J)
@@ -140,7 +140,7 @@ contains
                                         SoilMoistureSat(I,NumSoilLayer,J) * (DepthSoilLayer0(I,NumSoilLayer,J) -          &
                                         ThicknessSnowSoilLayer(I,NumSoilLayer,J))) /                                  &
                                        (SoilMoistureSat(I,NumSoilLayer,J)-SoilMoistDeep), DepthSoilLayer0(I,NumSoilLayer,J))
-             RechargeGwShallowWT = RechargeGwShallowWT - (WatTblDepthOld-WaterTableDepth(I,J)) *                       &
+             RechargeGwShallowWT(I,J) = RechargeGwShallowWT(I,J) - (WatTblDepthOld-WaterTableDepth(I,J)) *                       &
                                    (SoilMoistureSat(I,NumSoilLayer,J) - SoilMoistDeep)
           endif
        endif
@@ -156,16 +156,16 @@ contains
                                  SoilMoistureSat(I,NumSoilLayer,J) * (DepthSoilLayer0(I,NumSoilLayer,J) -                 &
                                  ThicknessSnowSoilLayer(I,NumSoilLayer,J))) /                                         &
                                 (SoilMoistureSat(I,NumSoilLayer,J)-SoilMoistDeep), DepthSoilLayer0(I,NumSoilLayer,J))
-          RechargeGwShallowWT = -(WatTblDepthOld-WaterTableDepth(I,J)) * (SoilMoistureSat(I,NumSoilLayer,J)-SoilMoistDeep)
+          RechargeGwShallowWT(I,J) = -(WatTblDepthOld-WaterTableDepth(I,J)) * (SoilMoistureSat(I,NumSoilLayer,J)-SoilMoistDeep)
        else
-          RechargeGwShallowWT = -(WatTblDepthOld - (DepthSoilLayer0(I,NumSoilLayer,J)-ThicknessSnowSoilLayer(I,NumSoilLayer,J))) * &
+          RechargeGwShallowWT(I,J) = -(WatTblDepthOld - (DepthSoilLayer0(I,NumSoilLayer,J)-ThicknessSnowSoilLayer(I,NumSoilLayer,J))) * &
                                  (SoilMoistureSat(I,NumSoilLayer,J) - SoilMoistDeep)
           WatTblDepthOld      = DepthSoilLayer0(I,NumSoilLayer,J) - ThicknessSnowSoilLayer(I,NumSoilLayer,J)
           ! and now even further down
           ThicknessUpLy       = (SoilMoistDeep - SoilMoistureToWT(I,J)) * ThicknessSnowSoilLayer(I,NumSoilLayer,J) /       &
                                 (SoilMoistureSat(I,NumSoilLayer,J) - SoilMoistDeep)
           WaterTableDepth(I,J)     = WatTblDepthOld - ThicknessUpLy
-          RechargeGwShallowWT = RechargeGwShallowWT - (SoilMoistureSat(I,NumSoilLayer,J)-SoilMoistDeep) * ThicknessUpLy
+          RechargeGwShallowWT(I,J) = RechargeGwShallowWT(I,J) - (SoilMoistureSat(I,NumSoilLayer,J)-SoilMoistDeep) * ThicknessUpLy
           SoilMoistureToWT(I,J)    = SoilMoistDeep
        endif
     endif

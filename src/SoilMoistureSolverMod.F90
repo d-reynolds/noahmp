@@ -151,7 +151,10 @@ contains
        SoilLiqWater(I,NumSoilLayer,J)    = min(SoilEffPorosity(I,NumSoilLayer,J), SoilLiqWater(I,NumSoilLayer,J))
     endif
 
-    SoilMoisture = SoilLiqWater + SoilIce
+    !$acc loop seq
+    do LoopInd = 1, NumSoilLayer
+       SoilMoisture(I,LoopInd,J) = SoilLiqWater(I,LoopInd,J) + SoilIce(I,LoopInd,J)
+    enddo
 
 
       end do

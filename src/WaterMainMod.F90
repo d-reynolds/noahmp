@@ -101,6 +101,7 @@ contains
               EvapCanopyNet        => noahmp%water%flux%EvapCanopyNet  & ! in,    evaporation of intercepted water [mm/s]
              )
 
+      !$acc data create(SoilIceTmp, SoilLiqWaterTmp)
       !$acc parallel loop collapse(2) gang vector default(present) private(LoopInd)
       do J = noahmp%config%domain%JTS, noahmp%config%domain%JTE
          do I = noahmp%config%domain%ITS, noahmp%config%domain%ITE
@@ -349,6 +350,7 @@ enddo
        call WetlandWaterZhang22(noahmp,noahmp%config%domain%MainTimeStep)
     endif 
 
+    !$acc end data
 
     end associate
 

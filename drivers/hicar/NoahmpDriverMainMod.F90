@@ -167,7 +167,12 @@ contains
        enddo ILOOP  ! I loop
     enddo  JLOOP    ! J loop
 
-             !$acc update device(NoahmpIO)
+             ! Update only the specific NoahmpIO members modified by the JLOOP above.
+             ! Using update device(NoahmpIO) on the entire derived type can corrupt
+             ! attached device pointers for allocatable components (TABLE arrays, etc.).
+             !$acc update device(NoahmpIO%ICE, NoahmpIO%I, NoahmpIO%J)
+             !$acc update device(NoahmpIO%SH2O, NoahmpIO%LAI)
+             !$acc update device(NoahmpIO%SMSTAV, NoahmpIO%SMSTOT, NoahmpIO%SMOIS, NoahmpIO%TSLB)
 
              !------------------------------------------------------------------------------------
              !  initialize Data Types and transfer all the inputs from 2-D to 1-D column variables
@@ -186,8 +191,9 @@ contains
              call BiochemVarInTransfer  (noahmp, NoahmpIO)
              ! !$acc update device(noahmp)  ! update device with initialized and transferred noahmp data type
 
-      JLOOP2 : do J = NoahmpIO%JTS, NoahmpIO%JTE
-       ILOOP2 : do I = NoahmpIO%ITS, NoahmpIO%ITE
+    !$acc parallel loop collapse(2) gang vector default(present) private(I, J)
+    do J = NoahmpIO%JTS, NoahmpIO%JTE
+      do I = NoahmpIO%ITS, NoahmpIO%ITE
           if (.not.( NoahmpIO%XICE(I,J) >= NoahmpIO%XICE_THRESHOLD )) then  ! Sea-ice point
             !  if ( (NoahmpIO%XLAND(I,J)-1.5) >= 0.0 ) cycle ILOOP2     ! Skip any open water points
 
@@ -201,8 +207,8 @@ contains
              endif ! glacial split ends
 
           endif
-       enddo ILOOP2  ! I loop
-    enddo  JLOOP2  ! J loop
+      enddo
+    enddo
 
              !---------------------------------------------------------------------
              !  hydrological processes for vegetation in urban model
