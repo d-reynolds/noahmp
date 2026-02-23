@@ -36,12 +36,12 @@ contains
     real(kind=kind_noahmp)           :: WatConductAcc              ! sum of SoilWatConductTmp*ThicknessSoil
     real(kind=kind_noahmp)           :: SoilMoistureMin            ! minimum soil moisture [m3/m3]
     real(kind=kind_noahmp)           :: WaterExcessSat             ! excessive water above saturation [mm]
-    real(kind=kind_noahmp)           :: ThicknessSoil(noahmp%config%domain%NumSoilLayer)          ! layer thickness [mm]
-    real(kind=kind_noahmp)           :: DepthSoilMid(noahmp%config%domain%NumSoilLayer)           ! node depth [m]
-    real(kind=kind_noahmp)           :: SoilLiqTmp(noahmp%config%domain%NumSoilLayer)             ! liquid water mass [kg/m2 or mm]
-    real(kind=kind_noahmp)           :: SoilEffPorosity(noahmp%config%domain%NumSoilLayer)        ! soil effective porosity
-    real(kind=kind_noahmp)           :: SoilWatConductTmp(noahmp%config%domain%NumSoilLayer)      ! hydraulic conductivity [mm/s]
-    real(kind=kind_noahmp)           :: SoilMoisture(noahmp%config%domain%NumSoilLayer)           ! total soil water content [m3/m3]
+    real(kind=kind_noahmp), allocatable, dimension(:,:,:) :: ThicknessSoil          ! layer thickness [mm]
+    real(kind=kind_noahmp), allocatable, dimension(:,:,:) :: DepthSoilMid           ! node depth [m]
+    real(kind=kind_noahmp), allocatable, dimension(:,:,:) :: SoilLiqTmp             ! liquid water mass [kg/m2 or mm]
+    real(kind=kind_noahmp), allocatable, dimension(:,:,:) :: SoilEffPorosity        ! soil effective porosity
+    real(kind=kind_noahmp), allocatable, dimension(:,:,:) :: SoilWatConductTmp      ! hydraulic conductivity [mm/s]
+    real(kind=kind_noahmp), allocatable, dimension(:,:,:) :: SoilMoisture           ! total soil water content [m3/m3]
 
     associate(                                                                     &
               NumSoilLayer           => noahmp%config%domain%NumSoilLayer    ,& ! in,    number of soil layers
@@ -67,10 +67,17 @@ contains
               DischargeGw            => noahmp%water%flux%DischargeGw         & ! out,   groundwater discharge rate [mm/s]
              )
 
+    allocate(ThicknessSoil(noahmp%config%domain%ITS:noahmp%config%domain%ITE, 1:NumSoilLayer, noahmp%config%domain%JTS:noahmp%config%domain%JTE))
+    allocate(DepthSoilMid(noahmp%config%domain%ITS:noahmp%config%domain%ITE, 1:NumSoilLayer, noahmp%config%domain%JTS:noahmp%config%domain%JTE))
+    allocate(SoilLiqTmp(noahmp%config%domain%ITS:noahmp%config%domain%ITE, 1:NumSoilLayer, noahmp%config%domain%JTS:noahmp%config%domain%JTE))
+    allocate(SoilEffPorosity(noahmp%config%domain%ITS:noahmp%config%domain%ITE, 1:NumSoilLayer, noahmp%config%domain%JTS:noahmp%config%domain%JTE))
+    allocate(SoilWatConductTmp(noahmp%config%domain%ITS:noahmp%config%domain%ITE, 1:NumSoilLayer, noahmp%config%domain%JTS:noahmp%config%domain%JTE))
+    allocate(SoilMoisture(noahmp%config%domain%ITS:noahmp%config%domain%ITE, 1:NumSoilLayer, noahmp%config%domain%JTS:noahmp%config%domain%JTE))
+    !$acc data create(ThicknessSoil, DepthSoilMid, SoilLiqTmp, SoilEffPorosity, SoilWatConductTmp, SoilMoisture)
+
    !$acc parallel loop collapse(2) gang vector default(present) &
    !$acc private(LoopInd, IndUnsatSoil, SatDegUnsatSoil, SoilMatPotFrz, AquiferWatConduct) &
-   !$acc private(WaterHeadTbl, WaterHead, WaterFillPore, WatConductAcc, SoilMoistureMin, WaterExcessSat) &
-   !$acc private(ThicknessSoil, DepthSoilMid, SoilLiqTmp, SoilEffPorosity, SoilWatConductTmp, SoilMoisture)
+   !$acc private(WaterHeadTbl, WaterHead, WaterFillPore, WatConductAcc, SoilMoistureMin, WaterExcessSat)
     do J = noahmp%config%domain%JTS, noahmp%config%domain%JTE
       do I = noahmp%config%domain%ITS, noahmp%config%domain%ITE
          if ( noahmp%config%domain%IndicatorIceSfc(I,J) == -1 ) cycle  ! skip soil process for ice surface points
@@ -79,39 +86,39 @@ contains
     ! initialization
     !$acc loop seq
     do LoopInd = 1, NumSoilLayer
-      DepthSoilMid(LoopInd)      = 0.0
-      ThicknessSoil(LoopInd)     = 0.0
-      SoilLiqTmp(LoopInd)        = 0.0
-      SoilEffPorosity(LoopInd)   = 0.0
-      SoilWatConductTmp(LoopInd) = 0.0
-      SoilMoisture(LoopInd)      = 0.0
+      DepthSoilMid(I,LoopInd,J)      = 0.0
+      ThicknessSoil(I,LoopInd,J)     = 0.0
+      SoilLiqTmp(I,LoopInd,J)        = 0.0
+      SoilEffPorosity(I,LoopInd,J)   = 0.0
+      SoilWatConductTmp(I,LoopInd,J) = 0.0
+      SoilMoisture(I,LoopInd,J)      = 0.0
     enddo
 
     DischargeGw(I,J)       = 0.0
     RechargeGw(I,J)        = 0.0
 
     ! Derive layer-bottom depth in [mm]; KWM:Derive layer thickness in mm
-    ThicknessSoil(1) = -DepthSoilLayer(I,1,J) * 1.0e3
+    ThicknessSoil(I,1,J) = -DepthSoilLayer(I,1,J) * 1.0e3
     !$acc loop seq
     do LoopInd = 2, NumSoilLayer
-       ThicknessSoil(LoopInd) = 1.0e3 * (DepthSoilLayer(I,LoopInd-1,J) - DepthSoilLayer(I,LoopInd,J))
+       ThicknessSoil(I,LoopInd,J) = 1.0e3 * (DepthSoilLayer(I,LoopInd-1,J) - DepthSoilLayer(I,LoopInd,J))
     enddo
 
     ! Derive node (middle) depth in [m]; KWM: Positive number, depth below ground surface in m
-    DepthSoilMid(1) = -DepthSoilLayer(I,1,J) / 2.0
+    DepthSoilMid(I,1,J) = -DepthSoilLayer(I,1,J) / 2.0
     !$acc loop seq
     do LoopInd = 2, NumSoilLayer
-       DepthSoilMid(LoopInd) = -DepthSoilLayer(I,LoopInd-1,J) + &
+       DepthSoilMid(I,LoopInd,J) = -DepthSoilLayer(I,LoopInd-1,J) + &
                                0.5 * (DepthSoilLayer(I,LoopInd-1,J) - DepthSoilLayer(I,LoopInd,J))
     enddo
 
     ! Convert volumetric soil moisture to mass
     !$acc loop seq
     do LoopInd = 1, NumSoilLayer
-       SoilMoisture(LoopInd)   = SoilLiqWater(I,LoopInd,J) + SoilIce(I,LoopInd,J)
-       SoilLiqTmp(LoopInd)        = SoilLiqWater(I,LoopInd,J) * ThicknessSoil(LoopInd)
-       SoilEffPorosity(LoopInd)   = max(0.01, SoilMoistureSat(I,LoopInd,J)-SoilIce(I,LoopInd,J))
-       SoilWatConductTmp(LoopInd) = 1.0e3 * SoilWatConductivity(I,LoopInd,J)
+       SoilMoisture(I,LoopInd,J)   = SoilLiqWater(I,LoopInd,J) + SoilIce(I,LoopInd,J)
+       SoilLiqTmp(I,LoopInd,J)        = SoilLiqWater(I,LoopInd,J) * ThicknessSoil(I,LoopInd,J)
+       SoilEffPorosity(I,LoopInd,J)   = max(0.01, SoilMoistureSat(I,LoopInd,J)-SoilIce(I,LoopInd,J))
+       SoilWatConductTmp(I,LoopInd,J) = 1.0e3 * SoilWatConductivity(I,LoopInd,J)
     enddo
 
     ! The layer index of the first unsaturated layer (the layer right above the water table)
@@ -131,12 +138,12 @@ contains
     !                    exp(-GridTopoIndex) * exp(-RunoffDecayFac * (WaterTableDepth-2.0))
     ! Update from GY Niu 2022
     RunoffDecayFac(I,J)    = SoilExpCoeffB(I,IndUnsatSoil,J) / 3.0
-    BaseflowCoeff(I,J)     = SoilWatConductTmp(IndUnsatSoil) * 1.0e3 * exp(3.0)  ! [mm/s]
+    BaseflowCoeff(I,J)     = SoilWatConductTmp(I,IndUnsatSoil,J) * 1.0e3 * exp(3.0)  ! [mm/s]
     DischargeGw(I,J)       = (1.0 - SoilImpervFracMax(I,J)) * BaseflowCoeff(I,J) * exp(-GridTopoIndex(I,J)) * &
                         exp(-RunoffDecayFac(I,J) * WaterTableDepth(I,J))
 
     ! Matric potential at the layer above the water table
-    SatDegUnsatSoil   = min(1.0, SoilMoisture(IndUnsatSoil)/SoilMoistureSat(I,IndUnsatSoil,J))
+    SatDegUnsatSoil   = min(1.0, SoilMoisture(I,IndUnsatSoil,J)/SoilMoistureSat(I,IndUnsatSoil,J))
     SatDegUnsatSoil   = max(SatDegUnsatSoil, real(0.01,kind=8))
     if (SatDegUnsatSoil < 0.01) SatDegUnsatSoil = 0.01
     SoilMatPotFrz     = -SoilMatPotentialSat(I,IndUnsatSoil,J) * 1000.0 * &
@@ -144,12 +151,12 @@ contains
     SoilMatPotFrz     = max(-120000.0, MicroPoreContent(I,J)*SoilMatPotFrz)
 
     ! Recharge rate qin to groundwater
-    AquiferWatConduct = 2.0 * (SoilWatConductTmp(IndUnsatSoil) * SoilWatConductivitySat(I,IndUnsatSoil,J)*1.0e3) / &
-                        (SoilWatConductTmp(IndUnsatSoil) + SoilWatConductivitySat(I,IndUnsatSoil,J)*1.0e3)  ! harmonic average, GY Niu's update 2022
+    AquiferWatConduct = 2.0 * (SoilWatConductTmp(I,IndUnsatSoil,J) * SoilWatConductivitySat(I,IndUnsatSoil,J)*1.0e3) / &
+                        (SoilWatConductTmp(I,IndUnsatSoil,J) + SoilWatConductivitySat(I,IndUnsatSoil,J)*1.0e3)  ! harmonic average, GY Niu's update 2022
     WaterHeadTbl      = -WaterTableDepth(I,J) * 1.0e3                 !(mm)
-    WaterHead         = SoilMatPotFrz - DepthSoilMid(IndUnsatSoil) * 1.0e3   !(mm)
+    WaterHead         = SoilMatPotFrz - DepthSoilMid(I,IndUnsatSoil,J) * 1.0e3   !(mm)
     RechargeGw(I,J)        = -AquiferWatConduct * (WaterHeadTbl - WaterHead) / &
-                        ((WaterTableDepth(I,J)-DepthSoilMid(IndUnsatSoil)) * 1.0e3)
+                        ((WaterTableDepth(I,J)-DepthSoilMid(I,IndUnsatSoil,J)) * 1.0e3)
     RechargeGw(I,J)        = max(-10.0/SoilTimeStep, min(10.0/SoilTimeStep, RechargeGw(I,J)))
 
     ! Water storage in the aquifer + saturated soil
@@ -159,31 +166,31 @@ contains
        WaterStorageSoilAqf(I,J)      = WaterStorageAquifer(I,J)
        WaterTableDepth(I,J)          = (-DepthSoilLayer(I,NumSoilLayer,J) + 25.0) - &
                                   WaterStorageAquifer(I,J) / 1000.0 / SpecYieldGw(I,J)      !(m)
-       SoilLiqTmp(NumSoilLayer) = SoilLiqTmp(NumSoilLayer) - RechargeGw(I,J) * SoilTimeStep        ! [mm]
-       SoilLiqTmp(NumSoilLayer) = SoilLiqTmp(NumSoilLayer) + max(0.0, (WaterStorageAquifer(I,J)-5000.0))
+       SoilLiqTmp(I,NumSoilLayer,J) = SoilLiqTmp(I,NumSoilLayer,J) - RechargeGw(I,J) * SoilTimeStep        ! [mm]
+       SoilLiqTmp(I,NumSoilLayer,J) = SoilLiqTmp(I,NumSoilLayer,J) + max(0.0, (WaterStorageAquifer(I,J)-5000.0))
        WaterStorageAquifer(I,J)      = min(WaterStorageAquifer(I,J), 5000.0)
     else
        if ( IndUnsatSoil == NumSoilLayer-1 ) then
           WaterTableDepth(I,J) = -DepthSoilLayer(I,NumSoilLayer,J) - (WaterStorageSoilAqf(I,J) - SpecYieldGw(I,J)*1000.0*25.0) / &
-                                                            (SoilEffPorosity(NumSoilLayer)) / 1000.0
+                                                            (SoilEffPorosity(I,NumSoilLayer,J)) / 1000.0
        else
           WaterFillPore   = 0.0   ! water used to fill soil air pores
           !$acc loop seq
           do LoopInd = IndUnsatSoil+2, NumSoilLayer
-             WaterFillPore = WaterFillPore + SoilEffPorosity(LoopInd) * ThicknessSoil(LoopInd)
+             WaterFillPore = WaterFillPore + SoilEffPorosity(I,LoopInd,J) * ThicknessSoil(I,LoopInd,J)
           enddo
           WaterTableDepth(I,J)  = -DepthSoilLayer(I,IndUnsatSoil+1,J) - (WaterStorageSoilAqf(I,J) - SpecYieldGw(I,J)*1000.0*25.0 - &
-                                                                WaterFillPore) / (SoilEffPorosity(IndUnsatSoil+1)) / 1000.0
+                                                                WaterFillPore) / (SoilEffPorosity(I,IndUnsatSoil+1,J)) / 1000.0
        endif
        WatConductAcc = 0.0
        !$acc loop seq
        do LoopInd = 1, NumSoilLayer
-          WatConductAcc = WatConductAcc + SoilWatConductTmp(LoopInd) * ThicknessSoil(LoopInd)
+          WatConductAcc = WatConductAcc + SoilWatConductTmp(I,LoopInd,J) * ThicknessSoil(I,LoopInd,J)
        enddo
        !$acc loop seq
        do LoopInd = 1, NumSoilLayer           ! Removing subsurface runoff
-          SoilLiqTmp(LoopInd) = SoilLiqTmp(LoopInd) - DischargeGw(I,J) * SoilTimeStep * &
-                                                      SoilWatConductTmp(LoopInd) * ThicknessSoil(LoopInd) / WatConductAcc
+          SoilLiqTmp(I,LoopInd,J) = SoilLiqTmp(I,LoopInd,J) - DischargeGw(I,J) * SoilTimeStep * &
+                                                      SoilWatConductTmp(I,LoopInd,J) * ThicknessSoil(I,LoopInd,J) / WatConductAcc
        enddo
     endif
     WaterTableDepth(I,J) = max(1.5, WaterTableDepth(I,J))
@@ -193,34 +200,36 @@ contains
     SoilMoistureMin = 0.01
     !$acc loop seq
     do LoopInd = 1, NumSoilLayer-1
-       if ( SoilLiqTmp(LoopInd) < 0.0 ) then
-          WaterExcessSat = SoilMoistureMin - SoilLiqTmp(LoopInd)
+       if ( SoilLiqTmp(I,LoopInd,J) < 0.0 ) then
+          WaterExcessSat = SoilMoistureMin - SoilLiqTmp(I,LoopInd,J)
        else
           WaterExcessSat = 0.0
        endif
-       SoilLiqTmp(LoopInd  ) = SoilLiqTmp(LoopInd  ) + WaterExcessSat
-       SoilLiqTmp(LoopInd+1) = SoilLiqTmp(LoopInd+1) - WaterExcessSat
+       SoilLiqTmp(I,LoopInd,J) = SoilLiqTmp(I,LoopInd,J) + WaterExcessSat
+       SoilLiqTmp(I,LoopInd+1,J) = SoilLiqTmp(I,LoopInd+1,J) - WaterExcessSat
     enddo
     LoopInd = NumSoilLayer
-    if ( SoilLiqTmp(LoopInd) < SoilMoistureMin ) then
-       WaterExcessSat   = SoilMoistureMin - SoilLiqTmp(LoopInd)
+    if ( SoilLiqTmp(I,LoopInd,J) < SoilMoistureMin ) then
+       WaterExcessSat   = SoilMoistureMin - SoilLiqTmp(I,LoopInd,J)
     else
        WaterExcessSat   = 0.0
     endif
-    SoilLiqTmp(LoopInd) = SoilLiqTmp(LoopInd) + WaterExcessSat
+    SoilLiqTmp(I,LoopInd,J) = SoilLiqTmp(I,LoopInd,J) + WaterExcessSat
     WaterStorageAquifer(I,J) = WaterStorageAquifer(I,J) - WaterExcessSat
     WaterStorageSoilAqf(I,J) = WaterStorageSoilAqf(I,J) - WaterExcessSat
 
     ! update soil moisture
     !$acc loop seq
     do LoopInd = 1, NumSoilLayer
-        SoilLiqWater(I,LoopInd,J) = SoilLiqTmp(LoopInd) / ThicknessSoil(LoopInd)
+        SoilLiqWater(I,LoopInd,J) = SoilLiqTmp(I,LoopInd,J) / ThicknessSoil(I,LoopInd,J)
     enddo
 
 
       end do
     end do
    !$acc end parallel loop
+    !$acc end data
+    deallocate(ThicknessSoil, DepthSoilMid, SoilLiqTmp, SoilEffPorosity, SoilWatConductTmp, SoilMoisture)
 
 
     end associate

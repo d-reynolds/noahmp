@@ -30,9 +30,9 @@ contains
     ! local variables 
     integer                            :: I, J
     integer                            :: IndexSoilLayer, LoopInd
-    real(kind=kind_noahmp) :: SoilSand(1:noahmp%config%domain%NumSoilLayer)
-    real(kind=kind_noahmp) :: SoilClay(1:noahmp%config%domain%NumSoilLayer)
-    real(kind=kind_noahmp) :: SoilOrg(1:noahmp%config%domain%NumSoilLayer)
+    real(kind=kind_noahmp), allocatable, dimension(:,:,:) :: SoilSand
+    real(kind=kind_noahmp), allocatable, dimension(:,:,:) :: SoilClay
+    real(kind=kind_noahmp), allocatable, dimension(:,:,:) :: SoilOrg
 
     associate(                                                         &
               NumSnowLayerMax => noahmp%config%domain%NumSnowLayerMax ,&
@@ -44,7 +44,18 @@ contains
               NumSnowLayerNeg => noahmp%config%domain%NumSnowLayerNeg  &
              )
 
-    !$acc parallel loop collapse(2) default(present) private(IndexSoilLayer, SoilSand, SoilClay, SoilOrg) &
+    allocate(SoilSand(noahmp%config%domain%ITS:noahmp%config%domain%ITE, &
+                      1:NumSoilLayer, &
+                      noahmp%config%domain%JTS:noahmp%config%domain%JTE))
+    allocate(SoilClay(noahmp%config%domain%ITS:noahmp%config%domain%ITE, &
+                      1:NumSoilLayer, &
+                      noahmp%config%domain%JTS:noahmp%config%domain%JTE))
+    allocate(SoilOrg(noahmp%config%domain%ITS:noahmp%config%domain%ITE, &
+                     1:NumSoilLayer, &
+                     noahmp%config%domain%JTS:noahmp%config%domain%JTE))
+    !$acc data create(SoilSand, SoilClay, SoilOrg)
+
+    !$acc parallel loop collapse(2) default(present) private(IndexSoilLayer) &
     !$acc private(LoopInd)
     do J = noahmp%config%domain%JTS, noahmp%config%domain%JTE
       do I = noahmp%config%domain%ITS, noahmp%config%domain%ITE
@@ -315,20 +326,25 @@ contains
     if ( (noahmp%config%nmlist%OptSoilProperty == 3) .and. (.not. noahmp%config%domain%FlagUrban(I,J)) ) then
        !$acc loop seq
        do LoopInd = 1, NumSoilLayer
-         SoilSand(LoopInd) = 0.01 * NoahmpIO%soilcomp(I,LoopInd,J)
-         SoilClay(LoopInd) = 0.01 * NoahmpIO%soilcomp(I,NumSoilLayer+LoopInd,J)
-         SoilOrg(LoopInd)  = 0.0
+         SoilSand(I,LoopInd,J) = 0.01 * NoahmpIO%soilcomp(I,LoopInd,J)
+         SoilClay(I,LoopInd,J) = 0.01 * NoahmpIO%soilcomp(I,NumSoilLayer+LoopInd,J)
+         SoilOrg(I,LoopInd,J)  = 0.0
        end do
        if (noahmp%config%nmlist%OptPedotransfer == 1) &
-          call PedoTransferSR2006(NoahmpIO,noahmp,SoilSand,SoilClay,SoilOrg,I,J)
+          call PedoTransferSR2006(NoahmpIO,noahmp,SoilSand(I,:,J),SoilClay(I,:,J),SoilOrg(I,:,J),I,J)
     endif
 
 
       enddo
    enddo
 
+    !$acc end data
+    deallocate(SoilSand)
+    deallocate(SoilClay)
+    deallocate(SoilOrg)
+
     if ( noahmp%config%nmlist%OptSnowAlbedo == 3 )then
-       !$acc loop gang vector collapse(3)
+       !$acc parallel loop collapse(3) default(present)
        do I = 1, noahmp%config%domain%NumTempSnwAgeSnicar
        do LoopInd = 1, noahmp%config%domain%NumTempGradSnwAgeSnicar
        do J = 1, noahmp%config%domain%NumDensitySnwAgeSnicar

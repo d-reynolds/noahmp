@@ -43,10 +43,10 @@ contains
     real(kind=kind_noahmp)           :: TileDrainTmp                           ! temporary drainage discharge
     real(kind=kind_noahmp)           :: DrainDepthToImpTmp                     ! drain depth to impermeable layer
     real(kind=kind_noahmp)           :: WatExcFieldCapTot                      ! amount of water over field capacity
-    real(kind=kind_noahmp)           :: ThickSatZone(1:noahmp%config%domain%NumSoilLayer)            ! thickness of saturated zone
-    real(kind=kind_noahmp)           :: LateralWatCondTmp(1:noahmp%config%domain%NumSoilLayer)       ! lateral hydraulic conductivity kth layer
-    real(kind=kind_noahmp)           :: WatExcFieldCapTmp(1:noahmp%config%domain%NumSoilLayer)       ! layer-wise amount of water over field capacity
-    real(kind=kind_noahmp)           :: SoilLiqWaterAftDrain(1:noahmp%config%domain%NumSoilLayer)    ! remaining water after tile drain
+    real(kind=kind_noahmp), allocatable, dimension(:,:,:) :: ThickSatZone
+    real(kind=kind_noahmp), allocatable, dimension(:,:,:) :: LateralWatCondTmp
+    real(kind=kind_noahmp), allocatable, dimension(:,:,:) :: WatExcFieldCapTmp
+    real(kind=kind_noahmp), allocatable, dimension(:,:,:) :: SoilLiqWaterAftDrain
 
 ! ----------------------------------------------------------------------------
 
@@ -77,12 +77,17 @@ contains
                   TileDrain            => noahmp%water%flux%TileDrain         & ! inout, tile drainage [mm/s]
                  )
 
+    allocate(ThickSatZone(noahmp%config%domain%ITS:noahmp%config%domain%ITE, 1:NumSoilLayer, noahmp%config%domain%JTS:noahmp%config%domain%JTE))
+    allocate(LateralWatCondTmp(noahmp%config%domain%ITS:noahmp%config%domain%ITE, 1:NumSoilLayer, noahmp%config%domain%JTS:noahmp%config%domain%JTE))
+    allocate(WatExcFieldCapTmp(noahmp%config%domain%ITS:noahmp%config%domain%ITE, 1:NumSoilLayer, noahmp%config%domain%JTS:noahmp%config%domain%JTE))
+    allocate(SoilLiqWaterAftDrain(noahmp%config%domain%ITS:noahmp%config%domain%ITE, 1:NumSoilLayer, noahmp%config%domain%JTS:noahmp%config%domain%JTE))
+    !$acc data create(ThickSatZone, LateralWatCondTmp, WatExcFieldCapTmp, SoilLiqWaterAftDrain)
+
     !$acc parallel loop collapse(2) gang vector default(present) &
     !$acc private(IndSoil, NumDrain, ThickSatZoneTot, LateralFlow, DepthToLayerTop) &
     !$acc private(WatTblTmp1, WatTblTmp2, LateralWatCondAve, DrainWatHgtAbvImp) &
     !$acc private(DepthSfcToImp, HgtDrnToWatTbl, DrainCoeffTmp, TileDrainTmp) &
-    !$acc private(DrainDepthToImpTmp, WatExcFieldCapTot) &
-    !$acc private(ThickSatZone, LateralWatCondTmp, WatExcFieldCapTmp, SoilLiqWaterAftDrain)
+    !$acc private(DrainDepthToImpTmp, WatExcFieldCapTot)
     do J = noahmp%config%domain%JTS, noahmp%config%domain%JTE
       do I = noahmp%config%domain%ITS, noahmp%config%domain%ITE
 
@@ -95,10 +100,13 @@ contains
          do IndSoil = 1, NumSoilLayer
             ThicknessSoilLayer(I,IndSoil,J)  = 0.0
          enddo
-        ThickSatZone         = 0.0
-        LateralWatCondTmp    = 0.0
-        WatExcFieldCapTmp    = 0.0
-        SoilLiqWaterAftDrain = 0.0
+        !$acc loop seq
+        do IndSoil = 1, NumSoilLayer
+           ThickSatZone(I,IndSoil,J)         = 0.0
+           LateralWatCondTmp(I,IndSoil,J)    = 0.0
+           WatExcFieldCapTmp(I,IndSoil,J)    = 0.0
+           SoilLiqWaterAftDrain(I,IndSoil,J) = 0.0
+        enddo
         DepthToLayerTop      = 0.0
         LateralFlow          = 0.0
         ThickSatZoneTot      = 0.0
@@ -127,11 +135,11 @@ contains
         !$acc loop seq
         do IndSoil = 1, NumSoilLayer
            if ( WatTblTmp2 > (-1.0*DepthSoilLayer(I,IndSoil,J)) ) then
-              ThickSatZone(IndSoil) = 0.0
+              ThickSatZone(I,IndSoil,J) = 0.0
            else
-              ThickSatZone(IndSoil) = (-1.0 * DepthSoilLayer(I,IndSoil,J)) - WatTblTmp2
+              ThickSatZone(I,IndSoil,J) = (-1.0 * DepthSoilLayer(I,IndSoil,J)) - WatTblTmp2
               WatTblTmp1            = (-1.0 * DepthSoilLayer(I,IndSoil,J)) - DepthToLayerTop
-              if ( ThickSatZone(IndSoil) > WatTblTmp1 ) ThickSatZone(IndSoil) = WatTblTmp1
+              if ( ThickSatZone(I,IndSoil,J) > WatTblTmp1 ) ThickSatZone(I,IndSoil,J) = WatTblTmp1
            endif
            DepthToLayerTop = -1.0 * DepthSoilLayer(I,IndSoil,J)
         enddo
@@ -140,18 +148,18 @@ contains
         WatExcFieldCapTot = 0.0
         !$acc loop seq
         do IndSoil = 1, NumSoilLayer
-           WatExcFieldCapTmp(IndSoil) = (SoilLiqWater(I,IndSoil,J) - (SoilMoistureFieldCap(I,IndSoil,J)-SoilIce(I,IndSoil,J))) * &
+           WatExcFieldCapTmp(I,IndSoil,J) = (SoilLiqWater(I,IndSoil,J) - (SoilMoistureFieldCap(I,IndSoil,J)-SoilIce(I,IndSoil,J))) * &
                                         ThicknessSoilLayer(I,IndSoil,J) * 1000.0
-           if ( WatExcFieldCapTmp(IndSoil) < 0.0 ) WatExcFieldCapTmp(IndSoil) = 0.0
-           WatExcFieldCapTot = WatExcFieldCapTot + WatExcFieldCapTmp(IndSoil)
+           if ( WatExcFieldCapTmp(I,IndSoil,J) < 0.0 ) WatExcFieldCapTmp(I,IndSoil,J) = 0.0
+           WatExcFieldCapTot = WatExcFieldCapTot + WatExcFieldCapTmp(I,IndSoil,J)
         enddo
 
         ! lateral hydraulic conductivity and total lateral flow
         !$acc loop seq
         do IndSoil = 1, NumSoilLayer
-           LateralWatCondTmp(IndSoil) = SoilWatConductivity(I,IndSoil,J) * LateralWatCondFac(I,J) * SoilTimeStep  ! m/s to m/timestep
-           LateralFlow                = LateralFlow + (ThickSatZone(IndSoil) * LateralWatCondTmp(IndSoil))
-           ThickSatZoneTot            = ThickSatZoneTot + ThickSatZone(IndSoil)
+           LateralWatCondTmp(I,IndSoil,J) = SoilWatConductivity(I,IndSoil,J) * LateralWatCondFac(I,J) * SoilTimeStep  ! m/s to m/timestep
+           LateralFlow                = LateralFlow + (ThickSatZone(I,IndSoil,J) * LateralWatCondTmp(I,IndSoil,J))
+           ThickSatZoneTot            = ThickSatZoneTot + ThickSatZone(I,IndSoil,J)
         enddo
         if ( ThickSatZoneTot < 0.001 ) ThickSatZoneTot = 0.001                                               ! unit is m
         if ( LateralFlow < 0.001 )     LateralFlow     = 0.0                                                 ! unit is m
@@ -180,17 +188,17 @@ contains
         !$acc loop seq
         do IndSoil = 1, NumSoilLayer
            if ( TileDrainTmp > 0.0) then
-              if ( (ThickSatZone(IndSoil) > 0.0) .and. (WatExcFieldCapTmp(IndSoil) > 0.0) ) then
-                 SoilLiqWaterAftDrain(IndSoil) = WatExcFieldCapTmp(IndSoil) - TileDrainTmp                    ! remaining water after tile drain
-                 if ( SoilLiqWaterAftDrain(IndSoil) > 0.0 ) then
+              if ( (ThickSatZone(I,IndSoil,J) > 0.0) .and. (WatExcFieldCapTmp(I,IndSoil,J) > 0.0) ) then
+                 SoilLiqWaterAftDrain(I,IndSoil,J) = WatExcFieldCapTmp(I,IndSoil,J) - TileDrainTmp                    ! remaining water after tile drain
+                 if ( SoilLiqWaterAftDrain(I,IndSoil,J) > 0.0 ) then
                     SoilLiqWater(I,IndSoil,J) = (SoilMoistureFieldCap(I,IndSoil,J) - SoilIce(I,IndSoil,J)) + &
-                                                 SoilLiqWaterAftDrain(IndSoil) / (ThicknessSoilLayer(I,IndSoil,J) * 1000.0)
+                                                 SoilLiqWaterAftDrain(I,IndSoil,J) / (ThicknessSoilLayer(I,IndSoil,J) * 1000.0)
                     SoilMoisture(I,IndSoil,J) = SoilLiqWater(I,IndSoil,J) + SoilIce(I,IndSoil,J)
                     exit
                  else
                     SoilLiqWater(I,IndSoil,J) = SoilMoistureFieldCap(I,IndSoil,J) - SoilIce(I,IndSoil,J)
                     SoilMoisture(I,IndSoil,J) = SoilLiqWater(I,IndSoil,J) + SoilIce(I,IndSoil,J)
-                    TileDrainTmp              = TileDrainTmp - WatExcFieldCapTmp(IndSoil)
+                    TileDrainTmp              = TileDrainTmp - WatExcFieldCapTmp(I,IndSoil,J)
                  endif
               endif
            endif
@@ -202,6 +210,8 @@ contains
       end do
     end do
     !$acc end parallel loop
+    !$acc end data
+    deallocate(ThickSatZone, LateralWatCondTmp, WatExcFieldCapTmp, SoilLiqWaterAftDrain)
 
 
         end associate

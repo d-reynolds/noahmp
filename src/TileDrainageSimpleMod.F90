@@ -29,9 +29,9 @@ contains
     real(kind=kind_noahmp)           :: DrainWatVolTot                    ! temporary variable for drainage volume [mm]
     real(kind=kind_noahmp)           :: DrainCoeffTmp                     ! temporary variable for drainage
     real(kind=kind_noahmp)           :: DrainWatTmp                       ! temporary variable for drainage
-    real(kind=kind_noahmp)           :: WatExcFieldCap(1:noahmp%config%domain%NumSoilLayer)     ! temp variable for volume of water above field capacity
-    real(kind=kind_noahmp)           :: SoilFieldCapLiq(1:noahmp%config%domain%NumSoilLayer)    ! Available field capacity = field capacity - SoilIce [m3/m3]
-    real(kind=kind_noahmp)           :: DrainFracTmp(1:noahmp%config%domain%NumSoilLayer)       ! tile drainage fraction
+    real(kind=kind_noahmp), allocatable, dimension(:,:,:) :: WatExcFieldCap
+    real(kind=kind_noahmp), allocatable, dimension(:,:,:) :: SoilFieldCapLiq
+    real(kind=kind_noahmp), allocatable, dimension(:,:,:) :: DrainFracTmp
 
 ! --------------------------------------------------------------------
         associate(                                                                 &
@@ -50,9 +50,13 @@ contains
                   TileDrain            => noahmp%water%flux%TileDrain         & ! out,   tile drainage [mm/s]
                  )
 
+    allocate(WatExcFieldCap(noahmp%config%domain%ITS:noahmp%config%domain%ITE, 1:NumSoilLayer, noahmp%config%domain%JTS:noahmp%config%domain%JTE))
+    allocate(SoilFieldCapLiq(noahmp%config%domain%ITS:noahmp%config%domain%ITE, 1:NumSoilLayer, noahmp%config%domain%JTS:noahmp%config%domain%JTE))
+    allocate(DrainFracTmp(noahmp%config%domain%ITS:noahmp%config%domain%ITE, 1:NumSoilLayer, noahmp%config%domain%JTS:noahmp%config%domain%JTE))
+    !$acc data create(WatExcFieldCap, SoilFieldCapLiq, DrainFracTmp)
+
     !$acc parallel loop collapse(2) gang vector default(present) &
-    !$acc private(IndSoil, DrainWatVolTot, DrainCoeffTmp, DrainWatTmp) &
-    !$acc private(WatExcFieldCap, SoilFieldCapLiq, DrainFracTmp)
+    !$acc private(IndSoil, DrainWatVolTot, DrainCoeffTmp, DrainWatTmp)
     do J = noahmp%config%domain%JTS, noahmp%config%domain%JTE
       do I = noahmp%config%domain%ITS, noahmp%config%domain%ITE
 
@@ -64,10 +68,13 @@ contains
          do IndSoil = 1, NumSoilLayer
             ThicknessSoilLayer(I,IndSoil,J)  = 0.0
          enddo
-        DrainFracTmp          = 0.0
-        SoilFieldCapLiq       = 0.0
+        !$acc loop seq
+        do IndSoil = 1, NumSoilLayer
+           DrainFracTmp(I,IndSoil,J)    = 0.0
+           SoilFieldCapLiq(I,IndSoil,J) = 0.0
+           WatExcFieldCap(I,IndSoil,J)  = 0.0
+        enddo
         DrainWatVolTot        = 0.0
-        WatExcFieldCap        = 0.0
         TileDrain(I,J)             = 0.0
         DrainWatTmp           = 0.0
         DrainCoeffTmp         = TileDrainCoeffSp(I,J) * SoilTimeStep / (24.0 * 3600.0)
@@ -83,29 +90,29 @@ contains
 
         if ( DrainSoilLayerInd(I,J) == 0 ) then ! drainage from one specified layer in NoahmpTable.TBL
            IndSoil                  = int(TileDrainTubeDepth(I,J))
-           SoilFieldCapLiq(IndSoil) = SoilMoistureFieldCap(I,IndSoil,J) - SoilIce(I,IndSoil,J)
-           WatExcFieldCap(IndSoil)  = (SoilLiqWater(I,IndSoil,J) - (DrainFacSoilWat(I,J)*SoilFieldCapLiq(IndSoil))) * &
+           SoilFieldCapLiq(I,IndSoil,J) = SoilMoistureFieldCap(I,IndSoil,J) - SoilIce(I,IndSoil,J)
+           WatExcFieldCap(I,IndSoil,J)  = (SoilLiqWater(I,IndSoil,J) - (DrainFacSoilWat(I,J)*SoilFieldCapLiq(I,IndSoil,J))) * &
                                       ThicknessSoilLayer(I,IndSoil,J) * 1000.0 ! mm
-           if ( WatExcFieldCap(IndSoil) > 0.0 ) then
-              if ( WatExcFieldCap(IndSoil) > DrainCoeffTmp ) WatExcFieldCap(IndSoil) = DrainCoeffTmp
-              DrainWatVolTot            = DrainWatVolTot  + WatExcFieldCap(IndSoil)
+           if ( WatExcFieldCap(I,IndSoil,J) > 0.0 ) then
+              if ( WatExcFieldCap(I,IndSoil,J) > DrainCoeffTmp ) WatExcFieldCap(I,IndSoil,J) = DrainCoeffTmp
+              DrainWatVolTot            = DrainWatVolTot  + WatExcFieldCap(I,IndSoil,J)
               SoilLiqWater(I,IndSoil,J) = SoilLiqWater(I,IndSoil,J) - &
-                                          (WatExcFieldCap(IndSoil) / (ThicknessSoilLayer(I,IndSoil,J) * 1000.0))
+                                          (WatExcFieldCap(I,IndSoil,J) / (ThicknessSoilLayer(I,IndSoil,J) * 1000.0))
               SoilMoisture(I,IndSoil,J) = SoilLiqWater(I,IndSoil,J) + SoilIce(I,IndSoil,J)
            endif
         else if ( DrainSoilLayerInd(I,J) == 1 ) then
            !$acc loop seq
            do IndSoil = 1, 2
-              SoilFieldCapLiq(IndSoil) = SoilMoistureFieldCap(I,IndSoil,J) - SoilIce(I,IndSoil,J)
-              WatExcFieldCap(IndSoil)  = (SoilLiqWater(I,IndSoil,J) - (DrainFacSoilWat(I,J)*SoilFieldCapLiq(IndSoil))) * &
+              SoilFieldCapLiq(I,IndSoil,J) = SoilMoistureFieldCap(I,IndSoil,J) - SoilIce(I,IndSoil,J)
+              WatExcFieldCap(I,IndSoil,J)  = (SoilLiqWater(I,IndSoil,J) - (DrainFacSoilWat(I,J)*SoilFieldCapLiq(I,IndSoil,J))) * &
                                          ThicknessSoilLayer(I,IndSoil,J) * 1000.0 ! mm
-              if ( WatExcFieldCap(IndSoil) < 0.0 ) WatExcFieldCap(IndSoil) = 0.0
-              DrainWatTmp = DrainWatTmp + WatExcFieldCap(IndSoil)
+              if ( WatExcFieldCap(I,IndSoil,J) < 0.0 ) WatExcFieldCap(I,IndSoil,J) = 0.0
+              DrainWatTmp = DrainWatTmp + WatExcFieldCap(I,IndSoil,J)
            enddo
            !$acc loop seq
            do IndSoil = 1, 2
-              if ( WatExcFieldCap(IndSoil) /= 0.0 ) then
-                 DrainFracTmp(IndSoil) = WatExcFieldCap(IndSoil) / DrainWatTmp
+              if ( WatExcFieldCap(I,IndSoil,J) /= 0.0 ) then
+                 DrainFracTmp(I,IndSoil,J) = WatExcFieldCap(I,IndSoil,J) / DrainWatTmp
               endif
            enddo
            if ( DrainWatTmp > 0.0 ) then
@@ -113,25 +120,25 @@ contains
               DrainWatVolTot = DrainWatVolTot + DrainWatTmp
               !$acc loop seq
               do IndSoil = 1, 2
-                 WatExcFieldCap(IndSoil)   = DrainFracTmp(IndSoil) * DrainWatTmp
+                 WatExcFieldCap(I,IndSoil,J)   = DrainFracTmp(I,IndSoil,J) * DrainWatTmp
                  SoilLiqWater(I,IndSoil,J) = SoilLiqWater(I,IndSoil,J) - &
-                                             (WatExcFieldCap(IndSoil) / (ThicknessSoilLayer(I,IndSoil,J) * 1000.0))
+                                             (WatExcFieldCap(I,IndSoil,J) / (ThicknessSoilLayer(I,IndSoil,J) * 1000.0))
                  SoilMoisture(I,IndSoil,J) = SoilLiqWater(I,IndSoil,J) + SoilIce(I,IndSoil,J)
               enddo
            endif
         else if ( DrainSoilLayerInd(I,J) == 2 ) then
            !$acc loop seq
            do IndSoil = 1, 3
-              SoilFieldCapLiq(IndSoil) = SoilMoistureFieldCap(I,IndSoil,J) - SoilIce(I,IndSoil,J)
-              WatExcFieldCap(IndSoil)  = (SoilLiqWater(I,IndSoil,J) - (DrainFacSoilWat(I,J)*SoilFieldCapLiq(IndSoil))) * &
+              SoilFieldCapLiq(I,IndSoil,J) = SoilMoistureFieldCap(I,IndSoil,J) - SoilIce(I,IndSoil,J)
+              WatExcFieldCap(I,IndSoil,J)  = (SoilLiqWater(I,IndSoil,J) - (DrainFacSoilWat(I,J)*SoilFieldCapLiq(I,IndSoil,J))) * &
                                          ThicknessSoilLayer(I,IndSoil,J) * 1000.0
-              if ( WatExcFieldCap(IndSoil) < 0.0 ) WatExcFieldCap(IndSoil) = 0.0
-              DrainWatTmp = DrainWatTmp + WatExcFieldCap(IndSoil)
+              if ( WatExcFieldCap(I,IndSoil,J) < 0.0 ) WatExcFieldCap(I,IndSoil,J) = 0.0
+              DrainWatTmp = DrainWatTmp + WatExcFieldCap(I,IndSoil,J)
            enddo
            !$acc loop seq
            do IndSoil = 1, 3
-              if ( WatExcFieldCap(IndSoil) /= 0.0 ) then
-                 DrainFracTmp(IndSoil) = WatExcFieldCap(IndSoil) / DrainWatTmp
+              if ( WatExcFieldCap(I,IndSoil,J) /= 0.0 ) then
+                 DrainFracTmp(I,IndSoil,J) = WatExcFieldCap(I,IndSoil,J) / DrainWatTmp
               endif
            enddo
            if ( DrainWatTmp > 0.0 ) then
@@ -139,25 +146,25 @@ contains
               DrainWatVolTot = DrainWatVolTot + DrainWatTmp
               !$acc loop seq
               do IndSoil = 1, 3
-                 WatExcFieldCap(IndSoil)   = DrainFracTmp(IndSoil) * DrainWatTmp
+                 WatExcFieldCap(I,IndSoil,J)   = DrainFracTmp(I,IndSoil,J) * DrainWatTmp
                  SoilLiqWater(I,IndSoil,J) = SoilLiqWater(I,IndSoil,J) - &
-                                             (WatExcFieldCap(IndSoil) / (ThicknessSoilLayer(I,IndSoil,J) * 1000.0))
+                                             (WatExcFieldCap(I,IndSoil,J) / (ThicknessSoilLayer(I,IndSoil,J) * 1000.0))
                  SoilMoisture(I,IndSoil,J) = SoilLiqWater(I,IndSoil,J) + SoilIce(I,IndSoil,J)
               enddo
            endif
         else if ( DrainSoilLayerInd(I,J) == 3 ) then
            !$acc loop seq
            do IndSoil = 2, 3
-              SoilFieldCapLiq(IndSoil) = SoilMoistureFieldCap(I,IndSoil,J) - SoilIce(I,IndSoil,J)
-              WatExcFieldCap(IndSoil)  = (SoilLiqWater(I,IndSoil,J) - (DrainFacSoilWat(I,J)*SoilFieldCapLiq(IndSoil))) * &
+              SoilFieldCapLiq(I,IndSoil,J) = SoilMoistureFieldCap(I,IndSoil,J) - SoilIce(I,IndSoil,J)
+              WatExcFieldCap(I,IndSoil,J)  = (SoilLiqWater(I,IndSoil,J) - (DrainFacSoilWat(I,J)*SoilFieldCapLiq(I,IndSoil,J))) * &
                                          ThicknessSoilLayer(I,IndSoil,J) * 1000.0
-              if ( WatExcFieldCap(IndSoil) < 0.0 ) WatExcFieldCap(IndSoil) = 0.0
-              DrainWatTmp = DrainWatTmp + WatExcFieldCap(IndSoil)
+              if ( WatExcFieldCap(I,IndSoil,J) < 0.0 ) WatExcFieldCap(I,IndSoil,J) = 0.0
+              DrainWatTmp = DrainWatTmp + WatExcFieldCap(I,IndSoil,J)
            enddo
            !$acc loop seq
            do IndSoil = 2, 3
-              if ( WatExcFieldCap(IndSoil) /= 0.0 ) then
-                 DrainFracTmp(IndSoil) = WatExcFieldCap(IndSoil) / DrainWatTmp
+              if ( WatExcFieldCap(I,IndSoil,J) /= 0.0 ) then
+                 DrainFracTmp(I,IndSoil,J) = WatExcFieldCap(I,IndSoil,J) / DrainWatTmp
               endif
            enddo
            if ( DrainWatTmp > 0.0 ) then
@@ -165,25 +172,25 @@ contains
               DrainWatVolTot = DrainWatVolTot + DrainWatTmp
               !$acc loop seq
               do IndSoil = 2, 3
-                 WatExcFieldCap(IndSoil)   = DrainFracTmp(IndSoil) * DrainWatTmp
+                 WatExcFieldCap(I,IndSoil,J)   = DrainFracTmp(I,IndSoil,J) * DrainWatTmp
                  SoilLiqWater(I,IndSoil,J) = SoilLiqWater(I,IndSoil,J) - &
-                                             (WatExcFieldCap(IndSoil) / (ThicknessSoilLayer(I,IndSoil,J) * 1000.0))
+                                             (WatExcFieldCap(I,IndSoil,J) / (ThicknessSoilLayer(I,IndSoil,J) * 1000.0))
                  SoilMoisture(I,IndSoil,J) = SoilLiqWater(I,IndSoil,J) + SoilIce(I,IndSoil,J)
               enddo
            endif
         else if ( DrainSoilLayerInd(I,J) == 4 ) then
            !$acc loop seq
            do IndSoil = 3, 4
-              SoilFieldCapLiq(IndSoil) = SoilMoistureFieldCap(I,IndSoil,J) - SoilIce(I,IndSoil,J)
-              WatExcFieldCap(IndSoil)  = (SoilLiqWater(I,IndSoil,J) - (DrainFacSoilWat(I,J)*SoilFieldCapLiq(IndSoil))) * &
+              SoilFieldCapLiq(I,IndSoil,J) = SoilMoistureFieldCap(I,IndSoil,J) - SoilIce(I,IndSoil,J)
+              WatExcFieldCap(I,IndSoil,J)  = (SoilLiqWater(I,IndSoil,J) - (DrainFacSoilWat(I,J)*SoilFieldCapLiq(I,IndSoil,J))) * &
                                          ThicknessSoilLayer(I,IndSoil,J) * 1000.0
-              if ( WatExcFieldCap(IndSoil) < 0.0 ) WatExcFieldCap(IndSoil) = 0.0
-              DrainWatTmp = DrainWatTmp + WatExcFieldCap(IndSoil)
+              if ( WatExcFieldCap(I,IndSoil,J) < 0.0 ) WatExcFieldCap(I,IndSoil,J) = 0.0
+              DrainWatTmp = DrainWatTmp + WatExcFieldCap(I,IndSoil,J)
            enddo
            !$acc loop seq
            do IndSoil = 3, 4
-              if ( WatExcFieldCap(IndSoil) /= 0.0 ) then
-                 DrainFracTmp(IndSoil) = WatExcFieldCap(IndSoil) / DrainWatTmp
+              if ( WatExcFieldCap(I,IndSoil,J) /= 0.0 ) then
+                 DrainFracTmp(I,IndSoil,J) = WatExcFieldCap(I,IndSoil,J) / DrainWatTmp
               endif
            enddo
            if ( DrainWatTmp > 0.0 ) then
@@ -191,8 +198,8 @@ contains
               DrainWatVolTot = DrainWatVolTot + DrainWatTmp
               !$acc loop seq
               do IndSoil = 3, 4
-                 WatExcFieldCap(IndSoil)   = DrainFracTmp(IndSoil) * DrainWatTmp
-                 SoilLiqWater(I,IndSoil,J) = SoilLiqWater(I,IndSoil,J) - (WatExcFieldCap(IndSoil) / &
+                 WatExcFieldCap(I,IndSoil,J)   = DrainFracTmp(I,IndSoil,J) * DrainWatTmp
+                 SoilLiqWater(I,IndSoil,J) = SoilLiqWater(I,IndSoil,J) - (WatExcFieldCap(I,IndSoil,J) / &
                                              (ThicknessSoilLayer(I,IndSoil,J) * 1000.0))
                  SoilMoisture(I,IndSoil,J) = SoilLiqWater(I,IndSoil,J) + SoilIce(I,IndSoil,J)
               enddo
@@ -200,16 +207,16 @@ contains
         else if ( DrainSoilLayerInd(I,J) == 5 ) then ! from all the four layers
            !$acc loop seq
            do IndSoil = 1, 4
-              SoilFieldCapLiq(IndSoil) = SoilMoistureFieldCap(I,IndSoil,J) - SoilIce(I,IndSoil,J)
-              WatExcFieldCap(IndSoil)  = (SoilLiqWater(I,IndSoil,J) - (DrainFacSoilWat(I,J)*SoilFieldCapLiq(IndSoil))) * &
+              SoilFieldCapLiq(I,IndSoil,J) = SoilMoistureFieldCap(I,IndSoil,J) - SoilIce(I,IndSoil,J)
+              WatExcFieldCap(I,IndSoil,J)  = (SoilLiqWater(I,IndSoil,J) - (DrainFacSoilWat(I,J)*SoilFieldCapLiq(I,IndSoil,J))) * &
                                          ThicknessSoilLayer(I,IndSoil,J) * 1000.0
-              if ( WatExcFieldCap(IndSoil) < 0.0 ) WatExcFieldCap(IndSoil) = 0.0
-              DrainWatTmp = DrainWatTmp + WatExcFieldCap(IndSoil)
+              if ( WatExcFieldCap(I,IndSoil,J) < 0.0 ) WatExcFieldCap(I,IndSoil,J) = 0.0
+              DrainWatTmp = DrainWatTmp + WatExcFieldCap(I,IndSoil,J)
            enddo
            !$acc loop seq
            do IndSoil = 1, 4
-              if ( WatExcFieldCap(IndSoil) /= 0.0 ) then
-                 DrainFracTmp(IndSoil) = WatExcFieldCap(IndSoil) / DrainWatTmp
+              if ( WatExcFieldCap(I,IndSoil,J) /= 0.0 ) then
+                 DrainFracTmp(I,IndSoil,J) = WatExcFieldCap(I,IndSoil,J) / DrainWatTmp
               endif
            enddo
            if ( DrainWatTmp > 0.0 ) then
@@ -217,8 +224,8 @@ contains
               DrainWatVolTot = DrainWatVolTot + DrainWatTmp
               !$acc loop seq
               do IndSoil = 1, 4
-                 WatExcFieldCap(IndSoil)   = DrainFracTmp(IndSoil) * DrainWatTmp
-                 SoilLiqWater(I,IndSoil,J) = SoilLiqWater(I,IndSoil,J) - (WatExcFieldCap(IndSoil) / &
+                 WatExcFieldCap(I,IndSoil,J)   = DrainFracTmp(I,IndSoil,J) * DrainWatTmp
+                 SoilLiqWater(I,IndSoil,J) = SoilLiqWater(I,IndSoil,J) - (WatExcFieldCap(I,IndSoil,J) / &
                                              (ThicknessSoilLayer(I,IndSoil,J) * 1000.0))
                  SoilMoisture(I,IndSoil,J) = SoilLiqWater(I,IndSoil,J) + SoilIce(I,IndSoil,J)
               enddo
@@ -231,6 +238,8 @@ contains
       end do
     end do
     !$acc end parallel loop
+    !$acc end data
+    deallocate(WatExcFieldCap, SoilFieldCapLiq, DrainFracTmp)
 
 
         end associate

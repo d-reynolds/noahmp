@@ -44,7 +44,7 @@ contains
     real(kind=kind_noahmp) :: SoilWatConductivity                          ! soil water conductivity [m/s]
     real(kind=kind_noahmp) :: SoilWatHoldCap                               ! soil moisture holding capacity [m3/m3]
     real(kind=kind_noahmp) :: InfilRateMax                                 ! maximum infiltration rate [m/s]
-    real(kind=kind_noahmp) :: SoilWatMaxHold(1:noahmp%config%domain%NumSoilLayer)  ! maximum soil water that can hold [m]
+    real(kind=kind_noahmp), allocatable, dimension(:,:,:) :: SoilWatMaxHold  ! maximum soil water that can hold [m]
 
 ! --------------------------------------------------------------------
 
@@ -64,10 +64,13 @@ contains
               InfilRateSfc        => noahmp%water%flux%InfilRateSfc         & ! out, infiltration rate at surface [m/s]
              )
 
+    allocate(SoilWatMaxHold(noahmp%config%domain%ITS:noahmp%config%domain%ITE, 1:NumSoilLayer, noahmp%config%domain%JTS:noahmp%config%domain%JTE))
+    !$acc data create(SoilWatMaxHold)
+
    !$acc parallel loop collapse(2) gang vector default(present) &
    !$acc private(IndSoilFrz,LoopInd1,LoopInd2,LoopInd3,FracVoidRem,SoilWatHoldMaxRem,WaterInSfc) &
    !$acc private(TimeStepDay,SoilWatHoldMaxAcc,SoilIceWatTmp,SoilImpervFrac,IndAcc,SoilIceCoeff) &
-   !$acc private(SoilWatDiffusivity,SoilWatConductivity,SoilWatHoldCap,InfilRateMax,SoilWatMaxHold) &
+   !$acc private(SoilWatDiffusivity,SoilWatConductivity,SoilWatHoldCap,InfilRateMax) &
    !$acc firstprivate(TimeStep)
     do J = noahmp%config%domain%JTS, noahmp%config%domain%JTE
       do I = noahmp%config%domain%ITS, noahmp%config%domain%ITE
@@ -75,7 +78,10 @@ contains
 
 
     ! initialize
-    SoilWatMaxHold(1:4) = 0.0
+    !$acc loop seq
+    do LoopInd3 = 1, NumSoilLayer
+       SoilWatMaxHold(I,LoopInd3,J) = 0.0
+    enddo
 
     ! start infiltration for free drainage scheme
     if ( SoilSfcInflowMean(I,J) > 0.0 ) then
@@ -84,17 +90,17 @@ contains
        SoilWatHoldCap = SoilMoistureSat(I,1,J) - SoilMoistureWilt(I,1,J)
 
        ! compute maximum infiltration rate
-       SoilWatMaxHold(1) = -DepthSoilLayer(I,1,J) * SoilWatHoldCap
+       SoilWatMaxHold(I,1,J) = -DepthSoilLayer(I,1,J) * SoilWatHoldCap
        SoilIceWatTmp     = -DepthSoilLayer(I,1,J) * SoilIce(I,1,J)
-       SoilWatMaxHold(1) =  SoilWatMaxHold(1) * (1.0-(SoilLiqWater(I,1,J)+SoilIce(I,1,J)-SoilMoistureWilt(I,1,J)) / SoilWatHoldCap)
-       SoilWatHoldMaxAcc =  SoilWatMaxHold(1)
+       SoilWatMaxHold(I,1,J) =  SoilWatMaxHold(I,1,J) * (1.0-(SoilLiqWater(I,1,J)+SoilIce(I,1,J)-SoilMoistureWilt(I,1,J)) / SoilWatHoldCap)
+       SoilWatHoldMaxAcc =  SoilWatMaxHold(I,1,J)
        !$acc loop seq
        do LoopInd3 = 2, NumSoilLayer
           SoilIceWatTmp            = SoilIceWatTmp + (DepthSoilLayer(I,LoopInd3-1,J) - DepthSoilLayer(I,LoopInd3,J))*SoilIce(I,LoopInd3,J)
-          SoilWatMaxHold(LoopInd3) = (DepthSoilLayer(I,LoopInd3-1,J) - DepthSoilLayer(I,LoopInd3,J)) * SoilWatHoldCap
-          SoilWatMaxHold(LoopInd3) = SoilWatMaxHold(LoopInd3) * (1.0 - (SoilLiqWater(I,LoopInd3,J) + SoilIce(I,LoopInd3,J) - &
+          SoilWatMaxHold(I,LoopInd3,J) = (DepthSoilLayer(I,LoopInd3-1,J) - DepthSoilLayer(I,LoopInd3,J)) * SoilWatHoldCap
+          SoilWatMaxHold(I,LoopInd3,J) = SoilWatMaxHold(I,LoopInd3,J) * (1.0 - (SoilLiqWater(I,LoopInd3,J) + SoilIce(I,LoopInd3,J) - &
                                                                  SoilMoistureWilt(I,LoopInd3,J)) / SoilWatHoldCap)
-          SoilWatHoldMaxAcc        = SoilWatHoldMaxAcc + SoilWatMaxHold(LoopInd3)
+          SoilWatHoldMaxAcc        = SoilWatHoldMaxAcc + SoilWatMaxHold(I,LoopInd3,J)
        enddo
        FracVoidRem       = 1.0 - exp(-1.0 * SoilInfilMaxCoeff(I,J) * TimeStepDay)
        SoilWatHoldMaxRem = SoilWatHoldMaxAcc * FracVoidRem
@@ -141,6 +147,8 @@ contains
     end do
    !$acc end parallel loop
 
+    !$acc end data
+    deallocate(SoilWatMaxHold)
 
     end associate
 
