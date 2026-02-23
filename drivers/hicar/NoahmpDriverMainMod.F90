@@ -128,11 +128,12 @@ contains
        NoahmpIO%ZSOIL(K) = -NoahmpIO%DZS(K) + NoahmpIO%ZSOIL(K-1)
     enddo
     
-    JLOOP : do J = NoahmpIO%JTS, NoahmpIO%JTE
+    !$acc update device(NoahmpIO%YEARLEN, NoahmpiO%CALCULATE_SOIL, NoahmpIO%ZSOIL)
 
-       NoahmpIO%J = J
-       if ( NoahmpIO%ITIMESTEP == 1 ) then
-          do I = NoahmpIO%ITS, NoahmpIO%ITE
+    if ( NoahmpIO%ITIMESTEP == 1 ) then
+       !$acc parallel loop collapse(2) gang vector default(present) private(I, J, K)
+       JLOOP : do J = NoahmpIO%JTS, NoahmpIO%JTE
+          ILOOP : do I = NoahmpIO%ITS, NoahmpIO%ITE
              if ( (NoahmpIO%XLAND(I,J)-1.5) >= 0.0 ) then  ! Open water point
                 if ( NoahmpIO%XICE(I,J) == 1.0 ) print*,' sea-ice at water point, I=',I,'J=',J
                 NoahmpIO%SMSTAV(I,J) = 1.0
@@ -150,29 +151,25 @@ contains
                    enddo
                 endif
              endif
-          enddo
+            enddo ILOOP  ! I loop
+         enddo  JLOOP    ! J loop
        endif  ! end of initialization over ocean
 
-       ILOOP : do I = NoahmpIO%ITS, NoahmpIO%ITE
+   !$acc parallel loop collapse(2) gang vector default(present) private(I, J, K)
+   JLOOP2 : do J = NoahmpIO%JTS, NoahmpIO%JTE
+      ILOOP2 : do I = NoahmpIO%ITS, NoahmpIO%ITE
 
-          NoahmpIO%I = I
           if ( NoahmpIO%XICE(I,J) >= NoahmpIO%XICE_THRESHOLD ) then  ! Sea-ice point
              NoahmpIO%ICE                        = 1
              NoahmpIO%SH2O(I,1:NoahmpIO%NSOIL,J) = 1.0
              NoahmpIO%LAI (I,J)                  = 0.01
-             cycle ILOOP                                             ! Skip any sea-ice points
-          else
-             if ( (NoahmpIO%XLAND(I,J)-1.5) >= 0.0 ) cycle ILOOP     ! Skip any open water points
+         !     cycle ILOOP2                                             ! Skip any sea-ice points
+         !  else
+         !     if ( (NoahmpIO%XLAND(I,J)-1.5) >= 0.0 ) cycle ILOOP2     ! Skip any open water points
           endif
-       enddo ILOOP  ! I loop
-    enddo  JLOOP    ! J loop
+       enddo ILOOP2  ! I loop
+    enddo  JLOOP2    ! J loop
 
-             ! Update only the specific NoahmpIO members modified by the JLOOP above.
-             ! Using update device(NoahmpIO) on the entire derived type can corrupt
-             ! attached device pointers for allocatable components (TABLE arrays, etc.).
-             !$acc update device(NoahmpIO%ICE, NoahmpIO%I, NoahmpIO%J)
-             !$acc update device(NoahmpIO%SH2O, NoahmpIO%LAI)
-             !$acc update device(NoahmpIO%SMSTAV, NoahmpIO%SMSTOT, NoahmpIO%SMOIS, NoahmpIO%TSLB)
 
              !------------------------------------------------------------------------------------
              !  initialize Data Types and transfer all the inputs from 2-D to 1-D column variables
