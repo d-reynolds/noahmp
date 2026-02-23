@@ -17,7 +17,7 @@ module ResistanceCanopyStomataJarvisMod
 contains
 
   subroutine ResistanceCanopyStomataJarvis(noahmp, IndexShade)
-
+   !$acc routine gang
 ! ------------------------ Code history -----------------------------------
 ! Original Noah-MP subroutine: CANRES
 ! Original code: Guo-Yue Niu and Noah-MP team (Niu et al. 2011)
@@ -65,10 +65,10 @@ contains
               PhotosynLeafShade       => noahmp%biochem%flux%PhotosynLeafShade       & ! out, shaded leaf photosynthesis [umol CO2/m2/s]
              )
 
-   !$acc parallel loop collapse(2) gang vector default(present) &
+   !$acc loop collapse(2) gang vector &
    !$acc private(ResistanceVapDef,ResistanceSolar,ResistanceTemp,RadFac,SpecHumidityTmp) &
    !$acc private(MixingRatioTmp,MixingRatioSat,MixingRatioSatTempD,RadPhotoActAbsTmp) &
-   !$acc private(ResistanceStomataTmp,PhotosynLeafTmp) firstprivate(IndexShade)
+   !$acc private(ResistanceStomataTmp,PhotosynLeafTmp)
     do J = noahmp%config%domain%JTS, noahmp%config%domain%JTE
       do I = noahmp%config%domain%ITS, noahmp%config%domain%ITE
 
@@ -120,8 +120,6 @@ contains
 
       end do
     end do
-   !$acc end parallel loop
-
 
     end associate
 

@@ -11,7 +11,7 @@ module ResistanceCanopyStomataBallBerryMod
 contains
 
   subroutine ResistanceCanopyStomataBallBerry(noahmp, IndexShade)
-
+   !$acc routine gang
 ! ------------------------ Code history -----------------------------------
 ! Original Noah-MP subroutine: STOMATA
 ! Original code: Guo-Yue Niu and Noah-MP team (Niu et al. 2011)
@@ -93,10 +93,9 @@ contains
               PhotosynLeafShade       => noahmp%biochem%flux%PhotosynLeafShade              & ! out, shaded leaf photosynthesis [umol co2/m2/s]
              )
 
-   !$acc parallel loop collapse(2) gang vector default(present) &
+   !$acc loop collapse(2) gang vector  &
    !$acc private(IndIter,RadPhotoActAbsTmp,ResistanceStomataTmp,PhotosynLeafTmp,NitrogenFoliageFac) &
-   !$acc private(CarboxylRateMax,MPE,RLB,TC,CS,KC,KO,A,B,C,Q,R1,R2,PPF,WC,WJ,WE,CP,CI,AWC,J,CEA,CF,T) &
-   !$acc firstprivate(IndexShade)
+   !$acc private(CarboxylRateMax,MPE,RLB,TC,CS,KC,KO,A,B,C,Q,R1,R2,PPF,WC,WJ,WE,CP,CI,AWC,J,CEA,CF,T)
     do JJ = noahmp%config%domain%JTS, noahmp%config%domain%JTE
       do I = noahmp%config%domain%ITS, noahmp%config%domain%ITE
 
@@ -181,7 +180,6 @@ contains
 
       end do
     end do
-   !$acc end parallel loop
 
 
     end associate

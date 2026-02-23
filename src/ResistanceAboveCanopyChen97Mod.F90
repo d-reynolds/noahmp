@@ -13,6 +13,7 @@ module ResistanceAboveCanopyChen97Mod
 contains
 
   subroutine ResistanceAboveCanopyChen97(noahmp, IterationInd)
+   !$acc routine gang
 
 ! ------------------------ Code history -----------------------------------
 ! Original Noah-MP subroutine: SFCDIF2 for vegetated portion
@@ -91,10 +92,9 @@ contains
               ResistanceLhAbvCan      => noahmp%energy%state%ResistanceLhAbvCan      & ! out,   aerodynamic resistance for water vapor [s/m], above canopy
              )
 
-   !$acc parallel loop collapse(2) gang vector default(present) &
+   !$acc loop collapse(2) gang vector &
    !$acc private(ILECH,ZILFC,ZU,ZT,RDZ,CXCH,DTHV,DU2,BTGH,ZSLU,ZSLT,RLOGU,RLOGT,RLMA) &
-   !$acc private(ZETALT,ZETALU,ZETAU,ZETAT,XLU4,XLT4,XU4,XT4,XLU,XLT,XU,XT) private(PSMZ,SIMM,PSHZ,SIMH,USTARK,RLMN) &
-   !$acc firstprivate(IterationInd)
+   !$acc private(ZETALT,ZETALU,ZETAU,ZETAT,XLU4,XLT4,XU4,XT4,XLU,XLT,XU,XT) private(PSMZ,SIMM,PSHZ,SIMH,USTARK,RLMN) 
     do J = noahmp%config%domain%JTS, noahmp%config%domain%JTE
       do I = noahmp%config%domain%ITS, noahmp%config%domain%ITE
 
@@ -216,7 +216,6 @@ contains
 
       end do
     end do
-   !$acc end parallel loop
 
 
     end associate

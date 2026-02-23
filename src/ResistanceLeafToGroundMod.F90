@@ -11,7 +11,7 @@ module ResistanceLeafToGroundMod
 contains
 
   subroutine ResistanceLeafToGround(noahmp, IndIter, VegAreaIndEff, HeatSenGrdTmp)
-
+   !$acc routine gang
 ! ------------------------ Code history -----------------------------------
 ! Original Noah-MP subroutine: RAGRB
 ! Original code: Guo-Yue Niu and Noah-MP team (Niu et al. 2011)
@@ -59,8 +59,7 @@ contains
                   ResistanceLeafBoundary => noahmp%energy%state%ResistanceLeafBoundary & ! out,   bulk leaf boundary layer resistance [s/m]
                  )
 
-    !$acc parallel loop collapse(2) gang vector default(present) private(MPE, KH, TMP1, TMP2, TMPRAH2, TMPRB, FHGNEW) &
-    !$acc firstprivate(IndIter)
+    !$acc loop collapse(2) gang vector private(MPE, KH, TMP1, TMP2, TMPRAH2, TMPRB, FHGNEW)
     do J = noahmp%config%domain%JTS, noahmp%config%domain%JTE
       do I = noahmp%config%domain%ITS, noahmp%config%domain%ITE
 

@@ -12,7 +12,7 @@ module ResistanceAboveCanopyMostMod
 contains
 
   subroutine ResistanceAboveCanopyMOST(noahmp, IterationInd, HeatSensibleTmp, MoStabParaSgn)
-
+   !$acc routine gang
 ! ------------------------ Code history -----------------------------------
 ! Original Noah-MP subroutine: SFCDIF1 for vegetated portion
 ! Original code: Guo-Yue Niu and Noah-MP team (Niu et al. 2011)
@@ -70,9 +70,9 @@ contains
                   ResistanceLhAbvCan      => noahmp%energy%state%ResistanceLhAbvCan  & ! out,   aerodynamic resistance for water vapor [s/m], above canopy
                  )
 
-    !$acc parallel loop collapse(2) gang vector default(present) private(MPE, TMPCM, TMPCH, FMNEW, FHNEW, MOZOLD, &
+    !$acc loop collapse(2) gang vector private(MPE, TMPCM, TMPCH, FMNEW, FHNEW, MOZOLD, &
     !$acc TMP1, TMP2, TMP3, TMP4, TMP5, TVIR, TMPCM2, TMPCH2, FM2NEW, FH2NEW, TMP12, TMP22, TMP32, CMFM, CHFH, CM2FM2, &
-    !$acc CH2FH2) firstprivate(IterationInd)
+    !$acc CH2FH2)
     do J = noahmp%config%domain%JTS, noahmp%config%domain%JTE
       do I = noahmp%config%domain%ITS, noahmp%config%domain%ITE
 
