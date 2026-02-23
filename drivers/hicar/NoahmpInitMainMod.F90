@@ -31,6 +31,7 @@ contains
     real(kind=kind_noahmp), parameter           :: HLICE = 3.335E5
     real(kind=kind_noahmp), parameter           :: GRAV0 = 9.81
     real(kind=kind_noahmp), parameter           :: T0    = 273.15
+    integer                          :: LoopInd    ! loop index for array section expansion
 ! --------------------------------------------------------------------------- 
 
     ! initialize
@@ -101,6 +102,7 @@ contains
           do I = its , itf
              if ( (NoahmpIO%IVGTYP(I,J) == NoahmpIO%ISICE_TABLE) .and. &
                   (NoahmpIO%XICE(I,J) <= 0.0) ) then
+                !$acc loop seq
                 do NS = 1, NoahmpIO%NSOIL
                    NoahmpIO%SMOIS(I,NS,J) = 1.0  ! glacier starts all frozen
                    NoahmpIO%SH2O(I,NS,J)  = 0.0
@@ -113,10 +115,12 @@ contains
                 BEXP   = NoahmpIO%BEXP_TABLE  (NoahmpIO%ISLTYP(I,J))
                 SMCMAX = NoahmpIO%SMCMAX_TABLE(NoahmpIO%ISLTYP(I,J))
                 PSISAT = NoahmpIO%PSISAT_TABLE(NoahmpIO%ISLTYP(I,J))
+                !$acc loop seq
                 do NS = 1, NoahmpIO%NSOIL
                   if ( NoahmpIO%SMOIS(I,NS,J) > SMCMAX ) NoahmpIO%SMOIS(I,NS,J) = SMCMAX
                 enddo
                 if ( (BEXP > 0.0) .and. (SMCMAX > 0.0) .and. (PSISAT > 0.0) ) then
+                   !$acc loop seq
                    do NS = 1, NoahmpIO%NSOIL
                       if ( NoahmpIO%TSLB(I,NS,J) < 273.149 ) then
                          FK = (((HLICE / (GRAV0*(-PSISAT))) * &
@@ -128,6 +132,7 @@ contains
                       endif
                    enddo
                 else
+                   !$acc loop seq
                    do NS = 1, NoahmpIO%NSOIL
                       NoahmpIO%SH2O(I,NS,J) = NoahmpIO%SMOIS(I,NS,J)
                    enddo
@@ -137,7 +142,7 @@ contains
        enddo    ! J
 
        ! initilize other quantities
-       !$acc parallel loop collapse(2) gang vector default(present) private(urbanpt_flag)
+       !$acc parallel loop collapse(2) gang vector default(present) private(urbanpt_flag, LoopInd)
        do J = jts, jtf
           do I = its, itf
              NoahmpIO%QTDRAIN(I,J)  = 0.0
@@ -265,8 +270,11 @@ contains
              endif
              
              ! initialize soil albedo
-             NoahmpIO%ALBSOILDIRXY(I,:,J) = 0.0
-             NoahmpIO%ALBSOILDIFXY(I,:,J) = 0.0
+             !$acc loop seq
+             do LoopInd = 1, 2
+                NoahmpIO%ALBSOILDIRXY(I,LoopInd,J) = 0.0
+                NoahmpIO%ALBSOILDIFXY(I,LoopInd,J) = 0.0
+             enddo
 
           enddo ! I
        enddo    ! J

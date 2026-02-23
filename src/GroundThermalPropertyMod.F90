@@ -32,6 +32,7 @@ contains
 ! --------------------------------------------------------------------
     ! initialize - done in parallel
         associate(                                                                           &
+                  NumSnowLayerMax        => noahmp%config%domain%NumSnowLayerMax             ,& ! in,  maximum number of snow layers
                   NumSoilLayer           => noahmp%config%domain%NumSoilLayer               ,& ! in,  number of soil layers
                   SurfaceType            => noahmp%config%domain%SurfaceType                ,& ! in,  surface type 1-soil; 2-lake
                   MainTimeStep           => noahmp%config%domain%MainTimeStep               ,& ! in,  main noahmp timestep [s]
@@ -49,11 +50,14 @@ contains
                   ThermConductSoil       => noahmp%energy%state%ThermConductSoil             & ! out, soil layer thermal conductivity [W/m/K] (3D)
                  )
 
-    !$acc parallel loop collapse(2) gang vector default(present)
+    !$acc parallel loop collapse(2) gang vector default(present) private(LoopInd)
     do J = noahmp%config%domain%JTS, noahmp%config%domain%JTE
       do I = noahmp%config%domain%ITS, noahmp%config%domain%ITE
-        noahmp%energy%state%HeatCapacSoilSnow(I,:,J)    = 0.0
-        noahmp%energy%state%ThermConductSoilSnow(I,:,J) = 0.0
+        !$acc loop seq
+        do LoopInd = -NumSnowLayerMax+1, NumSoilLayer
+           noahmp%energy%state%HeatCapacSoilSnow(I,LoopInd,J)    = 0.0
+           noahmp%energy%state%ThermConductSoilSnow(I,LoopInd,J) = 0.0
+        enddo
       end do
     end do
     !$acc end parallel loop

@@ -236,7 +236,8 @@ contains
     endif
 
     ! soil properties
-    do IndexSoilLayer = 1, size(SoilType,2)
+    !$acc loop seq
+    do IndexSoilLayer = 1, NumSoilLayer
        noahmp%water%param%SoilMoistureSat       (I,IndexSoilLayer,J) = NoahmpIO%SMCMAX_TABLE(SoilType(I,IndexSoilLayer,J))
        noahmp%water%param%SoilMoistureWilt      (I,IndexSoilLayer,J) = NoahmpIO%SMCWLT_TABLE(SoilType(I,IndexSoilLayer,J))
        noahmp%water%param%SoilMoistureFieldCap  (I,IndexSoilLayer,J) = NoahmpIO%SMCREF_TABLE(SoilType(I,IndexSoilLayer,J))
@@ -316,12 +317,16 @@ contains
                                                 ((noahmp%water%param%SoilMoistureSat(I,1,J) / &
                                                  noahmp%water%param%SoilMoistureFieldCap(I,1,J)) * (0.412/0.468))
     endif
+    !$acc loop seq
     do LoopInd = -NumSnowLayerMax+1, 0
       noahmp%water%state%SnowIceFracPrev(I,LoopInd,J) = 0.0
     enddo
-    noahmp%water%state%SnowIceFracPrev(I,NumSnowLayerNeg(I,J)+1:0,J) = NoahmpIO%SNICEXY(I,NumSnowLayerNeg(I,J)+1:0,J) /  & 
-                                                              (NoahmpIO%SNICEXY(I,NumSnowLayerNeg(I,J)+1:0,J) + &
-                                                               NoahmpIO%SNLIQXY(I,NumSnowLayerNeg(I,J)+1:0,J))
+    !$acc loop seq
+    do LoopInd = NumSnowLayerNeg(I,J)+1, 0
+       noahmp%water%state%SnowIceFracPrev(I,LoopInd,J) = NoahmpIO%SNICEXY(I,LoopInd,J) /  &
+                                                 (NoahmpIO%SNICEXY(I,LoopInd,J) + &
+                                                  NoahmpIO%SNLIQXY(I,LoopInd,J))
+    enddo
 
     if ( (noahmp%config%nmlist%OptSoilProperty == 3) .and. (.not. noahmp%config%domain%FlagUrban(I,J)) ) then
        !$acc loop seq

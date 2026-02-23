@@ -62,6 +62,7 @@ contains
     SoilWatConductInit  = 0.0
 
     ! maximum ice fraction
+    !$acc loop seq
     do LoopInd = 1, NumSoilLayer
        if ( SoilIce(I,LoopInd,J) > SoilIceMaxTmp ) SoilIceMaxTmp = SoilIce(I,LoopInd,J)
     enddo

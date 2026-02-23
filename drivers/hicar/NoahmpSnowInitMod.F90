@@ -25,6 +25,7 @@ contains
     integer                                                               :: I,J,IZ,itf,jtf
     real(kind=kind_noahmp), allocatable, dimension(:,:,:) :: DZSNO
     real(kind=kind_noahmp), allocatable, dimension(:,:,:) :: DZSNSO
+    integer                          :: LoopInd    ! loop index for array section expansion
 
 !------------------------------------------------------------------------------------------    
 !   Initialize snow arrays for Noah-MP LSM, based in input SNOWDEP, NSNOW
@@ -46,7 +47,7 @@ contains
     allocate(DZSNSO(NoahmpIO%its:itf, -NoahmpIO%NSNOW+1:NoahmpIO%NSOIL, NoahmpIO%jts:jtf))
     !$acc data create(DZSNO, DZSNSO)
 
-    !$acc parallel loop collapse(2) gang vector default(present) private(I,J,IZ)
+    !$acc parallel loop collapse(2) gang vector default(present) private(I,J,IZ) private(LoopInd)
     do J = NoahmpIO%jts, jtf
        do I = NoahmpIO%its, itf
 
@@ -54,7 +55,10 @@ contains
           ! no explicit snow layer
           if ( NoahmpIO%SNOWH(I,J) < 0.025 ) then
              NoahmpIO%ISNOWXY(I,J) = 0
-             DZSNO(I,-NoahmpIO%NSNOW+1:0,J) = 0.0
+             !$acc loop seq
+             do LoopInd = -NoahmpIO%NSNOW+1, 0
+                DZSNO(I,LoopInd,J) = 0.0
+             enddo
           else
              ! 1 layer snow
              if ( (NoahmpIO%SNOWH(I,J) >= 0.025) .and. (NoahmpIO%SNOWH(I,J) <= 0.05) ) then

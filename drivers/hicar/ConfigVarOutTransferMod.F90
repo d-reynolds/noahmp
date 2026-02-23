@@ -25,6 +25,7 @@ contains
     type(noahmp_type),    intent(inout) :: noahmp
 
     integer :: I, J
+    integer                          :: LoopInd    ! loop index for array section expansion
 ! ----------------------------------------------------------------------
     associate(                                                         &
               NumSnowLayerMax => noahmp%config%domain%NumSnowLayerMax ,&
@@ -32,15 +33,17 @@ contains
              )
 ! ----------------------------------------------------------------------
 
-    !$acc parallel loop collapse(2) default(present) private(NumSnowLayerMax, NumSoilLayer)
+    !$acc parallel loop collapse(2) default(present) private(NumSnowLayerMax, NumSoilLayer) private(LoopInd)
     do J = noahmp%config%domain%JTS, noahmp%config%domain%JTE
       do I = noahmp%config%domain%ITS, noahmp%config%domain%ITE
 
         if (NoahmpIO%XLAND(I,J) - 1.5 >= 0.0) cycle ! Do out write output for open water points
     ! config domain variables
     NoahmpIO%ISNOWXY(I,J)  = noahmp%config%domain%NumSnowLayerNeg(I,J)
-    NoahmpIO%ZSNSOXY(I,-NumSnowLayerMax+1:NumSoilLayer,J) = &
-                            noahmp%config%domain%DepthSnowSoilLayer(I,-NumSnowLayerMax+1:NumSoilLayer,J)
+    !$acc loop seq
+    do LoopInd = -NumSnowLayerMax+1, NumSoilLayer
+       NoahmpIO%ZSNSOXY(I,LoopInd,J) =  noahmp%config%domain%DepthSnowSoilLayer(I,LoopInd,J)
+    enddo
     NoahmpIO%FORCZLSM(I,J) = noahmp%config%domain%RefHeightAboveSfc(I,J)
 
     end do

@@ -184,6 +184,7 @@ enddo
       EvapSoilSfcLiq(I,J) = EvapSoilSfcLiq(I,J) * 0.001 ! mm/s -> m/s
 
       ! transpiration mm/s -> m/s
+      !$acc loop seq
       do LoopInd = 1, NumSoilLayerRoot(I,J)
          TranspWatLossSoil(I,LoopInd,J) = Transpiration(I,J) * SoilTranspFac(I,LoopInd,J) * 0.001
       enddo

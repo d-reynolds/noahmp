@@ -434,6 +434,7 @@ contains
     ! REAL,    DIMENSION( ims:ime,          jms:jme ), INTENT(OUT  ) ::  CANHSXY
     ! local
     INTEGER :: I, J
+    INTEGER :: LoopInd    ! loop index for array section expansion
 
 ! ----------------------------------------------------------------------
 
@@ -518,12 +519,15 @@ contains
     endif
 
     ! 2D/3D variables
-    !$acc parallel loop gang vector collapse(2) default(present)
+    !$acc parallel loop gang vector collapse(2) default(present) private(LoopInd) firstprivate(kte, kts, NSOIL)
     do J = jts, jte
     do I = its, ite
 
     if ( NoahmpIO%IOPT_SOIL > 1 ) then
-       NoahmpIO%SOILCOMP(I,:,J)        = SOILCOMP(I,:,J)
+       !$acc loop seq
+       do LoopInd = 1, nsoil*2
+          NoahmpIO%SOILCOMP(I,LoopInd,J)        = SOILCOMP(I,LoopInd,J)
+       enddo
        NoahmpIO%SOILCL1(I,J)           = SOILCL1(I,J)
        NoahmpIO%SOILCL2(I,J)           = SOILCL2(I,J)
        NoahmpIO%SOILCL3(I,J)           = SOILCL3(I,J)
@@ -543,17 +547,20 @@ contains
     NoahmpIO%XLAT(I,J)                 = XLAT(I,J)
     NoahmpIO%XLONG(I,J)                = XLONG(I,J)
     NoahmpIO%COSZEN(I,J)               = COSZIN(I,J)
-    NoahmpIO%DZ8W(I,:,J)               = DZ8W(I,:,J)
-    NoahmpIO%T_PHY(I,:,J)              = T3D(I,:,J)
-    NoahmpIO%QV_CURR(I,:,J)            = QV3D(I,:,J)
-    NoahmpIO%U_PHY(I,:,J)              = U_PHY(I,:,J)
-    NoahmpIO%V_PHY(I,:,J)              = V_PHY(I,:,J)
+    !$acc loop seq
+    do LoopInd = kts, kte
+       NoahmpIO%DZ8W(I,LoopInd,J)               = DZ8W(I,LoopInd,J)
+       NoahmpIO%T_PHY(I,LoopInd,J)              = T3D(I,LoopInd,J)
+       NoahmpIO%QV_CURR(I,LoopInd,J)            = QV3D(I,LoopInd,J)
+       NoahmpIO%U_PHY(I,LoopInd,J)              = U_PHY(I,LoopInd,J)
+       NoahmpIO%V_PHY(I,LoopInd,J)              = V_PHY(I,LoopInd,J)
+       NoahmpIO%P8W(I,LoopInd,J) = P8W3D(I,LoopInd,J)
+    enddo
     NoahmpIO%SWDOWN(I,J)               = SWDOWN(I,J)
     NoahmpIO%SWDDIR(I,J)               = SWDDIR(I,J)
     NoahmpIO%SWDDIF(I,J)               = SWDDIF(I,J)
     NoahmpIO%RadSwDirFrac(I,J)         = min(SWDDIR(I,J),SWDOWN(I,J))/max(SWDOWN(I,J), 0.001)
     NoahmpIO%GLW(I,J)                  = GLW(I,J)
-    NoahmpIO%P8W(I,NoahmpIO%kts:NoahmpIO%kte,J) = P8W3D(I,NoahmpIO%kts:NoahmpIO%kte,J)
     NoahmpIO%RAINBL(I,J)               = PRECIP_IN(I,J)
     NoahmpIO%SR(I,J)                   = SR(I,J)
     NoahmpIO%IRFRACT(I,J)              = IRFRACT(I,J)
@@ -618,9 +625,12 @@ contains
     NoahmpIO%UDRUNOFF(I,J)             = UDRUNOFF(I,J)
     NoahmpIO%ALBEDO(I,J)               = ALBEDO(I,J)
     NoahmpIO%SNOWC(I,J)                = SNOWC(I,J)
-    NoahmpIO%SMOIS(I,:,J)              = SMOIS(I,:,J)
-    NoahmpIO%SH2O(I,:,J)               = SH2O(I,:,J)
-    NoahmpIO%TSLB(I,:,J)               = TSLB(I,:,J)
+    !$acc loop seq
+    do LoopInd = 1, NSOIL
+       NoahmpIO%SMOIS(I,LoopInd,J)              = SMOIS(I,LoopInd,J)
+       NoahmpIO%SH2O(I,LoopInd,J)               = SH2O(I,LoopInd,J)
+       NoahmpIO%TSLB(I,LoopInd,J)               = TSLB(I,LoopInd,J)
+    enddo
     NoahmpIO%SNOW(I,J)                 = SNOW(I,J)
     NoahmpIO%SNOWH(I,J)                = SNOWH(I,J)
     NoahmpIO%CANWAT(I,J)               = CANWAT(I,J)
@@ -658,10 +668,13 @@ contains
     NoahmpIO%ZWTXY(I,J)                = ZWTXY(I,J)
     NoahmpIO%WAXY(I,J)                 = WAXY(I,J)
     NoahmpIO%WTXY(I,J)                 = WTXY(I,J)
-    NoahmpIO%TSNOXY(I,:,J)             = TSNOXY(I,:,J)
-    NoahmpIO%ZSNSOXY(I,:,J)            = ZSNSOXY(I,:,J)
-    NoahmpIO%SNICEXY(I,:,J)            = SNICEXY(I,:,J)
-    NoahmpIO%SNLIQXY(I,:,J)            = SNLIQXY(I,:,J)
+    !$acc loop seq
+    do LoopInd = -2, 0
+       NoahmpIO%TSNOXY(I,LoopInd,J)             = TSNOXY(I,LoopInd,J)
+       NoahmpIO%ZSNSOXY(I,LoopInd,J)            = ZSNSOXY(I,LoopInd,J)
+       NoahmpIO%SNICEXY(I,LoopInd,J)            = SNICEXY(I,LoopInd,J)
+       NoahmpIO%SNLIQXY(I,LoopInd,J)            = SNLIQXY(I,LoopInd,J)
+    enddo
     NoahmpIO%LFMASSXY(I,J)             = LFMASSXY(I,J)
     NoahmpIO%RTMASSXY(I,J)             = RTMASSXY(I,J)
     NoahmpIO%STMASSXY(I,J)             = STMASSXY(I,J)
@@ -671,7 +684,10 @@ contains
     NoahmpIO%LAI(I,J)                  = XLAIXY(I,J)
     NoahmpIO%XSAIXY(I,J)               = XSAIXY(I,J)
     NoahmpIO%TAUSSXY(I,J)              = TAUSSXY(I,J)
-    NoahmpIO%SMOISEQ(I,:,J)            = SMOISEQ(I,:,J)
+    !$acc loop seq
+    do LoopInd = 1, NSOIL
+       NoahmpIO%SMOISEQ(I,LoopInd,J)            = SMOISEQ(I,LoopInd,J)
+    enddo
     NoahmpIO%SMCWTDXY(I,J)             = SMCWTDXY(I,J)
     NoahmpIO%DEEPRECHXY(I,J)           = DEEPRECHXY(I,J)
     NoahmpIO%RECHXY(I,J)               = RECHXY(I,J)
@@ -689,33 +705,39 @@ contains
     ! NoahmpIO%ACC_ECANXY(I,J)           = ACC_ECANXY(I,J)
     ! NoahmpIO%ACC_ETRANXY(I,J)          = ACC_ETRANXY(I,J)
     ! NoahmpIO%ACC_EDIRXY(I,J)           = ACC_EDIRXY(I,J)
-    NoahmpIO%ALBSOILDIRXY(I,:,J)       = ALBSOILDIRXY(I,:,J)
-    NoahmpIO%ALBSOILDIFXY(I,:,J)       = ALBSOILDIFXY(I,:,J)
+    !$acc loop seq
+    do LoopInd = 1, 2
+       NoahmpIO%ALBSOILDIRXY(I,LoopInd,J)       = ALBSOILDIRXY(I,LoopInd,J)
+       NoahmpIO%ALBSOILDIFXY(I,LoopInd,J)       = ALBSOILDIFXY(I,LoopInd,J)
+    enddo
     if ( NoahmpIO%IOPT_WETLAND > 0 ) then
        NoahmpIO%FSATXY(I,J)            = FSATXY(I,J)
        NoahmpIO%WSURFXY(I,J)           = WSURFXY(I,J)
     endif
     if ( NoahmpIO%IOPT_ALB == 3 ) then
-       NoahmpIO%SNRDSXY(I,:,J)         = SNRDSXY(I,:,J)
-       NoahmpIO%SNFRXY(I,:,J)          = SNFRXY(I,:,J)
-       NoahmpIO%BCPHIXY(I,:,J)         = BCPHIXY(I,:,J)
-       NoahmpIO%BCPHOXY(I,:,J)         = BCPHOXY(I,:,J)
-       NoahmpIO%OCPHIXY(I,:,J)         = OCPHIXY(I,:,J)
-       NoahmpIO%OCPHOXY(I,:,J)         = OCPHOXY(I,:,J)
-       NoahmpIO%DUST1XY(I,:,J)         = DUST1XY(I,:,J)
-       NoahmpIO%DUST2XY(I,:,J)         = DUST2XY(I,:,J)
-       NoahmpIO%DUST3XY(I,:,J)         = DUST3XY(I,:,J)
-       NoahmpIO%DUST4XY(I,:,J)         = DUST4XY(I,:,J)
-       NoahmpIO%DUST5XY(I,:,J)         = DUST5XY(I,:,J)
-       NoahmpIO%MassConcBCPHIXY(I,:,J) = MassConcBCPHIXY(I,:,J)
-       NoahmpIO%MassConcBCPHOXY(I,:,J) = MassConcBCPHOXY(I,:,J)
-       NoahmpIO%MassConcOCPHIXY(I,:,J) = MassConcOCPHIXY(I,:,J)
-       NoahmpIO%MassConcOCPHOXY(I,:,J) = MassConcOCPHOXY(I,:,J)
-       NoahmpIO%MassConcDUST1XY(I,:,J) = MassConcDUST1XY(I,:,J)
-       NoahmpIO%MassConcDUST2XY(I,:,J) = MassConcDUST2XY(I,:,J)
-       NoahmpIO%MassConcDUST3XY(I,:,J) = MassConcDUST3XY(I,:,J)
-       NoahmpIO%MassConcDUST4XY(I,:,J) = MassConcDUST4XY(I,:,J)
-       NoahmpIO%MassConcDUST5XY(I,:,J) = MassConcDUST5XY(I,:,J)
+       !$acc loop seq
+       do LoopInd = -2, 0
+          NoahmpIO%SNRDSXY(I,LoopInd,J)         = SNRDSXY(I,LoopInd,J)
+          NoahmpIO%SNFRXY(I,LoopInd,J)          = SNFRXY(I,LoopInd,J)
+          NoahmpIO%BCPHIXY(I,LoopInd,J)         = BCPHIXY(I,LoopInd,J)
+          NoahmpIO%BCPHOXY(I,LoopInd,J)         = BCPHOXY(I,LoopInd,J)
+          NoahmpIO%OCPHIXY(I,LoopInd,J)         = OCPHIXY(I,LoopInd,J)
+          NoahmpIO%OCPHOXY(I,LoopInd,J)         = OCPHOXY(I,LoopInd,J)
+          NoahmpIO%DUST1XY(I,LoopInd,J)         = DUST1XY(I,LoopInd,J)
+          NoahmpIO%DUST2XY(I,LoopInd,J)         = DUST2XY(I,LoopInd,J)
+          NoahmpIO%DUST3XY(I,LoopInd,J)         = DUST3XY(I,LoopInd,J)
+          NoahmpIO%DUST4XY(I,LoopInd,J)         = DUST4XY(I,LoopInd,J)
+          NoahmpIO%DUST5XY(I,LoopInd,J)         = DUST5XY(I,LoopInd,J)
+          NoahmpIO%MassConcBCPHIXY(I,LoopInd,J) = MassConcBCPHIXY(I,LoopInd,J)
+          NoahmpIO%MassConcBCPHOXY(I,LoopInd,J) = MassConcBCPHOXY(I,LoopInd,J)
+          NoahmpIO%MassConcOCPHIXY(I,LoopInd,J) = MassConcOCPHIXY(I,LoopInd,J)
+          NoahmpIO%MassConcOCPHOXY(I,LoopInd,J) = MassConcOCPHOXY(I,LoopInd,J)
+          NoahmpIO%MassConcDUST1XY(I,LoopInd,J) = MassConcDUST1XY(I,LoopInd,J)
+          NoahmpIO%MassConcDUST2XY(I,LoopInd,J) = MassConcDUST2XY(I,LoopInd,J)
+          NoahmpIO%MassConcDUST3XY(I,LoopInd,J) = MassConcDUST3XY(I,LoopInd,J)
+          NoahmpIO%MassConcDUST4XY(I,LoopInd,J) = MassConcDUST4XY(I,LoopInd,J)
+          NoahmpIO%MassConcDUST5XY(I,LoopInd,J) = MassConcDUST5XY(I,LoopInd,J)
+       enddo
     endif
 #ifdef WRF_HYDRO
     NoahmpIO%sfcheadrt(I,J)            = sfcheadrt(I,J)

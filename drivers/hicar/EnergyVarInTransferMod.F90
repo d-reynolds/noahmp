@@ -206,7 +206,7 @@ contains
     endif
 
    !$acc loop seq
-    do SoilLayerIndex = 1, size(SoilType,2)
+    do SoilLayerIndex = 1, NumSoilLayer
        noahmp%energy%param%SoilQuartzFrac(I,SoilLayerIndex,J) = NoahmpIO%QUARTZ_TABLE(SoilType(I,SoilLayerIndex,J))
     enddo
 

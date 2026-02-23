@@ -108,6 +108,7 @@ contains
       do I = noahmp%config%domain%ITS, noahmp%config%domain%ITE
 
     ! set empty snow layer properties to zero
+    !$acc loop seq
     do LoopInd = -NumSnowLayerMax+1, NumSnowLayerNeg(I,J)
        SnowIce(I,LoopInd,J)                = 0.0
        SnowLiqWater(I,LoopInd,J)           = 0.0
@@ -162,26 +163,31 @@ contains
     ! sum up snow mass for layered snow
     if ( NumSnowLayerNeg(I,J) < 0 ) then  ! MB: only do for multi-layer
        SnowWaterEquiv(I,J) = 0.0
+       !$acc loop seq
        do LoopInd = NumSnowLayerNeg(I,J)+1, 0
           SnowWaterEquiv(I,J) = SnowWaterEquiv(I,J) + SnowIce(I,LoopInd,J) + SnowLiqWater(I,LoopInd,J)
        enddo
     endif
 
     ! Reset DepthSnowSoilLayer and ThicknessSnowSoilLayer
+    !$acc loop seq
     do LoopInd = NumSnowLayerNeg(I,J)+1, 0
        ThicknessSnowSoilLayer(I,LoopInd,J) = -ThicknessSnowSoilLayer(I,LoopInd,J)
     enddo
 
     ThicknessSnowSoilLayer(I,1,J) = DepthSoilLayer(I,1,J)
+    !$acc loop seq
     do LoopInd = 2, NumSoilLayer
        ThicknessSnowSoilLayer(I,LoopInd,J) = DepthSoilLayer(I,LoopInd,J) - DepthSoilLayer(I,LoopInd-1,J)
     enddo
 
     DepthSnowSoilLayer(I,NumSnowLayerNeg(I,J)+1,J) = ThicknessSnowSoilLayer(I,NumSnowLayerNeg(I,J)+1,J)
+    !$acc loop seq
     do LoopInd = NumSnowLayerNeg(I,J)+2, NumSoilLayer
        DepthSnowSoilLayer(I,LoopInd,J) = DepthSnowSoilLayer(I,LoopInd-1,J) + ThicknessSnowSoilLayer(I,LoopInd,J)
     enddo
 
+    !$acc loop seq
     do LoopInd = NumSnowLayerNeg(I,J)+1, NumSoilLayer
        ThicknessSnowSoilLayer(I,LoopInd,J) = -ThicknessSnowSoilLayer(I,LoopInd,J)
     enddo
@@ -189,6 +195,7 @@ contains
     ! Update SnowDepth for multi-layer snow
     if ( NumSnowLayerNeg(I,J) < 0 ) then
        SnowDepth(I,J) = 0.0
+       !$acc loop seq
        do LoopInd = NumSnowLayerNeg(I,J)+1, 0
           SnowDepth(I,J) = SnowDepth(I,J) + ThicknessSnowSoilLayer(I,LoopInd,J)
        enddo

@@ -94,6 +94,7 @@ contains
      Error             = 1.388889E-07 * TimeStep ! 0.5 mm per hour time step
      InfilExpB         = InfilHeteroDynVic(I,J)
      flag_1003         = .False.
+     !$acc loop seq
      do IndIter = 1, NumSoilLayer-2
         WaterDepthTop    = WaterDepthTop + (SoilMoisture(I,IndIter,J) * (-1.0) * DepthSoilLayer(I,IndIter,J))              ! actual moisture in top layers, [m]
         WaterDepthSatTop = WaterDepthSatTop + (SoilMoistureSat(I,IndIter,J) * (-1.0) * DepthSoilLayer(I,IndIter,J))        ! maximum moisture in top layers, [m]  
@@ -146,6 +147,7 @@ contains
                     WaterDepthInit    = WaterDepthMax
                  else
                     DepthYTmp = 0.0
+                    !$acc loop seq
                     do IndIter = 1, NumIter ! loop : iteration 1
                        DepthYPrev      = DepthYTmp
                        RunoffSatExcTmp = 0.0
@@ -171,6 +173,7 @@ contains
                        WaterDepthInit    = WaterDepthMax
                     else
                        DepthYTmp = 0.0
+                       !$acc loop seq
                        do IndIter = 1, NumIter ! loop : iteration 2
                           DepthYPrev      = DepthYTmp
                           RunoffSatExcTmp = 0.0
@@ -184,6 +187,7 @@ contains
                     endif
                  else
                     DepthYTmp = WaterInSoilSfc / 2.0
+                    !$acc loop seq
                     do IndIter = 1, NumIter ! loop : iteration 3_0
                        DepthYPrev      = DepthYTmp
                        RunoffSatExcTmp = 0.0
@@ -197,6 +201,7 @@ contains
                           exit
                        endif
                     enddo
+                    !$acc loop seq
                     do IndIter = 1, NumIter ! loop : iteration 3
                        DepthYPrev      = DepthYTmp
                        RunoffSatExcTmp = 0.0
@@ -215,6 +220,7 @@ contains
            else
               if ( (InfilSfcMax*TimeStep) >= WaterInSoilSfc) then
                  DepthYTmp = WaterInSoilSfc / 2.0
+                 !$acc loop seq
                  do IndIter = 1, NumIter           ! iteration 1
                     DepthYPrev      = DepthYTmp
                     RunoffSatExcTmp = 0.0
@@ -230,6 +236,7 @@ contains
                  call RunoffSatExcessDynamicVic(noahmp,WaterDepthInit,WaterDepthMax,DepthYTmp,InfilFacDynVic(I,J),RunoffSatExcTmp)
                  if ( (RunoffSatExcTmp+(InfilSfcMax*TimeStep)) <= WaterInSoilSfc ) then
                     DepthYTmp = WaterInSoilSfc / 2.0
+                    !$acc loop seq
                     do IndIter = 1, NumIter        ! iteration 2
                        DepthYPrev      = DepthYTmp
                        RunoffSatExcTmp = 0.0
@@ -241,6 +248,7 @@ contains
                     enddo
                  else
                     DepthYTmp = 0.0
+                    !$acc loop seq
                     do IndIter = 1, NumIter        ! iteration 3_0
                        DepthYPrev      = DepthYTmp
                        RunoffSatExcTmp = 0.0
@@ -255,6 +263,7 @@ contains
                           exit
                        endif
                     enddo
+                    !$acc loop seq
                     do IndIter = 1, NumIter ! iteration 3
                        DepthYPrev      = DepthYTmp
                        RunoffSatExcTmp = 0.0

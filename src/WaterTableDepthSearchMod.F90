@@ -52,6 +52,7 @@ contains
     WaterAvailTmp = 0.0               ! set water avail for subsfc rtng = 0.
 
     ! calculate/search for water table depth
+    !$acc loop seq
     do IndSoil = NumSoilLayer, 1, -1
        if ( (SoilMoisture(I,IndSoil,J) >= SoilMoistureFieldCap(I,IndSoil,J)) .and. &
             (SoilMoistureFieldCap(I,IndSoil,J) > SoilMoistureWilt(I,IndSoil,J)) ) then
@@ -65,6 +66,7 @@ contains
        else                           ! soil column is fully saturated to sfc.
           WaterTableDepthTmp = 0.0
        endif
+       !$acc loop seq
        do IndSoil = IndSatLayer, NumSoilLayer
           WaterAvailTmp = WaterAvailTmp + &
                          (SoilMoisture(I,IndSoil,J) - SoilMoistureFieldCap(I,IndSoil,J)) * ThicknessSoilLayer(I,IndSoil,J)

@@ -144,15 +144,24 @@ contains
     NoahmpIO%ALBEDO  (I,J) = noahmp%energy%state%AlbedoSfc(I,J)
     NoahmpIO%IRRSPLH (I,J) = NoahmpIO%IRRSPLH(I,J) + &
                              (noahmp%energy%flux%HeatLatentIrriEvap(I,J) * noahmp%config%domain%MainTimeStep)
-    NoahmpIO%TSLB    (I,1:NumSoilLayer,J)       = noahmp%energy%state%TemperatureSoilSnow(I,1:NumSoilLayer,J)
-    NoahmpIO%TSNOXY  (I,-NumSnowLayerMax+1:0,J) = noahmp%energy%state%TemperatureSoilSnow(I,-NumSnowLayerMax+1:0,J)
+    !$acc loop seq
+    do LoopInd = 1, NumSoilLayer
+       NoahmpIO%TSLB    (I,LoopInd,J)       = noahmp%energy%state%TemperatureSoilSnow(I,LoopInd,J)
+    enddo
+    !$acc loop seq
+    do LoopInd = -NumSnowLayerMax+1, 0
+       NoahmpIO%TSNOXY  (I,LoopInd,J) = noahmp%energy%state%TemperatureSoilSnow(I,LoopInd,J)
+    enddo
 
-    NoahmpIO%ALBSOILDIRXY(I,1:NumSwRadBand,J) = noahmp%energy%state%AlbedoSoilDir(I,1:NumSwRadBand,J)
-    NoahmpIO%ALBSOILDIFXY(I,1:NumSwRadBand,J) = noahmp%energy%state%AlbedoSoilDif(I,1:NumSwRadBand,J)
-    NoahmpIO%ALBSFCDIRXY (I,1:NumSwRadBand,J) = noahmp%energy%state%AlbedoSfcDir (I,1:NumSwRadBand,J)
-    NoahmpIO%ALBSFCDIFXY (I,1:NumSwRadBand,J) = noahmp%energy%state%AlbedoSfcDif (I,1:NumSwRadBand,J)
-    NoahmpIO%ALBSNOWDIRXY(I,1:NumSwRadBand,J) = noahmp%energy%state%AlbedoSnowDir(I,1:NumSwRadBand,J)
-    NoahmpIO%ALBSNOWDIFXY(I,1:NumSwRadBand,J) = noahmp%energy%state%AlbedoSnowDif(I,1:NumSwRadBand,J)
+    !$acc loop seq
+    do LoopInd = 1, NumSwRadBand
+       NoahmpIO%ALBSOILDIRXY(I,LoopInd,J) = noahmp%energy%state%AlbedoSoilDir(I,LoopInd,J)
+       NoahmpIO%ALBSOILDIFXY(I,LoopInd,J) = noahmp%energy%state%AlbedoSoilDif(I,LoopInd,J)
+       NoahmpIO%ALBSFCDIRXY (I,LoopInd,J) = noahmp%energy%state%AlbedoSfcDir (I,LoopInd,J)
+       NoahmpIO%ALBSFCDIFXY (I,LoopInd,J) = noahmp%energy%state%AlbedoSfcDif (I,LoopInd,J)
+       NoahmpIO%ALBSNOWDIRXY(I,LoopInd,J) = noahmp%energy%state%AlbedoSnowDir(I,LoopInd,J)
+       NoahmpIO%ALBSNOWDIFXY(I,LoopInd,J) = noahmp%energy%state%AlbedoSnowDif(I,LoopInd,J)
+    enddo
 
     ! New Calculation of total Canopy/Stomatal Conductance Based on Bonan et al. (2011), Inverse of Canopy Resistance (below)
     LeafAreaIndSunlit      = max(noahmp%energy%state%LeafAreaIndSunlit(I,J), 0.0)

@@ -124,6 +124,7 @@ contains
     endif
 
     ! aggregate radiative flux
+    !$acc loop seq
     do IndBand = 1, NumSwRadBand
        ! absorbed by canopy
        RadSwAbsCanDir(I,IndBand,J) = RadSwDownDir(I,IndBand,J) * RadSwAbsVegDir(I,IndBand,J)

@@ -171,6 +171,7 @@ contains
     INTEGER,                             INTENT(OUT), OPTIONAL :: STEPWTD
     ! local
     integer :: itf, jtf, I, J
+    integer :: LoopInd    ! loop index for array section expansion
 ! ----------------------------------------------------------------------------------
 
     ! initialize NoahmpIO dimension and key config variables
@@ -240,7 +241,7 @@ contains
     !$acc enter data copyin(noahmpIO)
 
     ! 2D/3D variables
-    !$acc parallel loop gang vector collapse(2) default(present)
+    !$acc parallel loop gang vector collapse(2) default(present) private(LoopInd) firstprivate(NSNOW, NSOIL)
     do J = jts, jtf
     do I = its, itf
     
@@ -250,11 +251,17 @@ contains
     NoahmpIO%XLAT(I,J)                 = XLAT(I,J)
     NoahmpIO%TSK(I,J)                  = TSK(I,J)
     NoahmpIO%XICE(I,J)                 = XICE(I,J)
-    NoahmpIO%CROPTYPE(I,:,J)           = CROPTYPE(I,:,J)
+    !$acc loop seq
+    do LoopInd = 1, 5
+       NoahmpIO%CROPTYPE(I,LoopInd,J)      = CROPTYPE(I,LoopInd,J)
+    enddo
     ! in/out variables
-    NoahmpIO%SMOIS(I,:,J)              = SMOIS(I,:,J)
-    NoahmpIO%SH2O(I,:,J)               = SH2O(I,:,J)
-    NoahmpIO%TSLB(I,:,J)               = TSLB(I,:,J)
+    !$acc loop seq
+    do LoopInd = 1, NSOIL
+       NoahmpIO%SMOIS(I,LoopInd,J) = SMOIS(I,LoopInd,J)
+       NoahmpIO%SH2O(I,LoopInd,J) = SH2O(I,LoopInd,J)
+       NoahmpIO%TSLB(I,LoopInd,J) = TSLB(I,LoopInd,J)
+    enddo
     NoahmpIO%SNOW(I,J)                 = SNOW(I,J)    
     NoahmpIO%SNOWH(I,J)                = SNOWH(I,J)   
     NoahmpIO%CANWAT(I,J)               = CANWAT(I,J)  
@@ -262,10 +269,16 @@ contains
     NoahmpIO%CANLIQXY(I,J)             = CANLIQXY(I,J)
     NoahmpIO%TMN(I,J)                  = TMN(I,J)
     NoahmpIO%ISNOWXY(I,J)              = ISNOWXY(I,J)
-    NoahmpIO%ZSNSOXY(I,:,J)            = ZSNSOXY(I,1:7,J) 
-    NoahmpIO%TSNOXY(I,:,J)             = TSNOXY(I,1:3,J)
-    NoahmpIO%SNICEXY(I,:,J)            = SNICEXY(I,1:3,J)
-    NoahmpIO%SNLIQXY(I,:,J)            = SNLIQXY(I,1:3,J)
+    !$acc loop seq
+    do LoopInd = -NSNOW+1, NSOIL
+       NoahmpIO%ZSNSOXY(I,LoopInd,J)      = ZSNSOXY(I,LoopInd+NSNOW,J)
+    enddo 
+    !$acc loop seq
+    do LoopInd = -NSNOW+1, 0
+       NoahmpIO%TSNOXY(I,LoopInd,J) = TSNOXY(I,LoopInd+NSNOW,J)
+       NoahmpIO%SNICEXY(I,LoopInd,J) = SNICEXY(I,LoopInd+NSNOW,J)
+       NoahmpIO%SNLIQXY(I,LoopInd,J) = SNLIQXY(I,LoopInd+NSNOW,J)
+    enddo
     NoahmpIO%TVXY(I,J)                 = TVXY(I,J)
     NoahmpIO%TGXY(I,J)                 = TGXY(I,J)
     NoahmpIO%EAHXY(I,J)                = EAHXY(I,J)
@@ -304,33 +317,39 @@ contains
     NoahmpIO%IRRSPLH(I,J)              = IRRSPLH(I,J)
     NoahmpIO%T2MVXY(I,J)               = T2MVXY(I,J)
     NoahmpIO%T2MBXY(I,J)               = T2MBXY(I,J)
-    NoahmpIO%ALBSOILDIRXY(I,:,J)       = ALBSOILDIRXY(I,:,J)
-    NoahmpIO%ALBSOILDIFXY(I,:,J)       = ALBSOILDIFXY(I,:,J)
+    !$acc loop seq
+    do LoopInd = 1, 2
+       NoahmpIO%ALBSOILDIRXY(I,LoopInd,J) = ALBSOILDIRXY(I,LoopInd,J)
+       NoahmpIO%ALBSOILDIFXY(I,LoopInd,J) = ALBSOILDIFXY(I,LoopInd,J)
+    enddo
     if ( NoahmpIO%IOPT_WETLAND > 0 ) then
        NoahmpIO%FSATXY(I,J)            = FSATXY(I,J)
        NoahmpIO%WSURFXY(I,J)           = WSURFXY(I,J)
     endif
     if ( NoahmpIO%IOPT_ALB == 3 ) then
-       NoahmpIO%SNRDSXY( I,1:3,J)         = SNRDSXY(I,1:3,J)
-       NoahmpIO%SNFRXY(I,1:3,J)          = SNFRXY(I,1:3,J)
-       NoahmpIO%BCPHIXY(I,1:3,J)         = BCPHIXY(I,1:3,J)
-       NoahmpIO%BCPHOXY(I,1:3,J)         = BCPHOXY(I,1:3,J)
-       NoahmpIO%OCPHIXY(I,1:3,J)         = OCPHIXY(I,1:3,J)
-       NoahmpIO%OCPHOXY(I,1:3,J)         = OCPHOXY(I,1:3,J)
-       NoahmpIO%DUST1XY(I,1:3,J)         = DUST1XY(I,1:3,J)
-       NoahmpIO%DUST2XY(I,1:3,J)         = DUST2XY(I,1:3,J)
-       NoahmpIO%DUST3XY(I,1:3,J)         = DUST3XY(I,1:3,J)
-       NoahmpIO%DUST4XY(I,1:3,J)         = DUST4XY(I,1:3,J)
-       NoahmpIO%DUST5XY(I,1:3,J)         = DUST5XY(I,1:3,J)
-       NoahmpIO%MassConcBCPHIXY(I,1:3,J) = MassConcBCPHIXY(I,1:3,J)
-       NoahmpIO%MassConcBCPHOXY(I,1:3,J) = MassConcBCPHOXY(I,1:3,J)
-       NoahmpIO%MassConcOCPHIXY(I,1:3,J) = MassConcOCPHIXY(I,1:3,J)
-       NoahmpIO%MassConcOCPHOXY(I,1:3,J) = MassConcOCPHOXY(I,1:3,J)
-       NoahmpIO%MassConcDUST1XY(I,1:3,J) = MassConcDUST1XY(I,1:3,J)
-       NoahmpIO%MassConcDUST2XY(I,1:3,J) = MassConcDUST2XY(I,1:3,J)
-       NoahmpIO%MassConcDUST3XY(I,1:3,J) = MassConcDUST3XY(I,1:3,J)
-       NoahmpIO%MassConcDUST4XY(I,1:3,J) = MassConcDUST4XY(I,1:3,J)
-       NoahmpIO%MassConcDUST5XY(I,1:3,J) = MassConcDUST5XY(I,1:3,J)
+       !$acc loop seq
+       do LoopInd = -NSNOW+1, 0
+          NoahmpIO%SNRDSXY(I,LoopInd,J) = SNRDSXY(I,LoopInd+NSNOW,J)
+          NoahmpIO%SNFRXY(I,LoopInd,J) = SNFRXY(I,LoopInd+NSNOW,J)
+          NoahmpIO%BCPHIXY(I,LoopInd,J) = BCPHIXY(I,LoopInd+NSNOW,J)
+          NoahmpIO%BCPHOXY(I,LoopInd,J) = BCPHOXY(I,LoopInd+NSNOW,J)
+          NoahmpIO%OCPHIXY(I,LoopInd,J) = OCPHIXY(I,LoopInd+NSNOW,J)
+          NoahmpIO%OCPHOXY(I,LoopInd,J) = OCPHOXY(I,LoopInd+NSNOW,J)
+          NoahmpIO%DUST1XY(I,LoopInd,J) = DUST1XY(I,LoopInd+NSNOW,J)
+          NoahmpIO%DUST2XY(I,LoopInd,J) = DUST2XY(I,LoopInd+NSNOW,J)
+          NoahmpIO%DUST3XY(I,LoopInd,J) = DUST3XY(I,LoopInd+NSNOW,J)
+          NoahmpIO%DUST4XY(I,LoopInd,J) = DUST4XY(I,LoopInd+NSNOW,J)
+          NoahmpIO%DUST5XY(I,LoopInd,J) = DUST5XY(I,LoopInd+NSNOW,J)
+          NoahmpIO%MassConcBCPHIXY(I,LoopInd,J) = MassConcBCPHIXY(I,LoopInd+NSNOW,J)
+          NoahmpIO%MassConcBCPHOXY(I,LoopInd,J) = MassConcBCPHOXY(I,LoopInd+NSNOW,J)
+          NoahmpIO%MassConcOCPHIXY(I,LoopInd,J) = MassConcOCPHIXY(I,LoopInd+NSNOW,J)
+          NoahmpIO%MassConcOCPHOXY(I,LoopInd,J) = MassConcOCPHOXY(I,LoopInd+NSNOW,J)
+          NoahmpIO%MassConcDUST1XY(I,LoopInd,J) = MassConcDUST1XY(I,LoopInd+NSNOW,J)
+          NoahmpIO%MassConcDUST2XY(I,LoopInd,J) = MassConcDUST2XY(I,LoopInd+NSNOW,J)
+          NoahmpIO%MassConcDUST3XY(I,LoopInd,J) = MassConcDUST3XY(I,LoopInd+NSNOW,J)
+          NoahmpIO%MassConcDUST4XY(I,LoopInd,J) = MassConcDUST4XY(I,LoopInd+NSNOW,J)
+          NoahmpIO%MassConcDUST5XY(I,LoopInd,J) = MassConcDUST5XY(I,LoopInd+NSNOW,J)
+       enddo
     endif
 
     enddo ! I
@@ -441,9 +460,12 @@ contains
       enddo; enddo
     endif
     if(present(SMOISEQ)) then
-      !$acc parallel loop gang vector collapse(2) default(present)
+      !$acc parallel loop gang vector collapse(2) default(present) firstprivate(LoopInd, NSOIL)
       do J = jts, jtf; do I = its, itf
-        NoahmpIO%SMOISEQ(I,:,J) = SMOISEQ(I,:,J)
+        !$acc loop seq
+        do LoopInd = 1, NSOIL
+           NoahmpIO%SMOISEQ(I,LoopInd,J) = SMOISEQ(I,LoopInd,J)
+        enddo
       enddo; enddo
     endif
 
@@ -454,14 +476,17 @@ contains
     !---------
 
     !--------- initialized NoahmpIO variable mapped to WRF variables
-    !$acc parallel loop gang vector collapse(2) default(present)
+    !$acc parallel loop gang vector collapse(2) default(present) firstprivate(LoopInd, NSNOW, NSOIL)
     do J = jts, jtf
     do I = its, itf
 
     ! in/out variables
-    SMOIS(I,:,J)        = NoahmpIO%SMOIS(I,:,J) 
-    SH2O(I,:,J)         = NoahmpIO%SH2O(I,:,J)
-    TSLB(I,:,J)         = NoahmpIO%TSLB(I,:,J)
+    !$acc loop seq
+    do LoopInd = 1, NSOIL
+       SMOIS(I,LoopInd,J) = NoahmpIO%SMOIS(I,LoopInd,J)
+       SH2O(I,LoopInd,J) = NoahmpIO%SH2O(I,LoopInd,J)
+       TSLB(I,LoopInd,J) = NoahmpIO%TSLB(I,LoopInd,J)
+    enddo
     SNOW(I,J)           = NoahmpIO%SNOW(I,J)
     SNOWH(I,J)          = NoahmpIO%SNOWH(I,J) 
     CANWAT(I,J)         = NoahmpIO%CANWAT(I,J)
@@ -469,10 +494,16 @@ contains
     CANLIQXY(I,J)       = NoahmpIO%CANLIQXY(I,J)
     TMN(I,J)            = NoahmpIO%TMN(I,J)
     ISNOWXY(I,J)        = NoahmpIO%ISNOWXY(I,J)
-    ZSNSOXY(I,1:7,J)      = NoahmpIO%ZSNSOXY(I,:,J)
-    TSNOXY(I,1:3,J)       = NoahmpIO%TSNOXY(I,:,J)
-    SNICEXY(I,1:3,J)      = NoahmpIO%SNICEXY(I,:,J)
-    SNLIQXY(I,1:3,J)      = NoahmpIO%SNLIQXY(I,:,J)
+    !$acc loop seq
+    do LoopInd = 1, NSNOW+NSOIL
+       ZSNSOXY(I,LoopInd,J) = NoahmpIO%ZSNSOXY(I,LoopInd-NSNOW,J)
+    enddo
+    !$acc loop seq
+    do LoopInd = 1, NSNOW
+       TSNOXY(I,LoopInd,J) = NoahmpIO%TSNOXY(I,LoopInd-NSNOW,J)
+       SNICEXY(I,LoopInd,J) = NoahmpIO%SNICEXY(I,LoopInd-NSNOW,J)
+       SNLIQXY(I,LoopInd,J) = NoahmpIO%SNLIQXY(I,LoopInd-NSNOW,J)
+    enddo
     TVXY(I,J)           = NoahmpIO%TVXY(I,J)
     TGXY(I,J)           = NoahmpIO%TGXY(I,J)
     EAHXY(I,J)          = NoahmpIO%EAHXY(I,J)
@@ -511,33 +542,39 @@ contains
     IRRSPLH(I,J)        = NoahmpIO%IRRSPLH(I,J)
     T2MVXY(I,J)         = NoahmpIO%T2MVXY(I,J)
     T2MBXY(I,J)         = NoahmpIO%T2MBXY(I,J)
-    ALBSOILDIRXY(I,:,J) = NoahmpIO%ALBSOILDIRXY(I,:,J)
-    ALBSOILDIFXY(I,:,J) = NoahmpIO%ALBSOILDIFXY(I,:,J)
+    !$acc loop seq
+    do LoopInd = 1, 2
+       ALBSOILDIRXY(I,LoopInd,J) = NoahmpIO%ALBSOILDIRXY(I,LoopInd,J)
+       ALBSOILDIFXY(I,LoopInd,J) = NoahmpIO%ALBSOILDIFXY(I,LoopInd,J)
+    enddo
     if ( NoahmpIO%IOPT_WETLAND > 0 ) then
        FSATXY(I,J)      = NoahmpIO%FSATXY(I,J)
        WSURFXY(I,J)     = NoahmpIO%WSURFXY(I,J)
     endif
     if ( NoahmpIO%IOPT_ALB == 3 ) then
-       SNRDSXY(I,1:3,J)         = NoahmpIO%SNRDSXY(I,:,J)
-       SNFRXY(I,1:3,J)          = NoahmpIO%SNFRXY(I,:,J)
-       BCPHIXY(I,1:3,J)         = NoahmpIO%BCPHIXY(I,:,J)
-       BCPHOXY(I,1:3,J)         = NoahmpIO%BCPHOXY(I,:,J)
-       OCPHIXY(I,1:3,J)         = NoahmpIO%OCPHIXY(I,:,J)
-       OCPHOXY(I,1:3,J)         = NoahmpIO%OCPHOXY(I,:,J)
-       DUST1XY(I,1:3,J)         = NoahmpIO%DUST1XY(I,:,J)
-       DUST2XY(I,1:3,J)         = NoahmpIO%DUST2XY(I,:,J)
-       DUST3XY(I,1:3,J)         = NoahmpIO%DUST3XY(I,:,J)
-       DUST4XY(I,1:3,J)         = NoahmpIO%DUST4XY(I,:,J)
-       DUST5XY(I,1:3,J)         = NoahmpIO%DUST5XY(I,:,J)
-       MassConcBCPHIXY(I,1:3,J) = NoahmpIO%MassConcBCPHIXY(I,:,J)
-       MassConcBCPHOXY(I,1:3,J) = NoahmpIO%MassConcBCPHOXY(I,:,J)
-       MassConcOCPHIXY(I,1:3,J) = NoahmpIO%MassConcOCPHIXY(I,:,J)
-       MassConcOCPHOXY(I,1:3,J) = NoahmpIO%MassConcOCPHOXY(I,:,J)
-       MassConcDUST1XY(I,1:3,J) = NoahmpIO%MassConcDUST1XY(I,:,J)
-       MassConcDUST2XY(I,1:3,J) = NoahmpIO%MassConcDUST2XY(I,:,J)
-       MassConcDUST3XY(I,1:3,J) = NoahmpIO%MassConcDUST3XY(I,:,J)
-       MassConcDUST4XY(I,1:3,J) = NoahmpIO%MassConcDUST4XY(I,:,J)
-       MassConcDUST5XY(I,1:3,J) = NoahmpIO%MassConcDUST5XY(I,:,J)
+       !$acc loop seq
+       do LoopInd = 1, NSNOW
+          SNRDSXY(I,LoopInd,J) = NoahmpIO%SNRDSXY(I,LoopInd-NSNOW,J)
+          SNFRXY(I,LoopInd,J) = NoahmpIO%SNFRXY(I,LoopInd-NSNOW,J)
+          BCPHIXY(I,LoopInd,J) = NoahmpIO%BCPHIXY(I,LoopInd-NSNOW,J)
+          BCPHOXY(I,LoopInd,J) = NoahmpIO%BCPHOXY(I,LoopInd-NSNOW,J)
+          OCPHIXY(I,LoopInd,J) = NoahmpIO%OCPHIXY(I,LoopInd-NSNOW,J)
+          OCPHOXY(I,LoopInd,J) = NoahmpIO%OCPHOXY(I,LoopInd-NSNOW,J)
+          DUST1XY(I,LoopInd,J) = NoahmpIO%DUST1XY(I,LoopInd-NSNOW,J)
+          DUST2XY(I,LoopInd,J) = NoahmpIO%DUST2XY(I,LoopInd-NSNOW,J)
+          DUST3XY(I,LoopInd,J) = NoahmpIO%DUST3XY(I,LoopInd-NSNOW,J)
+          DUST4XY(I,LoopInd,J) = NoahmpIO%DUST4XY(I,LoopInd-NSNOW,J)
+          DUST5XY(I,LoopInd,J) = NoahmpIO%DUST5XY(I,LoopInd-NSNOW,J)
+          MassConcBCPHIXY(I,LoopInd,J) = NoahmpIO%MassConcBCPHIXY(I,LoopInd-NSNOW,J)
+          MassConcBCPHOXY(I,LoopInd,J) = NoahmpIO%MassConcBCPHOXY(I,LoopInd-NSNOW,J)
+          MassConcOCPHIXY(I,LoopInd,J) = NoahmpIO%MassConcOCPHIXY(I,LoopInd-NSNOW,J)
+          MassConcOCPHOXY(I,LoopInd,J) = NoahmpIO%MassConcOCPHOXY(I,LoopInd-NSNOW,J)
+          MassConcDUST1XY(I,LoopInd,J) = NoahmpIO%MassConcDUST1XY(I,LoopInd-NSNOW,J)
+          MassConcDUST2XY(I,LoopInd,J) = NoahmpIO%MassConcDUST2XY(I,LoopInd-NSNOW,J)
+          MassConcDUST3XY(I,LoopInd,J) = NoahmpIO%MassConcDUST3XY(I,LoopInd-NSNOW,J)
+          MassConcDUST4XY(I,LoopInd,J) = NoahmpIO%MassConcDUST4XY(I,LoopInd-NSNOW,J)
+          MassConcDUST5XY(I,LoopInd,J) = NoahmpIO%MassConcDUST5XY(I,LoopInd-NSNOW,J)
+       enddo
     endif
 
     ! out variables only
@@ -620,9 +657,12 @@ contains
       enddo; enddo
     endif
     if(present(SMOISEQ)) then
-      !$acc parallel loop gang vector collapse(2) default(present)
+      !$acc parallel loop gang vector collapse(2) default(present) firstprivate(LoopInd, NSOIL)
       do J = jts, jtf; do I = its, itf
-        SMOISEQ(I,:,J) = NoahmpIO%SMOISEQ(I,:,J)
+        !$acc loop seq
+        do LoopInd = 1, NSOIL
+           SMOISEQ(I,LoopInd,J) = NoahmpIO%SMOISEQ(I,LoopInd,J)
+        enddo
       enddo; enddo
     endif
 

@@ -48,6 +48,7 @@ contains
     real(kind=kind_noahmp), dimension( 1:NoahmpIO%nsoil ) :: SAND
     real(kind=kind_noahmp), dimension( 1:NoahmpIO%nsoil ) :: CLAY
     real(kind=kind_noahmp), dimension( 1:NoahmpIO%nsoil ) :: ORGM
+    integer                          :: LoopInd    ! loop index for array section expansion
 ! ------------------------------------------------------------------------- 
 
     !---------------------------------------------------------------------
@@ -58,13 +59,16 @@ contains
     NoahmpIO%SOIL_UPDATE_STEPS = max(NoahmpIO%SOIL_UPDATE_STEPS,1)
 
     if ( NoahmpIO%SOIL_UPDATE_STEPS == 1 ) then
-       !$acc parallel loop collapse(2) gang vector default(present) private(I, J)
+       !$acc parallel loop collapse(2) gang vector default(present) private(I, J) private(LoopInd)
        do J = NoahmpIO%JTS, NoahmpIO%JTE
        do I = NoahmpIO%ITS, NoahmpIO%ITE
           NoahmpIO%ACC_SSOILXY(I,J)    = 0.0
           NoahmpIO%ACC_QINSURXY(I,J)   = 0.0
           NoahmpIO%ACC_QSEVAXY(I,J)    = 0.0
-          NoahmpIO%ACC_ETRANIXY(I,:,J) = 0.0
+          !$acc loop seq
+          do LoopInd = 1, NoahmpIO%NSOIL
+             NoahmpIO%ACC_ETRANIXY(I,LoopInd,J) = 0.0
+          enddo
           NoahmpIO%ACC_DWATERXY(I,J)   = 0.0
           NoahmpIO%ACC_PRCPXY(I,J)     = 0.0
           NoahmpIO%ACC_ECANXY(I,J)     = 0.0
@@ -77,13 +81,16 @@ contains
 
     if ( NoahmpIO%SOIL_UPDATE_STEPS > 1 ) then
        if ( mod(NoahmpIO%ITIMESTEP, NoahmpIO%SOIL_UPDATE_STEPS) == 1 ) then
-          !$acc parallel loop collapse(2) gang vector default(present) private(I, J)
+          !$acc parallel loop collapse(2) gang vector default(present) private(I, J) firstprivate(LoopInd)
           do J = NoahmpIO%JTS, NoahmpIO%JTE
           do I = NoahmpIO%ITS, NoahmpIO%ITE
              NoahmpIO%ACC_SSOILXY(I,J)    = 0.0
              NoahmpIO%ACC_QINSURXY(I,J)   = 0.0
              NoahmpIO%ACC_QSEVAXY(I,J)    = 0.0
-             NoahmpIO%ACC_ETRANIXY(I,:,J) = 0.0
+             !$acc loop seq
+             do LoopInd = 1, NoahmpIO%NSOIL
+                NoahmpIO%ACC_ETRANIXY(I,LoopInd,J) = 0.0
+             enddo
              NoahmpIO%ACC_DWATERXY(I,J)   = 0.0
              NoahmpIO%ACC_PRCPXY(I,J)     = 0.0
              NoahmpIO%ACC_ECANXY(I,J)     = 0.0

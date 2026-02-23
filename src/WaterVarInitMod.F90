@@ -293,9 +293,9 @@ contains
           !$acc enter data create(noahmp%water%param%snowage_drdt0)
        endif
        !$acc parallel loop vector collapse(3)
-       do J = 1,size(noahmp%water%param%snowage_tau,3)
-         do LoopInd = 1, size(noahmp%water%param%snowage_tau,2)
-           do I = 1, size(noahmp%water%param%snowage_tau,1)
+       do J = 1, NumTempSnwAgeSnicar
+         do LoopInd = 1, NumTempGradSnwAgeSnicar
+           do I = 1, NumDensitySnwAgeSnicar
              noahmp%water%param%snowage_tau(I,LoopInd,J)  = undefined_real
              noahmp%water%param%snowage_kappa(I,LoopInd,J)= undefined_real
              noahmp%water%param%snowage_drdt0(I,LoopInd,J)= undefined_real

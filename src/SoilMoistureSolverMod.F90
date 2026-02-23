@@ -122,6 +122,7 @@ contains
        endif
     endif
 
+    !$acc loop seq
     do LoopInd = NumSoilLayer, 2, -1
        SoilEffPorosity(I,LoopInd,J) = max(1.0e-4, (SoilMoistureSat(I,LoopInd,J) - SoilIce(I,LoopInd,J)))
        SoilSaturationExcess(I,J)     = max((SoilLiqWater(I,LoopInd,J)-SoilEffPorosity(I,LoopInd,J)), 0.0) * &
@@ -136,6 +137,7 @@ contains
 
     if ( SoilSaturationExcess(I,J) > 0.0 ) then
        SoilLiqWater(I,2,J) = SoilLiqWater(I,2,J) + SoilSaturationExcess(I,J) / ThicknessSnowSoilLayer(I,2,J)
+       !$acc loop seq
        do LoopInd = 2, NumSoilLayer-1
           SoilEffPorosity(I,LoopInd,J) = max(1.0e-4, (SoilMoistureSat(I,LoopInd,J) - SoilIce(I,LoopInd,J)))
           SoilSaturationExcess(I,J)     = max((SoilLiqWater(I,LoopInd,J)-SoilEffPorosity(I,LoopInd,J)), 0.0) * &

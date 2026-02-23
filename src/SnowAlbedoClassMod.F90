@@ -26,6 +26,7 @@ contains
 ! local variable
     integer                          :: I, J                  ! grid indices
     real(kind=kind_noahmp)           :: SnowAlbedoTmp         ! temporary snow albedo
+    integer                          :: LoopInd    ! loop index for array section expansion
 
 ! --------------------------------------------------------------------
         associate(                                                                     &
@@ -41,7 +42,7 @@ contains
                   AlbedoSnowDif        => noahmp%energy%state%AlbedoSnowDif            & ! out, snow albedo for diffuse (1=vis, 2=nir) (3D)
                  )
 
-    !$acc parallel loop collapse(2) gang vector default(present) private(SnowAlbedoTmp)
+    !$acc parallel loop collapse(2) gang vector default(present) private(SnowAlbedoTmp) private(LoopInd)
     do J = noahmp%config%domain%JTS, noahmp%config%domain%JTE
       do I = noahmp%config%domain%ITS, noahmp%config%domain%ITE
 
@@ -50,8 +51,11 @@ contains
 
 
         ! initialization
-        AlbedoSnowDir(I,1:NumSwRadBand,J) = 0.0
-        AlbedoSnowDif(I,1:NumSwRadBand,J) = 0.0
+        !$acc loop seq
+        do LoopInd = 1, NumSwRadBand
+           AlbedoSnowDir(I,LoopInd,J) = 0.0
+           AlbedoSnowDif(I,LoopInd,J) = 0.0
+        enddo
 
         ! when CosSolarZenithAngle > 0
         SnowAlbedoTmp = SnowAlbRefClass(I,J) + (AlbedoSnowPrev(I,J)-SnowAlbRefClass(I,J)) * exp(-0.01*MainTimeStep/SnowAgeFacClass(I,J))

@@ -69,6 +69,7 @@ contains
     RunoffSurface(I,J)    = 0.0
     InfilRateSfc(I,J)     = 0.0
 
+    !$acc loop seq
     do LoopInd = 1, NumSoilLayer-2
        if ( (SoilMoisture(I,LoopInd,J)-SoilMoistureFieldCap(I,LoopInd,J)) > 0.0 ) then   ! soil moisture greater than field capacity
           SoilWaterFree = SoilWaterFree + &
