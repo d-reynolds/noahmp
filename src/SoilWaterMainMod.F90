@@ -60,7 +60,7 @@ contains
     real(kind=kind_noahmp), allocatable, dimension(:,:,:) :: MatLeft1 ! left-hand side term
     real(kind=kind_noahmp), allocatable, dimension(:,:,:) :: MatLeft2 ! left-hand side term
     real(kind=kind_noahmp), allocatable, dimension(:,:,:) :: MatLeft3 ! left-hand side term
-    real(kind=kind_noahmp) :: SoilLiqTmp(1:noahmp%config%domain%NumSoilLayer)   ! temporary soil liquid water [mm]
+    real(kind=kind_noahmp), allocatable, dimension(:,:,:) :: SoilLiqTmp   ! temporary soil liquid water [mm]
     ! 2D accumulator arrays that persist across parallel regions
     real(kind=kind_noahmp), allocatable, dimension(:,:)   :: SoilSatExcAcc2D
     real(kind=kind_noahmp), allocatable, dimension(:,:)   :: DrainSoilBotAcc2D
@@ -266,8 +266,13 @@ contains
     endif
 
 
+    allocate(SoilLiqTmp(noahmp%config%domain%ITS:noahmp%config%domain%ITE, &
+                        1:NumSoilLayer, &
+                        noahmp%config%domain%JTS:noahmp%config%domain%JTE))
+    !$acc data create(SoilLiqTmp)
+
     !$acc parallel loop collapse(2) gang vector default(present) &
-    !$acc private(LoopInd1, LoopInd2, SoilWatConductAcc, WaterRemove, SoilWatRem, SoilWaterMin, SoilLiqTmp)
+    !$acc private(LoopInd1, LoopInd2, SoilWatConductAcc, WaterRemove, SoilWatRem, SoilWaterMin)
     do J = noahmp%config%domain%JTS, noahmp%config%domain%JTE
       do I = noahmp%config%domain%ITS, noahmp%config%domain%ITE
          if ( noahmp%config%domain%IndicatorIceSfc(I,J) == -1 ) cycle  ! skip soil process for ice surface points
@@ -275,7 +280,7 @@ contains
 
         !$acc loop seq
         do LoopInd1 = 1, NumSoilLayer
-           SoilLiqTmp(LoopInd1)    = 0.0
+           SoilLiqTmp(I,LoopInd1,J)    = 0.0
         enddo
         ! removal of soil water due to subsurface runoff (option 2)
         if ( OptRunoffSubsurface == 2 ) then
@@ -299,34 +304,34 @@ contains
         if ( OptRunoffSubsurface /= 1 ) then
            !$acc loop seq
            do LoopInd2 = 1, NumSoilLayer
-              SoilLiqTmp(LoopInd2) = SoilLiqWater(I,LoopInd2,J) * ThicknessSnowSoilLayer(I,LoopInd2,J) * 1000.0
+              SoilLiqTmp(I,LoopInd2,J) = SoilLiqWater(I,LoopInd2,J) * ThicknessSnowSoilLayer(I,LoopInd2,J) * 1000.0
            enddo
 
            SoilWaterMin = 0.01   ! mm
            !$acc loop seq
            do LoopInd2 = 1, NumSoilLayer-1
-              if ( SoilLiqTmp(LoopInd2) < 0.0 ) then
-                 SoilWatRem = SoilWaterMin - SoilLiqTmp(LoopInd2)
+              if ( SoilLiqTmp(I,LoopInd2,J) < 0.0 ) then
+                 SoilWatRem = SoilWaterMin - SoilLiqTmp(I,LoopInd2,J)
               else
                  SoilWatRem = 0.0
               endif
-              SoilLiqTmp(LoopInd2  ) = SoilLiqTmp(LoopInd2  ) + SoilWatRem
-              SoilLiqTmp(LoopInd2+1) = SoilLiqTmp(LoopInd2+1) - SoilWatRem
+              SoilLiqTmp(I,LoopInd2  ,J) = SoilLiqTmp(I,LoopInd2  ,J) + SoilWatRem
+              SoilLiqTmp(I,LoopInd2+1,J) = SoilLiqTmp(I,LoopInd2+1,J) - SoilWatRem
            enddo
            LoopInd2 = NumSoilLayer
-           if ( SoilLiqTmp(LoopInd2) < SoilWaterMin ) then
-               SoilWatRem = SoilWaterMin - SoilLiqTmp(LoopInd2)
+           if ( SoilLiqTmp(I,LoopInd2,J) < SoilWaterMin ) then
+               SoilWatRem = SoilWaterMin - SoilLiqTmp(I,LoopInd2,J)
            else
                SoilWatRem = 0.0
            endif
-           SoilLiqTmp(LoopInd2) = SoilLiqTmp(LoopInd2) + SoilWatRem
+           SoilLiqTmp(I,LoopInd2,J) = SoilLiqTmp(I,LoopInd2,J) + SoilWatRem
            RunoffSubsurface(I,J)     = RunoffSubsurface(I,J) - SoilWatRem/SoilTimeStep
 
            if ( OptRunoffSubsurface == 5 ) RechargeGwDeepWT(I,J) = RechargeGwDeepWT(I,J) - SoilWatRem * 1.0e-3
 
            !$acc loop seq
            do LoopInd2 = 1, NumSoilLayer
-              SoilLiqWater(I,LoopInd2,J) = SoilLiqTmp(LoopInd2) / &
+              SoilLiqWater(I,LoopInd2,J) = SoilLiqTmp(I,LoopInd2,J) / &
                                             (ThicknessSnowSoilLayer(I,LoopInd2,J)*1000.0)
            enddo
         endif ! OptRunoffSubsurface /= 1
@@ -335,6 +340,9 @@ contains
       end do
     end do
     !$acc end parallel loop
+
+    !$acc end data
+    deallocate(SoilLiqTmp)
 
     ! compute groundwater and subsurface runoff
     if ( OptRunoffSubsurface == 1 ) call RunoffSubSurfaceGroundWater(noahmp)

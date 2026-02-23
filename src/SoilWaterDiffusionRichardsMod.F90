@@ -36,11 +36,11 @@ contains
     real(kind=kind_noahmp)                            :: DepthSnowSoilTmp            ! temporary snow/soil layer depth [m]
     real(kind=kind_noahmp)                            :: SoilMoistTmpToWT            ! temporary soil moisture between bottom of the soil and water table
     real(kind=kind_noahmp)                            :: SoilMoistBotTmp             ! temporary soil moisture below bottom to calculate flux
-    real(kind=kind_noahmp)                            :: DepthSnowSoilInv(1:noahmp%config%domain%NumSoilLayer)            ! inverse of snow/soil layer depth [1/m]
-    real(kind=kind_noahmp)                            :: SoilThickTmp(1:noahmp%config%domain%NumSoilLayer)                ! temporary soil thickness
-    real(kind=kind_noahmp)                            :: SoilWaterGrad(1:noahmp%config%domain%NumSoilLayer)               ! temporary soil moisture vertical gradient
-    real(kind=kind_noahmp)                            :: WaterExcess(1:noahmp%config%domain%NumSoilLayer)                 ! temporary excess water flux
-    real(kind=kind_noahmp)                            :: SoilMoistureTmp(1:noahmp%config%domain%NumSoilLayer)             ! temporary soil moisture
+    real(kind=kind_noahmp), allocatable, dimension(:,:,:) :: DepthSnowSoilInv            ! inverse of snow/soil layer depth [1/m]
+    real(kind=kind_noahmp), allocatable, dimension(:,:,:) :: SoilThickTmp                ! temporary soil thickness
+    real(kind=kind_noahmp), allocatable, dimension(:,:,:) :: SoilWaterGrad               ! temporary soil moisture vertical gradient
+    real(kind=kind_noahmp), allocatable, dimension(:,:,:) :: WaterExcess                 ! temporary excess water flux
+    real(kind=kind_noahmp), allocatable, dimension(:,:,:) :: SoilMoistureTmp             ! temporary soil moisture
     integer                                           :: I, J                        ! grid indices
     associate(                                                                             &
               NumSoilLayer              => noahmp%config%domain%NumSoilLayer              ,& ! in,  number of soil layers
@@ -63,7 +63,14 @@ contains
               DrainSoilBot              => noahmp%water%flux%DrainSoilBot                  & ! out, soil bottom drainage [m/s]
              )
 
-    !$acc parallel loop collapse(2) gang vector default(present) private(DepthSnowSoilTmp, SoilMoistTmpToWT, SoilMoistBotTmp, DepthSnowSoilInv, SoilThickTmp, SoilWaterGrad, WaterExcess, SoilMoistureTmp, LoopInd)
+    allocate(DepthSnowSoilInv(noahmp%config%domain%ITS:noahmp%config%domain%ITE, 1:NumSoilLayer, noahmp%config%domain%JTS:noahmp%config%domain%JTE))
+    allocate(SoilThickTmp(noahmp%config%domain%ITS:noahmp%config%domain%ITE, 1:NumSoilLayer, noahmp%config%domain%JTS:noahmp%config%domain%JTE))
+    allocate(SoilWaterGrad(noahmp%config%domain%ITS:noahmp%config%domain%ITE, 1:NumSoilLayer, noahmp%config%domain%JTS:noahmp%config%domain%JTE))
+    allocate(WaterExcess(noahmp%config%domain%ITS:noahmp%config%domain%ITE, 1:NumSoilLayer, noahmp%config%domain%JTS:noahmp%config%domain%JTE))
+    allocate(SoilMoistureTmp(noahmp%config%domain%ITS:noahmp%config%domain%ITE, 1:NumSoilLayer, noahmp%config%domain%JTS:noahmp%config%domain%JTE))
+    !$acc data create(DepthSnowSoilInv, SoilThickTmp, SoilWaterGrad, WaterExcess, SoilMoistureTmp)
+
+    !$acc parallel loop collapse(2) gang vector default(present) private(DepthSnowSoilTmp, SoilMoistTmpToWT, SoilMoistBotTmp, LoopInd)
     do J = noahmp%config%domain%JTS, noahmp%config%domain%JTE
       do I = noahmp%config%domain%ITS, noahmp%config%domain%ITE
          if ( noahmp%config%domain%IndicatorIceSfc(I,J) == -1 ) cycle  ! skip soil process for ice surface points
@@ -76,11 +83,11 @@ contains
       MatLeft1(I,LoopInd,J)     = 0.0
       MatLeft2(I,LoopInd,J)     = 0.0
       MatLeft3(I,LoopInd,J)     = 0.0
-      DepthSnowSoilInv(LoopInd) = 0.0
-      SoilThickTmp(LoopInd)     = 0.0
-      SoilWaterGrad(LoopInd)    = 0.0
-      WaterExcess(LoopInd)      = 0.0
-      SoilMoistureTmp(LoopInd)  = 0.0
+      DepthSnowSoilInv(I,LoopInd,J) = 0.0
+      SoilThickTmp(I,LoopInd,J)     = 0.0
+      SoilWaterGrad(I,LoopInd,J)    = 0.0
+      WaterExcess(I,LoopInd,J)      = 0.0
+      SoilMoistureTmp(I,LoopInd,J)  = 0.0
     enddo
     ! compute soil hydraulic conductivity and diffusivity
     if ( OptSoilPermeabilityFrozen == 1 ) then
@@ -88,7 +95,7 @@ contains
        do LoopInd = 1, NumSoilLayer
           call SoilDiffusivityConductivityOpt1(noahmp,SoilWatDiffusivity(I,LoopInd,J),SoilWatConductivity(I,LoopInd,J),&
                                                SoilMoisture(I,LoopInd,J),SoilImpervFrac(I,LoopInd,J),LoopInd,I,J) 
-          SoilMoistureTmp(LoopInd) = SoilMoisture(I,LoopInd,J)
+          SoilMoistureTmp(I,LoopInd,J) = SoilMoisture(I,LoopInd,J)
        enddo
        if ( OptRunoffSubsurface == 5 ) SoilMoistTmpToWT = SoilMoistureToWT(I,J)
     endif
@@ -98,7 +105,7 @@ contains
        do LoopInd = 1, NumSoilLayer
           call SoilDiffusivityConductivityOpt2(noahmp,SoilWatDiffusivity(I,LoopInd,J),SoilWatConductivity(I,LoopInd,J),&
                                                SoilLiqWater(I,LoopInd,J),SoilIceMax(I,J),LoopInd, I, J)
-          SoilMoistureTmp(LoopInd) = SoilLiqWater(I,LoopInd,J)
+          SoilMoistureTmp(I,LoopInd,J) = SoilLiqWater(I,LoopInd,J)
        enddo
        if ( OptRunoffSubsurface == 5 ) &
           SoilMoistTmpToWT = SoilMoistureToWT(I,J) * SoilLiqWater(I,NumSoilLayer,J) / SoilMoisture(I,NumSoilLayer,J)  !same liquid fraction as in the bottom layer
@@ -108,22 +115,22 @@ contains
     !$acc loop seq
     do LoopInd = 1, NumSoilLayer
        if ( LoopInd == 1 ) then
-          SoilThickTmp(LoopInd)     = - DepthSoilLayer(I,LoopInd,J)
+          SoilThickTmp(I,LoopInd,J)     = - DepthSoilLayer(I,LoopInd,J)
           DepthSnowSoilTmp          = - DepthSoilLayer(I,LoopInd+1,J)
-          DepthSnowSoilInv(LoopInd) = 2.0 / DepthSnowSoilTmp
-          SoilWaterGrad(LoopInd)    = 2.0 * (SoilMoistureTmp(LoopInd)-SoilMoistureTmp(LoopInd+1)) / DepthSnowSoilTmp
-          WaterExcess(LoopInd)      = SoilWatDiffusivity(I,LoopInd,J)*SoilWaterGrad(LoopInd) + SoilWatConductivity(I,LoopInd,J) - &
+          DepthSnowSoilInv(I,LoopInd,J) = 2.0 / DepthSnowSoilTmp
+          SoilWaterGrad(I,LoopInd,J)    = 2.0 * (SoilMoistureTmp(I,LoopInd,J)-SoilMoistureTmp(I,LoopInd+1,J)) / DepthSnowSoilTmp
+          WaterExcess(I,LoopInd,J)      = SoilWatDiffusivity(I,LoopInd,J)*SoilWaterGrad(I,LoopInd,J) + SoilWatConductivity(I,LoopInd,J) - &
                                       InfilRateSfc(I,J) + TranspWatLossSoilMean(I,LoopInd,J) + EvapSoilSfcLiqMean(I,J)
        else if ( LoopInd < NumSoilLayer ) then
-          SoilThickTmp(LoopInd)     = (DepthSoilLayer(I,LoopInd-1,J) - DepthSoilLayer(I,LoopInd,J))
+          SoilThickTmp(I,LoopInd,J)     = (DepthSoilLayer(I,LoopInd-1,J) - DepthSoilLayer(I,LoopInd,J))
           DepthSnowSoilTmp          = (DepthSoilLayer(I,LoopInd-1,J) - DepthSoilLayer(I,LoopInd+1,J))
-          DepthSnowSoilInv(LoopInd) = 2.0 / DepthSnowSoilTmp
-          SoilWaterGrad(LoopInd)    = 2.0 * (SoilMoistureTmp(LoopInd) - SoilMoistureTmp(LoopInd+1)) / DepthSnowSoilTmp
-          WaterExcess(LoopInd)      = SoilWatDiffusivity(I,LoopInd,J)*SoilWaterGrad(LoopInd) + SoilWatConductivity(I,LoopInd,J) - &
-                                      SoilWatDiffusivity(I,LoopInd-1,J)*SoilWaterGrad(LoopInd-1) - SoilWatConductivity(I,LoopInd-1,J) + &
+          DepthSnowSoilInv(I,LoopInd,J) = 2.0 / DepthSnowSoilTmp
+          SoilWaterGrad(I,LoopInd,J)    = 2.0 * (SoilMoistureTmp(I,LoopInd,J) - SoilMoistureTmp(I,LoopInd+1,J)) / DepthSnowSoilTmp
+          WaterExcess(I,LoopInd,J)      = SoilWatDiffusivity(I,LoopInd,J)*SoilWaterGrad(I,LoopInd,J) + SoilWatConductivity(I,LoopInd,J) - &
+                                      SoilWatDiffusivity(I,LoopInd-1,J)*SoilWaterGrad(I,LoopInd-1,J) - SoilWatConductivity(I,LoopInd-1,J) + &
                                       TranspWatLossSoilMean(I,LoopInd,J)
        else
-          SoilThickTmp(LoopInd) = (DepthSoilLayer(I,LoopInd-1,J) - DepthSoilLayer(I,LoopInd,J))
+          SoilThickTmp(I,LoopInd,J) = (DepthSoilLayer(I,LoopInd-1,J) - DepthSoilLayer(I,LoopInd,J))
           if ( (OptRunoffSubsurface == 1) .or. (OptRunoffSubsurface == 2) ) then
              DrainSoilBot(I,J) = 0.0
           endif
@@ -135,19 +142,19 @@ contains
              DrainSoilBot(I,J) = (1.0 - SoilImpervFracMax(I,J)) * SoilWatConductivity(I,LoopInd,J)
           endif
           if ( OptRunoffSubsurface == 5 ) then   ! gmm new m-m&f water table dynamics formulation
-             DepthSnowSoilTmp  = 2.0 * SoilThickTmp(LoopInd)
-             if ( WaterTableDepth(I,J) < (DepthSoilLayer(I,NumSoilLayer,J)-SoilThickTmp(NumSoilLayer)) ) then
+             DepthSnowSoilTmp  = 2.0 * SoilThickTmp(I,LoopInd,J)
+             if ( WaterTableDepth(I,J) < (DepthSoilLayer(I,NumSoilLayer,J)-SoilThickTmp(I,NumSoilLayer,J)) ) then
                 ! gmm interpolate from below, midway to the water table, 
                 ! to the middle of the auxiliary layer below the soil bottom
-                SoilMoistBotTmp = SoilMoistureTmp(LoopInd) - (SoilMoistureTmp(LoopInd)-SoilMoistTmpToWT) * &
-                                  SoilThickTmp(LoopInd)*2.0 / (SoilThickTmp(LoopInd)+DepthSoilLayer(I,LoopInd,J)-WaterTableDepth(I,J))
+                SoilMoistBotTmp = SoilMoistureTmp(I,LoopInd,J) - (SoilMoistureTmp(I,LoopInd,J)-SoilMoistTmpToWT) * &
+                                  SoilThickTmp(I,LoopInd,J)*2.0 / (SoilThickTmp(I,LoopInd,J)+DepthSoilLayer(I,LoopInd,J)-WaterTableDepth(I,J))
              else
                 SoilMoistBotTmp = SoilMoistTmpToWT
              endif
-             SoilWaterGrad(LoopInd) = 2.0 * (SoilMoistureTmp(LoopInd) - SoilMoistBotTmp) / DepthSnowSoilTmp
-             DrainSoilBot(I,J)           = SoilWatDiffusivity(I,LoopInd,J) * SoilWaterGrad(LoopInd) + SoilWatConductivity(I,LoopInd,J)
+             SoilWaterGrad(I,LoopInd,J) = 2.0 * (SoilMoistureTmp(I,LoopInd,J) - SoilMoistBotTmp) / DepthSnowSoilTmp
+             DrainSoilBot(I,J)           = SoilWatDiffusivity(I,LoopInd,J) * SoilWaterGrad(I,LoopInd,J) + SoilWatConductivity(I,LoopInd,J)
           endif
-          WaterExcess(LoopInd) = -(SoilWatDiffusivity(I,LoopInd-1,J)*SoilWaterGrad(LoopInd-1)) - SoilWatConductivity(I,LoopInd-1,J) + &
+          WaterExcess(I,LoopInd,J) = -(SoilWatDiffusivity(I,LoopInd-1,J)*SoilWaterGrad(I,LoopInd-1,J)) - SoilWatConductivity(I,LoopInd-1,J) + &
                                  TranspWatLossSoilMean(I,LoopInd,J) + DrainSoilBot(I,J)
        endif
     enddo
@@ -157,23 +164,30 @@ contains
     do LoopInd = 1, NumSoilLayer
        if ( LoopInd == 1 ) then
           MatLeft1(I,LoopInd,J) =   0.0
-          MatLeft2(I,LoopInd,J) =   SoilWatDiffusivity(I,LoopInd  ,J) * DepthSnowSoilInv(LoopInd  ) / SoilThickTmp(LoopInd)
+          MatLeft2(I,LoopInd,J) =   SoilWatDiffusivity(I,LoopInd  ,J) * DepthSnowSoilInv(I,LoopInd  ,J) / SoilThickTmp(I,LoopInd,J)
           MatLeft3(I,LoopInd,J) = - MatLeft2(I,LoopInd,J)
        else if ( LoopInd < NumSoilLayer ) then
-          MatLeft1(I,LoopInd,J) = - SoilWatDiffusivity(I,LoopInd-1,J) * DepthSnowSoilInv(LoopInd-1) / SoilThickTmp(LoopInd)
-          MatLeft3(I,LoopInd,J) = - SoilWatDiffusivity(I,LoopInd  ,J) * DepthSnowSoilInv(LoopInd  ) / SoilThickTmp(LoopInd)
+          MatLeft1(I,LoopInd,J) = - SoilWatDiffusivity(I,LoopInd-1,J) * DepthSnowSoilInv(I,LoopInd-1,J) / SoilThickTmp(I,LoopInd,J)
+          MatLeft3(I,LoopInd,J) = - SoilWatDiffusivity(I,LoopInd  ,J) * DepthSnowSoilInv(I,LoopInd  ,J) / SoilThickTmp(I,LoopInd,J)
           MatLeft2(I,LoopInd,J) = - (MatLeft1(I,LoopInd,J) + MatLeft3(I,LoopInd,J))
        else
-          MatLeft1(I,LoopInd,J) = - SoilWatDiffusivity(I,LoopInd-1,J) * DepthSnowSoilInv(LoopInd-1) / SoilThickTmp(LoopInd)
+          MatLeft1(I,LoopInd,J) = - SoilWatDiffusivity(I,LoopInd-1,J) * DepthSnowSoilInv(I,LoopInd-1,J) / SoilThickTmp(I,LoopInd,J)
           MatLeft3(I,LoopInd,J) =   0.0
           MatLeft2(I,LoopInd,J) = - (MatLeft1(I,LoopInd,J) + MatLeft3(I,LoopInd,J))
        endif
-       MatRight(I,LoopInd,J) = WaterExcess(LoopInd) / (-SoilThickTmp(LoopInd))
+       MatRight(I,LoopInd,J) = WaterExcess(I,LoopInd,J) / (-SoilThickTmp(I,LoopInd,J))
     enddo
 
    end do
    end do
 
+
+    !$acc end data
+    deallocate(DepthSnowSoilInv)
+    deallocate(SoilThickTmp)
+    deallocate(SoilWaterGrad)
+    deallocate(WaterExcess)
+    deallocate(SoilMoistureTmp)
 
     end associate
 

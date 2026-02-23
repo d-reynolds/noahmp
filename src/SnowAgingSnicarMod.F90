@@ -70,7 +70,7 @@ contains
     real(kind=kind_noahmp)           :: FracNewSnow                          ! fraction of layer mass that is new snow [frc]
     real(kind=kind_noahmp)           :: FracOldSnow                          ! fraction of layer mass that is old snow [frc]
     real(kind=kind_noahmp)           :: FracLiqWater                         ! fraction of layer mass that is liquid water[frc]    
-    real(kind=kind_noahmp) :: TemperatureGradient(-noahmp%config%domain%NumSnowLayerMax:0) ! snow temperature gradient (lyr) [K m-1]
+    real(kind=kind_noahmp), allocatable, dimension(:,:,:) :: TemperatureGradient ! snow temperature gradient (lyr) [K m-1]
     integer                          :: I, J ! grid indices
 
     associate(                                                                         &
@@ -101,9 +101,14 @@ contains
               SnowRadius              => noahmp%water%state%SnowRadius                 & ! out, effective grain radius [microns, m-6]
              )
 
+    allocate(TemperatureGradient(noahmp%config%domain%ITS:noahmp%config%domain%ITE, &
+                                -NumSnowLayerMax:0, &
+                                noahmp%config%domain%JTS:noahmp%config%domain%JTE))
+    !$acc data create(TemperatureGradient)
+
     !$acc parallel loop collapse(2) gang vector default(present) private(SnowLayerTop, SnowLayerBottom, TemperatureInd, TemperatureGradientInd, SnowDensityInd) &
     !$acc private(LoopInd, bst_tau, bst_kappa, bst_drdt0, SnowMassLayer, TemperatureSnowLayerTop, TemperatureSnowLayerBottom, SnowDensity, SnowRadiusChgTot, SnowRadiusChgWet) &
-    !$acc private(SnowRadiusChgFresh, NewSnow, RefrzSnow, FracRefrz, FracNewSnow, FracOldSnow, FracLiqWater, TemperatureGradient)
+    !$acc private(SnowRadiusChgFresh, NewSnow, RefrzSnow, FracRefrz, FracNewSnow, FracOldSnow, FracLiqWater)
     do J = noahmp%config%domain%JTS, noahmp%config%domain%JTE
       do I = noahmp%config%domain%ITS, noahmp%config%domain%ITE
 
@@ -136,7 +141,7 @@ contains
                                       + TemperatureSoilSnow(I,LoopInd,J) * ThicknessSnowSoilLayer(I,LoopInd+1,J)) &
                                       / (ThicknessSnowSoilLayer(I,LoopInd,J) + ThicknessSnowSoilLayer(I,LoopInd+1,J))
       endif
-      TemperatureGradient(LoopInd) = abs((TemperatureSnowLayerTop - TemperatureSnowLayerBottom) / &
+      TemperatureGradient(I,LoopInd,J) = abs((TemperatureSnowLayerTop - TemperatureSnowLayerBottom) / &
                                          ThicknessSnowSoilLayer(I,LoopInd,J))
 
       ! snow density
@@ -147,7 +152,7 @@ contains
 
       ! best-fit table indices
       TemperatureInd         = nint((TemperatureSoilSnow(I,LoopInd,J)-223.15) / 5) + 1
-      TemperatureGradientInd = nint(TemperatureGradient(LoopInd) / 10) + 1
+      TemperatureGradientInd = nint(TemperatureGradient(I,LoopInd,J) / 10) + 1
       SnowDensityInd         = nint((SnowDensity-50.0) / 50.0) + 1
 
       ! boundary check:
@@ -277,6 +282,8 @@ contains
    enddo
 enddo
 
+    !$acc end data
+    deallocate(TemperatureGradient)
 
     end associate
 

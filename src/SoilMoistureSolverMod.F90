@@ -33,8 +33,8 @@ contains
 ! local variable
     integer                                           :: LoopInd                    ! soil layer loop index 
     real(kind=kind_noahmp)                            :: WatDefiTmp                 ! temporary water deficiency
-    real(kind=kind_noahmp)                            :: MatRightTmp(1:noahmp%config%domain%NumSoilLayer)                ! temporary MatRight matrix coefficient
-    real(kind=kind_noahmp)                            :: MatLeft3Tmp(1:noahmp%config%domain%NumSoilLayer)                ! temporary MatLeft3 matrix coefficient
+    real(kind=kind_noahmp), allocatable, dimension(:,:,:) :: MatRightTmp                ! temporary MatRight matrix coefficient
+    real(kind=kind_noahmp), allocatable, dimension(:,:,:) :: MatLeft3Tmp                ! temporary MatLeft3 matrix coefficient
     integer                                           :: I, J                        ! grid indices
     associate(                                                                       &
               NumSoilLayer           => noahmp%config%domain%NumSoilLayer           ,& ! in,    number of soil layers
@@ -53,7 +53,15 @@ contains
               SoilSaturationExcess   => noahmp%water%state%SoilSaturationExcess      & ! out,   saturation excess of the total soil [m]
              )
 
-    !$acc parallel loop collapse(2) gang vector default(present) private(MatRightTmp, MatLeft3Tmp, LoopInd, &
+    allocate(MatRightTmp(noahmp%config%domain%ITS:noahmp%config%domain%ITE, &
+                         1:NumSoilLayer, &
+                         noahmp%config%domain%JTS:noahmp%config%domain%JTE))
+    allocate(MatLeft3Tmp(noahmp%config%domain%ITS:noahmp%config%domain%ITE, &
+                         1:NumSoilLayer, &
+                         noahmp%config%domain%JTS:noahmp%config%domain%JTE))
+    !$acc data create(MatRightTmp, MatLeft3Tmp)
+
+    !$acc parallel loop collapse(2) gang vector default(present) private(LoopInd, &
     !$acc WatDefiTmp) firstprivate(TimeStep)
     do J = noahmp%config%domain%JTS, noahmp%config%domain%JTE
       do I = noahmp%config%domain%ITS, noahmp%config%domain%ITE
@@ -64,8 +72,8 @@ contains
 
     !$acc loop seq
     do LoopInd = 1, NumSoilLayer
-       MatRightTmp(LoopInd) = 0.0
-       MatLeft3Tmp(LoopInd) = 0.0
+       MatRightTmp(I,LoopInd,J) = 0.0
+       MatLeft3Tmp(I,LoopInd,J) = 0.0
        SoilEffPorosity(I,LoopInd,J) = 0.0
     enddo
 
@@ -78,12 +86,12 @@ contains
        MatLeft3(I,LoopInd,J) =       MatLeft3(I,LoopInd,J) * TimeStep
 
        ! copy values for input variables before calling rosr12
-       MatRightTmp(LoopInd) = MatRight(I,LoopInd,J)
-       MatLeft3Tmp(LoopInd) = MatLeft3(I,LoopInd,J)
+       MatRightTmp(I,LoopInd,J) = MatRight(I,LoopInd,J)
+       MatLeft3Tmp(I,LoopInd,J) = MatLeft3(I,LoopInd,J)
     enddo
 
     ! call ROSR12 to solve the tri-diagonal matrix
-    call MatrixSolverTriDiagonal(MatLeft3(I,:,J),MatLeft1(I,:,J),MatLeft2(I,:,J),MatLeft3Tmp,MatRightTmp,MatRight(I,:,J),1,NumSoilLayer,0)
+    call MatrixSolverTriDiagonal(MatLeft3(I,:,J),MatLeft1(I,:,J),MatLeft2(I,:,J),MatLeft3Tmp(I,:,J),MatRightTmp(I,:,J),MatRight(I,:,J),1,NumSoilLayer,0)
 
     !$acc loop seq
     do LoopInd = 1, NumSoilLayer
@@ -147,6 +155,9 @@ contains
       end do
     end do
 
+    !$acc end data
+    deallocate(MatRightTmp)
+    deallocate(MatLeft3Tmp)
 
     end associate
 

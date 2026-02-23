@@ -36,7 +36,7 @@ contains
     integer                               :: I, J              ! grid indices
     integer                               :: LoopInd           ! loop index
     real(kind=kind_noahmp)                :: DepthSnowSoilTmp  ! temporary snow/soil layer depth [m]
-    real(kind=kind_noahmp)                :: DepthSnowSoilInv(-noahmp%config%domain%NumSnowLayerMax+1:noahmp%config%domain%NumSoilLayer)   ! inverse of snow/soil layer depth [1/m]
+    real(kind=kind_noahmp), allocatable, dimension(:,:,:) :: DepthSnowSoilInv   ! inverse of snow/soil layer depth [1/m]
     real(kind=kind_noahmp)                :: HeatCapacPerArea   ! Heat capacity per area [J/m2/K]
     real(kind=kind_noahmp)                :: TempGradDepth      ! temperature gradient [K/m]
     real(kind=kind_noahmp)                :: TempGradDepthPrev     ! previous temperature gradient
@@ -59,7 +59,12 @@ contains
               HeatFromSoilBot          => noahmp%energy%flux%HeatFromSoilBot         & ! out, energy influx from soil bottom [W/m2]
              )
 
-    !$acc parallel loop collapse(2) gang vector default(present) private(DepthSnowSoilInv) private(DepthSnowSoilTmp, &
+    allocate(DepthSnowSoilInv(noahmp%config%domain%ITS:noahmp%config%domain%ITE, &
+                             -NumSnowLayerMax+1:NumSoilLayer, &
+                             noahmp%config%domain%JTS:noahmp%config%domain%JTE))
+    !$acc data create(DepthSnowSoilInv)
+
+    !$acc parallel loop collapse(2) gang vector default(present) private(DepthSnowSoilTmp, &
     !$acc EnergyExcess, HeatCapacPerArea, LoopInd, TempGradDepth, TempGradDepthPrev) firstprivate(SoilTimeStep)
     do J = noahmp%config%domain%JTS, noahmp%config%domain%JTE
       do I = noahmp%config%domain%ITS, noahmp%config%domain%ITE
@@ -79,7 +84,7 @@ contains
 
     !$acc loop seq
      do LoopInd = -NumSnowLayerMax+1, NumSoilLayer
-         DepthSnowSoilInv(LoopInd) = 0.0
+         DepthSnowSoilInv(I,LoopInd,J) = 0.0
      enddo
 
     !$acc loop seq
@@ -89,7 +94,7 @@ contains
        elseif ( LoopInd < NumSoilLayer ) then
           DepthSnowSoilTmp          = DepthSnowSoilLayer(I,LoopInd-1,J) - DepthSnowSoilLayer(I,LoopInd+1,J)
        endif
-          DepthSnowSoilInv(LoopInd) = 2.0 / DepthSnowSoilTmp
+          DepthSnowSoilInv(I,LoopInd,J) = 2.0 / DepthSnowSoilTmp
     enddo
 
     ! compute gradient and flux of soil/snow thermal diffusion
@@ -125,7 +130,7 @@ contains
        ! prepare the matrix coefficients for the tri-diagonal matrix
        if ( LoopInd == (NumSnowLayerNeg(I,J)+1) ) then
           MatLeft1(I,LoopInd,J) = 0.0
-          MatLeft3(I,LoopInd,J) = - ThermConductSoilSnow(I,LoopInd,J) * DepthSnowSoilInv(LoopInd) / HeatCapacPerArea
+          MatLeft3(I,LoopInd,J) = - ThermConductSoilSnow(I,LoopInd,J) * DepthSnowSoilInv(I,LoopInd,J) / HeatCapacPerArea
           if ( (OptSnowSoilTempTime == 1) .or. (OptSnowSoilTempTime == 3) ) then
              MatLeft2(I,LoopInd,J) = - MatLeft3(I,LoopInd,J)
           endif
@@ -134,11 +139,11 @@ contains
                             (0.5*DepthSnowSoilLayer(I,LoopInd,J)*DepthSnowSoilLayer(I,LoopInd,J)*HeatCapacSoilSnow(I,LoopInd,J))
           endif
        elseif ( LoopInd < NumSoilLayer ) then
-          MatLeft1(I,LoopInd,J) = - ThermConductSoilSnow(I,LoopInd-1,J) * DepthSnowSoilInv(LoopInd-1) / HeatCapacPerArea
-          MatLeft3(I,LoopInd,J) = - ThermConductSoilSnow(I,LoopInd  ,J) * DepthSnowSoilInv(LoopInd) / HeatCapacPerArea
+          MatLeft1(I,LoopInd,J) = - ThermConductSoilSnow(I,LoopInd-1,J) * DepthSnowSoilInv(I,LoopInd-1,J) / HeatCapacPerArea
+          MatLeft3(I,LoopInd,J) = - ThermConductSoilSnow(I,LoopInd  ,J) * DepthSnowSoilInv(I,LoopInd,J) / HeatCapacPerArea
           MatLeft2(I,LoopInd,J) = - (MatLeft1(I,LoopInd,J) + MatLeft3(I,LoopInd,J))
        elseif ( LoopInd == NumSoilLayer ) then
-          MatLeft1(I,LoopInd,J) = - ThermConductSoilSnow(I,LoopInd-1,J) * DepthSnowSoilInv(LoopInd-1) / HeatCapacPerArea
+          MatLeft1(I,LoopInd,J) = - ThermConductSoilSnow(I,LoopInd-1,J) * DepthSnowSoilInv(I,LoopInd-1,J) / HeatCapacPerArea
           MatLeft3(I,LoopInd,J) = 0.0
           MatLeft2(I,LoopInd,J) = - (MatLeft1(I,LoopInd,J) + MatLeft3(I,LoopInd,J))
        endif
@@ -154,7 +159,8 @@ contains
     end do
     !$acc end parallel loop
 
-
+    !$acc end data
+    deallocate(DepthSnowSoilInv)
 
     end associate
 
