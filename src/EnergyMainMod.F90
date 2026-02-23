@@ -425,13 +425,15 @@ contains
       end do
     end do
     !$acc end parallel loop
+
+    end associate
+
     !$acc end data
 
     ! Deallocate local array
     deallocate(FlagVegSfc)
 
 
-    end associate
 
   end subroutine EnergyMain
 

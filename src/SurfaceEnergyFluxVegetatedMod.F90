@@ -494,10 +494,10 @@ contains
     end do
     !$acc end parallel loop
 
+
+
+    end associate
     !$acc end data
-
-
-        end associate
 
   end subroutine SurfaceEnergyFluxVegetated
 

@@ -177,7 +177,7 @@ contains
              call WaterVarInTransfer    (noahmp, NoahmpIO)
              call BiochemVarInitDefault (noahmp)
              call BiochemVarInTransfer  (noahmp, NoahmpIO)
-             !$acc update device(noahmp)  ! update device with initialized and transferred noahmp data type
+             ! !$acc update device(noahmp)  ! update device with initialized and transferred noahmp data type
 
       JLOOP2 : do J = NoahmpIO%JTS, NoahmpIO%JTE
        ILOOP2 : do I = NoahmpIO%ITS, NoahmpIO%ITE

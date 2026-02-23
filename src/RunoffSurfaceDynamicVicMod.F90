@@ -69,7 +69,7 @@ contains
                InfilRateSfc          => noahmp%water%flux%InfilRateSfc              & ! out, infiltration rate at surface [m/s]
               )
 
-     !$acc parallel loop collapse(2) gang vector default(present) copyin(InfilRateAcc) private(IndInfilMax, &
+     !$acc parallel loop collapse(2) gang vector default(present) private(IndInfilMax, &
      !$acc InfilSfcTmp, InfilSfcMax, InfilExpB) private(WaterDepthTop, WaterDepthSatTop, WaterInSoilSfc, &
      !$acc WaterDepthInit, WaterDepthMax) private(RunoffSatExcess, RunoffInfilExcess, InfilTmp, IndIter, NumIter, &
      !$acc flag_1003) private(RunoffSatExcTmp, RunoffInfExcTmp, RunoffSatExcTmp1, DepthYTmp, DepthYPrev, DepthYInit, &

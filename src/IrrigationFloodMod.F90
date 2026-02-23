@@ -73,10 +73,10 @@ contains
       end do
     end do
    !$acc end parallel loop
-   !$acc end data
 
 
     end associate
+   !$acc end data
 
   end subroutine IrrigationFlood
 
