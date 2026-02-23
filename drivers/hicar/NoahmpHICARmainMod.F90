@@ -1,11 +1,12 @@
 module NoahmpHICARmainMod 
 
 ! -------------------------------------------------------------
-! this is the interface for NoahMP and WRF variable remapping
+! this is the interface for NoahMP and HICAR variable remapping
 ! and calling the main NoahMP driver: NoahmpDriverMain(NoahmpIO)
 ! adapted from original module_sf_noahmpdrv.F file
 !
 ! Coder: Cenlin He (NCAR), December 2025
+! Adapted for HICAR code: Dylan Reynolds (EPFL), January 2026
 ! -------------------------------------------------------------
 
 contains
@@ -76,13 +77,13 @@ contains
                  ! SPRIR_RATE_2D,MICIR_RATE_2D,FIRTFAC_2D,IR_RAIN_2D,            & ! placeholders to activate 3D soil
                  ! BVIC_2D,AXAJ_2D,BXAJ_2D,XXAJ_2D,BDVIC_2D,GDVIC_2D,BBVIC_2D,   & ! placeholders to activate 3D soil
                  ! KLAT_FAC,TDSMC_FAC,TD_DC,TD_DCOEF,TD_DDRAIN,TD_RADI,TD_SPAC,  & ! placeholders to activate 3D soil
-#ifdef WRF_HYDRO
-                   sfcheadrt,INFXSRT,soldrain,qtiledrain,ZWATBLE2D,              & ! OUT WRF-Hydro only
-#endif
-                   ids,ide,  jds,jde,  kds,kde,                                  & ! IN: WRF dimension
-                   ims,ime,  jms,jme,  kms,kme,                                  & ! IN: WRF dimension
-                   its,ite,  jts,jte,  kts,kte,                                  & ! IN: WRF dimension
-                   MP_RAINC,MP_RAINNC,MP_SHCV,MP_SNOW,MP_GRAUP,MP_HAIL           ) ! IN: WRF forcing
+! #ifdef WRF_HYDRO
+!                    sfcheadrt,INFXSRT,soldrain,qtiledrain,ZWATBLE2D,              & ! OUT WRF-Hydro only
+! #endif
+                   ids,ide,  jds,jde,  kds,kde,                                  & ! IN: HICAR dimension
+                   ims,ime,  jms,jme,  kms,kme,                                  & ! IN: HICAR dimension
+                   its,ite,  jts,jte,  kts,kte,                                  & ! IN: HICAR dimension
+                   MP_RAINC,MP_RAINNC,MP_SHCV,MP_SNOW,MP_GRAUP,MP_HAIL           ) ! IN: HICAR forcing
 
 !----------------------------------------------------------------
 
@@ -349,9 +350,6 @@ contains
     REAL,    DIMENSION( ims:ime,-2:0,     jms:jme ), INTENT(INOUT) ::  MassConcDUST5XY ! mass concentration of dust species 5 in snow [kg/kg]
     REAL,    DIMENSION(ims:ime,1:2,       jms:jme),  INTENT(INOUT) ::  ALBSOILDIRXY    ! soil albedo direct
     REAL,    DIMENSION(ims:ime,1:2,       jms:jme),  INTENT(INOUT) ::  ALBSOILDIFXY    ! soil albedo diffuse
-#ifdef WRF_HYDRO
-    REAL,    DIMENSION( ims:ime,          jms:jme ), INTENT(INOUT) ::  sfcheadrt,INFXSRT,soldrain,qtiledrain,ZWATBLE2D   ! for WRF-Hydro
-#endif
 
     ! OUT (with no Noah LSM equivalent)
     REAL,    DIMENSION( ims:ime,          jms:jme ), INTENT(OUT  ) ::  T2MVXY       ! 2m temperature of vegetation part
@@ -440,7 +438,7 @@ contains
 
     !--------- Input variable mapping start ---------
 
-    ! input WRF variables mapped to NoahmpIO variables
+    ! input HICAR variables mapped to NoahmpIO variables
     ! non-2D/3D variables
     NoahmpIO%ids                = ids
     NoahmpIO%ide                = ide
@@ -517,6 +515,27 @@ contains
        NoahmpIO%SNICAR_USE_OC            = SNICAR_USE_OC
        NoahmpIO%SNICAR_AEROSOL_READTABLE = SNICAR_AEROSOL_READTABLE
     endif
+
+    !$acc update device(NoahmpIO%ids, NoahmpIO%ide, NoahmpIO%jds, NoahmpIO%jde, NoahmpIO%kds, NoahmpIO%kde) &
+    !$acc        device(NoahmpIO%ims, NoahmpIO%ime, NoahmpIO%jms, NoahmpIO%jme, NoahmpIO%kms, NoahmpIO%kme) &
+    !$acc        device(NoahmpIO%its, NoahmpIO%ite, NoahmpIO%jts, NoahmpIO%jte, NoahmpIO%kts, NoahmpIO%kte) &
+    !$acc        device(NoahmpIO%xstart, NoahmpIO%xend, NoahmpIO%ystart, NoahmpIO%yend) &
+    !$acc        device(NoahmpIO%YR, NoahmpIO%JULIAN, NoahmpIO%DTBL, NoahmpIO%NSOIL, NoahmpIO%DX, NoahmpIO%DY) &
+    !$acc        device(NoahmpIO%IOPT_DVEG, NoahmpIO%IOPT_CRS, NoahmpIO%IOPT_BTR, NoahmpIO%IOPT_SFC) &
+    !$acc        device(NoahmpIO%IOPT_FRZ, NoahmpIO%IOPT_INF, NoahmpIO%IOPT_RAD, NoahmpIO%IOPT_ALB) &
+    !$acc        device(NoahmpIO%IOPT_SNF, NoahmpIO%IOPT_TBOT, NoahmpIO%IOPT_STC, NoahmpIO%IOPT_GLA) &
+    !$acc        device(NoahmpIO%IOPT_RSF, NoahmpIO%IOPT_SOIL, NoahmpIO%IOPT_PEDO, NoahmpIO%IOPT_CROP) &
+    !$acc        device(NoahmpIO%IOPT_IRR, NoahmpIO%IOPT_IRRM, NoahmpIO%IOPT_INFDV, NoahmpIO%IOPT_TDRN) &
+    !$acc        device(NoahmpIO%IOPT_RUNSRF, NoahmpIO%IOPT_RUNSUB, NoahmpIO%IOPT_TKSNO, NoahmpIO%IOPT_COMPACT) &
+    !$acc        device(NoahmpIO%IOPT_SCF, NoahmpIO%IOPT_WETLAND, NoahmpIO%SF_URBAN_PHYSICS, NoahmpIO%IZ0TLND) &
+    !$acc        device(NoahmpIO%LLANDUSE, NoahmpIO%SOILTSTEP, NoahmpIO%XICE_THRESHOLD, NoahmpIO%DZS) &
+    !$acc        device(NoahmpIO%ITIMESTEP) &
+    !$acc        device(NoahmpIO%SNICAR_BANDNUMBER_OPT, NoahmpIO%SNICAR_SOLARSPEC_OPT) &
+    !$acc        device(NoahmpIO%SNICAR_SNOWOPTICS_OPT, NoahmpIO%SNICAR_DUSTOPTICS_OPT) &
+    !$acc        device(NoahmpIO%SNICAR_RTSOLVER_OPT, NoahmpIO%SNICAR_SNOWSHAPE_OPT) &
+    !$acc        device(NoahmpIO%SNICAR_USE_AEROSOL, NoahmpIO%SNICAR_SNOWBC_INTMIX) &
+    !$acc        device(NoahmpIO%SNICAR_SNOWDUST_INTMIX, NoahmpIO%SNICAR_USE_OC) &
+    !$acc        device(NoahmpIO%SNICAR_AEROSOL_READTABLE)
 
     ! 2D/3D variables
     !$acc parallel loop gang vector collapse(2) default(present) private(LoopInd) firstprivate(kte, kts, NSOIL)
@@ -613,7 +632,7 @@ contains
     ! NoahmpIO%TD_RADI(I,J)            = TD_RADI(I,J)
     ! NoahmpIO%TD_SPAC(I,J)            = TD_SPAC(I,J)
     
-    ! in/out WRF variables mapped to NoahmpIO variables
+    ! in/out HICAR variables mapped to NoahmpIO variables
     NoahmpIO%TSK(I,J)                  = TSK(I,J)
     NoahmpIO%HFX(I,J)                  = HFX(I,J)
     NoahmpIO%QFX(I,J)                  = QFX(I,J)
@@ -739,13 +758,13 @@ contains
           NoahmpIO%MassConcDUST5XY(I,LoopInd,J) = MassConcDUST5XY(I,LoopInd,J)
        enddo
     endif
-#ifdef WRF_HYDRO
-    NoahmpIO%sfcheadrt(I,J)            = sfcheadrt(I,J)
-    NoahmpIO%INFXSRT(I,J)              = INFXSRT(I,J)
-    NoahmpIO%soldrain(I,J)             = soldrain(I,J)
-    NoahmpIO%qtiledrain(I,J)           = qtiledrain(I,J)
-    NoahmpIO%ZWATBLE2D(I,J)            = ZWATBLE2D(I,J)              
-#endif
+! #ifdef WRF_HYDRO
+!     NoahmpIO%sfcheadrt(I,J)            = sfcheadrt(I,J)
+!     NoahmpIO%INFXSRT(I,J)              = INFXSRT(I,J)
+!     NoahmpIO%soldrain(I,J)             = soldrain(I,J)
+!     NoahmpIO%qtiledrain(I,J)           = qtiledrain(I,J)
+!     NoahmpIO%ZWATBLE2D(I,J)            = ZWATBLE2D(I,J)              
+! #endif
 
     enddo ! I
     enddo ! J
@@ -757,10 +776,11 @@ contains
 
 
     !--------- Output variable mapping start ---------
+    !$acc parallel loop gang vector collapse(2) default(present) private(LoopInd)
     do J = jts, jte
     do I = its, ite
 
-    ! in/out NoahmpIO variables mapped to WRF variables
+    ! in/out NoahmpIO variables mapped to HICAR variables
     TSK(I,J)            = NoahmpIO%TSK(I,J)
     HFX(I,J)            = NoahmpIO%HFX(I,J)
     QFX(I,J)            = NoahmpIO%QFX(I,J)
@@ -871,15 +891,15 @@ contains
        MassConcDUST4XY(I,:,J) = NoahmpIO%MassConcDUST4XY(I,:,J)
        MassConcDUST5XY(I,:,J) = NoahmpIO%MassConcDUST5XY(I,:,J)
     endif
-#ifdef WRF_HYDRO
-    sfcheadrt(I,J)    = NoahmpIO%sfcheadrt(I,J)
-    INFXSRT(I,J)      = NoahmpIO%INFXSRT(I,J)
-    soldrain(I,J)     = NoahmpIO%soldrain(I,J)
-    qtiledrain(I,J)   = NoahmpIO%qtiledrain(I,J)
-    ZWATBLE2D(I,J)    = NoahmpIO%ZWATBLE2D(I,J)
-#endif
+! #ifdef WRF_HYDRO
+!     sfcheadrt(I,J)    = NoahmpIO%sfcheadrt(I,J)
+!     INFXSRT(I,J)      = NoahmpIO%INFXSRT(I,J)
+!     soldrain(I,J)     = NoahmpIO%soldrain(I,J)
+!     qtiledrain(I,J)   = NoahmpIO%qtiledrain(I,J)
+!     ZWATBLE2D(I,J)    = NoahmpIO%ZWATBLE2D(I,J)
+! #endif
 
-    ! output NoahmpIO variables mapped to WRF variables
+    ! output NoahmpIO variables mapped to HICAR variables
     T2MVXY(I,J)       = NoahmpIO%T2MVXY(I,J)
     T2MBXY(I,J)       = NoahmpIO%T2MBXY(I,J)
     Q2MVXY(I,J)       = NoahmpIO%Q2MVXY(I,J)

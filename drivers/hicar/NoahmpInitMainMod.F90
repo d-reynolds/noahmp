@@ -78,10 +78,10 @@ contains
        ! Given the soil layer thicknesses (in DZS), initialize the soil layer
        ! depths from the surface.
        NoahmpIO%ZSOIL(1) = -NoahmpIO%DZS(1)          ! negative
-       !$acc parallel loop gang vector default(present) 
        do NS = 2, NoahmpIO%NSOIL
           NoahmpIO%ZSOIL(NS) = NoahmpIO%ZSOIL(NS-1) - NoahmpIO%DZS(NS)
        enddo
+       !$acc update device(NoahmpIO%ZSOIL)
 
        ! check soil type
        errflag = 0
@@ -286,6 +286,7 @@ contains
        if ( NoahmpIO%IOPT_RUNSUB == 5 ) then
           NoahmpIO%STEPWTD = nint(NoahmpIO%WTDDT * 60.0 / NoahmpIO%DTBL)
           NoahmpIO%STEPWTD = max(NoahmpIO%STEPWTD,1)
+          !$acc update device(NoahmpIO%STEPWTD)
        endif
 
     endif ! NoahmpIO%restart_flag
