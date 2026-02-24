@@ -23,8 +23,11 @@ module NoahmpDriverMainMod
 !   use module_ra_gfdleta,  only: cal_mon_day
 
   implicit none
-  
-contains  
+
+  type(noahmp_type) :: noahmp
+  logical :: noahmp_initialized = .false.
+
+contains
 
   subroutine NoahmpDriverMain(NoahmpIO)
   
@@ -39,7 +42,6 @@ contains
     type(NoahmpIO_type), intent(inout)  :: NoahmpIO
     
     ! local variables
-    type(noahmp_type)                   :: noahmp
     integer                             :: I
     integer                             :: J
     integer                             :: K
@@ -172,21 +174,20 @@ contains
 
 
              !------------------------------------------------------------------------------------
-             !  initialize Data Types and transfer all the inputs from 2-D to 1-D column variables
+             !  Wait for async device creates from NoahmpDriverInit (first timestep only)
              !------------------------------------------------------------------------------------
+            !  if (.not. noahmp_initialized) then
+            !     !$acc wait(NOAHMP_ACC_QUEUE)
+            !  endif
 
-             !$acc enter data copyin(noahmp)  ! copy in empty noahmp data type to be filled in by init and transfer subroutines
-             call ConfigVarInitDefault  (noahmp)
+             !------------------------------------------------------------------------------------
+             !  Transfer all the inputs from 2-D NoahmpIO to noahmp column variables
+             !------------------------------------------------------------------------------------
              call ConfigVarInTransfer   (noahmp, NoahmpIO)
-             call ForcingVarInitDefault (noahmp)
              call ForcingVarInTransfer  (noahmp, NoahmpIO)
-             call EnergyVarInitDefault  (noahmp)
              call EnergyVarInTransfer   (noahmp, NoahmpIO)
-             call WaterVarInitDefault   (noahmp)
              call WaterVarInTransfer    (noahmp, NoahmpIO)
-             call BiochemVarInitDefault (noahmp)
              call BiochemVarInTransfer  (noahmp, NoahmpIO)
-             ! !$acc update device(noahmp)  ! update device with initialized and transferred noahmp data type
 
     !$acc parallel loop collapse(2) gang vector default(present) private(I, J)
     do J = NoahmpIO%JTS, NoahmpIO%JTE
@@ -261,5 +262,51 @@ contains
    !  enddo  JLOOP    ! J loop
               
   end subroutine NoahmpDriverMain
-  
-end module NoahmpDriverMainMod  
+
+  subroutine NoahmpDriverInit(NoahmpIO)
+
+    implicit none
+
+    type(NoahmpIO_type), intent(inout) :: NoahmpIO
+
+    ! If re-initializing, clean up existing device data first
+    if (noahmp_initialized) then
+       call NoahmpDriverCleanup()
+    endif
+
+    ! Copy the top-level noahmp structure to device (sync, needed for ConfigVarInTransfer)
+    !$acc enter data copyin(noahmp)
+
+    ! Config must be first — sets domain dimensions needed by other VarInit modules
+    call ConfigVarInitDefault(noahmp)
+    call ConfigVarInTransfer(noahmp, NoahmpIO)
+
+    ! Remaining VarInit calls: allocate + batched async device create
+    call ForcingVarInitDefault(noahmp)
+    call EnergyVarInitDefault(noahmp)
+    call WaterVarInitDefault(noahmp)
+    call BiochemVarInitDefault(noahmp)
+    
+    noahmp_initialized = .true.
+
+  end subroutine NoahmpDriverInit
+
+  subroutine NoahmpDriverCleanup()
+    ! Delete all device data created by VarInit modules and the noahmp structure.
+    ! Called before re-initialization to prevent GPU memory leaks.
+
+    implicit none
+
+    call ForcingVarExitDevice(noahmp)
+    call EnergyVarExitDevice(noahmp)
+    call WaterVarExitDevice(noahmp)
+    call BiochemVarExitDevice(noahmp)
+
+    ! Delete the noahmp structure itself (was copyin'd in NoahmpDriverInit)
+    !$acc exit data delete(noahmp)
+
+    noahmp_initialized = .false.
+
+  end subroutine NoahmpDriverCleanup
+
+end module NoahmpDriverMainMod

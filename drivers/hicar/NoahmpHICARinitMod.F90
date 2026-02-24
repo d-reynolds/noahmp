@@ -48,6 +48,7 @@ contains
     use NoahmpInitMainMod
     use LanduseConvertMod
     use SnowInputSnicarMod
+    use NoahmpDriverMainMod, only : NoahmpDriverInit, noahmp_initialized
 
     implicit none
 
@@ -238,6 +239,10 @@ contains
     if(present(DX)) NoahmpIO%DX                 = DX
     if(present(DY)) NoahmpIO%DY                 = DY
 
+    ! If re-initializing, delete old noahmpIO device data first
+    if (noahmp_initialized) then
+       !$acc exit data delete(noahmpIO)
+    endif
     !$acc enter data copyin(noahmpIO)
 
     ! 2D/3D variables
@@ -470,6 +475,10 @@ contains
     endif
 
     !--------- WRF -> NoahmpIO variables mapping ends
+
+    !--------- initialize noahmp data types and create device arrays (batched async)
+    call NoahmpDriverInit(NoahmpIO)
+    !---------
 
     !--------- main Noahmp initialization module
     call NoahmpInitMain(NoahmpIO)

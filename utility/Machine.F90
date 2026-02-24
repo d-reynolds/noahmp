@@ -18,6 +18,7 @@ module Machine
   integer, public, parameter :: kind_noahmp = 4 ! single precision
 #endif
 
+  integer,                public, parameter :: NOAHMP_ACC_QUEUE = 1         ! OpenACC async queue for batched device creates
   integer,                public, parameter :: undefined_int  = -9999       ! undefined integer for variable initialization
   real(kind=kind_noahmp), public, parameter :: undefined_real = -9999.0     ! undefined real for variable initializatin
   integer,                public, parameter :: undefined_int_neg  = -9999   ! undefined integer negative for variable initialization
