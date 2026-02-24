@@ -47,7 +47,7 @@ contains
     use NoahmpReadTableMod
     use NoahmpInitMainMod
     use LanduseConvertMod
-   !  use SnowInputSnicarMod
+    use SnowInputSnicarMod
 
     implicit none
 
@@ -222,7 +222,7 @@ contains
 
     ! read in SNICAR parameter netcdif file
     if ( NoahmpIO%IOPT_ALB == 3 ) then
-      !  call SnowInputSnicar(NoahmpIO, snicar_optic_flnm="snicar_optics_5bnd_c013122.nc", snicar_age_flnm="snicar_drdt_bst_fit_60_c070416.nc")
+      call SnowInputSnicar(NoahmpIO, snicar_optic_flnm="snicar_optics_5bnd_c013122.nc", snicar_age_flnm="snicar_drdt_bst_fit_60_c070416.nc")
     endif
 
     !--------- WRF variables mapped to NoahmpIO variables

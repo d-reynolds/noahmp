@@ -45,14 +45,27 @@ contains
     integer,           intent(in)      :: FlagSwRadType           ! flag: =1 for direct-beam incident flux,=2 for diffuse incident flux
 
 ! local variables
+    ! GPU port parameters and variables
+    integer, parameter                 :: NSNOW_MAX = 5
+    integer, parameter                 :: NAER = 9
+    integer                            :: II, JJ, k
+    real(kind=kind_noahmp)             :: flx_slrd_val
+    real(kind=kind_noahmp)             :: flx_slri_val
+    real(kind=kind_noahmp)             :: albsfc_val
+    real(kind=kind_noahmp)             :: flx_sum_wgt
+    real(kind=kind_noahmp)             :: flx_sum_wgt_vis
+    ! Promoted arrays (band-sized, allocated on device before parallel loop)
+    real(kind=kind_noahmp), allocatable :: flx_wgt_3d(:,:,:)
+    real(kind=kind_noahmp), allocatable :: albout_lcl_3d(:,:,:)
+    real(kind=kind_noahmp), allocatable :: flx_abs_lcl_4d(:,:,:,:)
     ! general local variables
     integer                            :: i,idb,igb
     integer                            :: j                       ! aerosol number index [idx]
     integer                            :: n                       ! tridiagonal matrix index [idx]
     integer                            :: ng                      ! gaussian integration index
-    integer                            :: ngmax = 8               ! maxmimum gaussian integration index
+    integer, parameter                 :: ngmax = 8
     integer                            :: trip                    ! flag: =1 to redo RT calculation if result is unrealistic
-    integer                            :: NumSnicarAerosol = 9    ! number of aerosol species in snowpack
+    ! NAER defined as parameter above
     integer                            :: SnowLayerTop            ! top snow layer index [idx]
     integer                            :: SnowLayerBottom         ! bottom snow layer index [idx]
     integer                            :: LoopInd                 ! do loop/array indices
@@ -67,7 +80,7 @@ contains
     integer                            :: snl_btm_itf             ! index of bottom snow layer interfaces (1) [idx]
     integer,  parameter                :: snw_rds_min_tbl = 30    ! minimium effective radius defined in Mie lookup table [microns]
     integer,  parameter                :: snw_rds_max_tbl = 1500  ! maximum effective radius defined in Mie lookup table [microns]
-    integer, allocatable, dimension(:) :: snw_rds_lcl             ! snow effective radius [m^-6]
+    integer                            :: snw_rds_lcl(-NSNOW_MAX+1:0)             ! snow effective radius [m^-6]
     real(kind=kind_noahmp)             :: tau_sum                 ! cumulative (snow+aerosol) optical depth [unitless]
     real(kind=kind_noahmp)             :: omega_sum               ! temporary summation of single-scatter albedo of all aerosols [frc]
     real(kind=kind_noahmp)             :: g_sum                   ! temporary summation of asymmetry parameter of all aerosols [frc]
@@ -81,14 +94,14 @@ contains
     real(kind=kind_noahmp)             :: flx_sum                 ! temporary summation variable for NIR weighting
 
     ! local constant and coefficients used for SZA parameterization
-    real(kind=kind_noahmp)             :: sza_a0 =  0.085730
-    real(kind=kind_noahmp)             :: sza_a1 = -0.630883
-    real(kind=kind_noahmp)             :: sza_a2 =  1.303723
-    real(kind=kind_noahmp)             :: sza_b0 =  1.467291
-    real(kind=kind_noahmp)             :: sza_b1 = -3.338043
-    real(kind=kind_noahmp)             :: sza_b2 =  6.807489
-    real(kind=kind_noahmp)             :: puny   =  1.0e-11
-    real(kind=kind_noahmp)             :: mu_75  =  0.2588        ! cosine of 75 degree
+    real(kind=kind_noahmp), parameter  :: sza_a0 =  0.085730_kind_noahmp
+    real(kind=kind_noahmp), parameter  :: sza_a1 = -0.630883_kind_noahmp
+    real(kind=kind_noahmp), parameter  :: sza_a2 =  1.303723_kind_noahmp
+    real(kind=kind_noahmp), parameter  :: sza_b0 =  1.467291_kind_noahmp
+    real(kind=kind_noahmp), parameter  :: sza_b1 = -3.338043_kind_noahmp
+    real(kind=kind_noahmp), parameter  :: sza_b2 =  6.807489_kind_noahmp
+    real(kind=kind_noahmp), parameter  :: puny   =  1.0e-11_kind_noahmp
+    real(kind=kind_noahmp), parameter  :: mu_75  =  0.2588_kind_noahmp   ! cosine of 75 degree
     real(kind=kind_noahmp)             :: sza_c1                  ! coefficient, SZA parameteirzation
     real(kind=kind_noahmp)             :: sza_c0                  ! coefficient, SZA parameterization
     real(kind=kind_noahmp)             :: sza_factor              ! factor used to adjust NIR direct albedo
@@ -97,19 +110,18 @@ contains
 
     ! local constants used in algorithm
     real(kind=kind_noahmp)             :: mu_not                  ! cosine of solar zenith angle (used locally) [frc]
-    real(kind=kind_noahmp)             :: c0     = 0.0
-    real(kind=kind_noahmp)             :: c1     = 1.0
-    real(kind=kind_noahmp)             :: c3     = 3.0
-    real(kind=kind_noahmp)             :: c4     = 4.0
-    real(kind=kind_noahmp)             :: c6     = 6.0
-    real(kind=kind_noahmp)             :: cp01   = 0.01
-    real(kind=kind_noahmp)             :: cp5    = 0.5
-    real(kind=kind_noahmp)             :: cp75   = 0.75
-    real(kind=kind_noahmp)             :: c1p5   = 1.5
-    real(kind=kind_noahmp)             :: trmin  = 0.001
-    real(kind=kind_noahmp)             :: argmax = 10.0           ! maximum argument of exponential
+    real(kind=kind_noahmp), parameter  :: c0     = 0.0_kind_noahmp
+    real(kind=kind_noahmp), parameter  :: c1     = 1.0_kind_noahmp
+    real(kind=kind_noahmp), parameter  :: c3     = 3.0_kind_noahmp
+    real(kind=kind_noahmp), parameter  :: c4     = 4.0_kind_noahmp
+    real(kind=kind_noahmp), parameter  :: c6     = 6.0_kind_noahmp
+    real(kind=kind_noahmp), parameter  :: cp01   = 0.01_kind_noahmp
+    real(kind=kind_noahmp), parameter  :: cp5    = 0.5_kind_noahmp
+    real(kind=kind_noahmp), parameter  :: cp75   = 0.75_kind_noahmp
+    real(kind=kind_noahmp), parameter  :: c1p5   = 1.5_kind_noahmp
+    real(kind=kind_noahmp), parameter  :: trmin  = 0.001_kind_noahmp
+    real(kind=kind_noahmp), parameter  :: argmax = 10.0_kind_noahmp  ! maximum argument of exponential
     real(kind=kind_noahmp)             :: wvl_ct5(1:5)            ! band center wavelength (um) for 5-band case
-    real(kind=kind_noahmp)             :: wvl_ct480(1:480)        ! band center wavelength (um) for 480-band case, computed below
     real(kind=kind_noahmp)             :: SnowWaterEquivMin       ! minimum snow mass required for SNICAR RT calculation [kg m-2] !samlin, may need to change this
     real(kind=kind_noahmp)             :: diam_ice                ! effective snow grain diameter (SSA-equivalent) unit: microns
     real(kind=kind_noahmp)             :: fs_sphd                 ! shape factor for spheroid snow
@@ -147,8 +159,8 @@ contains
     real(kind=kind_noahmp)             :: bcint_d0(1:16)           ! Parameterization coefficients at each band center wavelength
     real(kind=kind_noahmp)             :: bcint_d1(1:16)           ! Parameterization coefficients at each band center wavelength
     real(kind=kind_noahmp)             :: bcint_d2(1:16)           ! Parameterization coefficients at each band center wavelength
-    real(kind=kind_noahmp)             :: den_bc = 1.49            ! target BC particle density (g/cm3) used in BC MAC adjustment
-    real(kind=kind_noahmp)             :: Re_bc = 0.045            ! target BC effective radius (um) used in BC MAC adjustment
+    real(kind=kind_noahmp), parameter  :: den_bc = 1.49_kind_noahmp   ! target BC particle density (g/cm3) used in BC MAC adjustment
+    real(kind=kind_noahmp), parameter  :: Re_bc = 0.045_kind_noahmp  ! target BC effective radius (um) used in BC MAC adjustment
     real(kind=kind_noahmp)             :: bcint_m(1:3)             ! Parameterization coefficients for BC size adjustment in BC-snow int mix
     real(kind=kind_noahmp)             :: bcint_n(1:3)             ! Parameterization coefficients for BC size adjustment in BC-snow int mix
     real(kind=kind_noahmp)             :: bcint_dd                 ! intermediate parameter
@@ -171,91 +183,85 @@ contains
     real(kind=kind_noahmp)             :: enh_omg_dstint_intp      ! dust-induced enhancement in snow 1-omega (logscale) interpolated to CLM wavelength
     real(kind=kind_noahmp)             :: enh_omg_dstint_intp2     ! dust-induced enhancement in snow 1-omega interpolated to CLM wavelength
     real(kind=kind_noahmp)             :: tot_dst_snw_conc         ! total dust content in snow across all size bins (ppm=ug/g)
-    real(kind=kind_noahmp), allocatable, dimension(:) :: sno_shp   ! Snow shape type: 1=sphere; 2=spheroid; 3=hexagonal plate; 4=koch snowflake
+    real(kind=kind_noahmp)             :: sno_shp(-NSNOW_MAX+1:0)   ! Snow shape type: 1=sphere; 2=spheroid; 3=hexagonal plate; 4=koch snowflake
                                                                    ! currently only assuming same shapes for all snow layers
-    real(kind=kind_noahmp), allocatable, dimension(:) :: sno_fs    ! Snow shape factor: ratio of nonspherical grain effective radii to that of equal-volume sphere
+    real(kind=kind_noahmp)             :: sno_fs(-NSNOW_MAX+1:0)    ! Snow shape factor: ratio of nonspherical grain effective radii to that of equal-volume sphere
                                                                    ! only activated when OptSnicarSnowShape > 1 (i.e. nonspherical)
                                                                    ! 0=use recommended default value (He et al. 2017);
                                                                    ! others(0<sno_fs<1)= user-specified value
-    real(kind=kind_noahmp), allocatable, dimension(:) :: sno_AR    ! Snow grain aspect ratio: ratio of grain width to length
+    real(kind=kind_noahmp)             :: sno_AR(-NSNOW_MAX+1:0)    ! Snow grain aspect ratio: ratio of grain width to length
                                                                    ! only activated when snicar_snw_shape > 1 (i.e. nonspherical)
                                                                    ! 0=use recommended default value (He et al. 2017);
                                                                    ! others(0.1<fs<20)= use user-specified value
     ! other local snow and energy flux variables
-    real(kind=kind_noahmp), allocatable, dimension(:) :: h2osno_liq_lcl       ! liquid water mass [kg/m2]
-    real(kind=kind_noahmp), allocatable, dimension(:) :: h2osno_ice_lcl       ! ice mass [kg/m2]
-    real(kind=kind_noahmp), allocatable, dimension(:) :: albsfc_lcl           ! albedo of underlying surface [frc]
-    real(kind=kind_noahmp), allocatable, dimension(:) :: flx_wgt              ! weights applied to spectral bands,specific to direct and diffuse cases (bnd) [frc]
-    real(kind=kind_noahmp), allocatable, dimension(:) :: flx_slrd_lcl         ! direct beam incident irradiance [W/m2] (set to 1)
-    real(kind=kind_noahmp), allocatable, dimension(:) :: flx_slri_lcl         ! diffuse incident irradiance [W/m2] (set to 1)
-    real(kind=kind_noahmp), allocatable, dimension(:) :: ss_alb_snw_lcl       ! single-scatter albedo of ice grains (lyr) [frc]
-    real(kind=kind_noahmp), allocatable, dimension(:) :: asm_prm_snw_lcl      ! asymmetry parameter of ice grains (lyr) [frc]
-    real(kind=kind_noahmp), allocatable, dimension(:) :: ext_cff_mss_snw_lcl  ! mass extinction coefficient of ice grains (lyr) [m2/kg]
-    real(kind=kind_noahmp), allocatable, dimension(:) :: ss_alb_aer_lcl       ! single-scatter albedo of aerosol species (aer_nbr) [frc]
-    real(kind=kind_noahmp), allocatable, dimension(:) :: asm_prm_aer_lcl      ! asymmetry parameter of aerosol species (aer_nbr) [frc]
-    real(kind=kind_noahmp), allocatable, dimension(:) :: ext_cff_mss_aer_lcl  ! mass extinction coefficient of aerosol species (aer_nbr) [m2/kg]
-    real(kind=kind_noahmp), allocatable, dimension(:) :: F_direct             ! direct-beam radiation at bottom of layer interface (lyr) [W/m^2]
-    real(kind=kind_noahmp), allocatable, dimension(:) :: F_net                ! net radiative flux at bottom of layer interface (lyr) [W/m^2]
-    real(kind=kind_noahmp), allocatable, dimension(:) :: F_abs                ! net absorbed radiative energy (lyr) [W/m^2]
-    real(kind=kind_noahmp), allocatable, dimension(:) :: L_snw                ! h2o mass (liquid+solid) in snow layer (lyr) [kg/m2]
-    real(kind=kind_noahmp), allocatable, dimension(:) :: tau_snw              ! snow optical depth (lyr) [unitless]
-    real(kind=kind_noahmp), allocatable, dimension(:) :: tau                  ! weighted optical depth of snow+aerosol layer (lyr) [unitless]
-    real(kind=kind_noahmp), allocatable, dimension(:) :: omega                ! weighted single-scatter albedo of snow+aerosol layer (lyr) [frc]
-    real(kind=kind_noahmp), allocatable, dimension(:) :: g                    ! weighted asymmetry parameter of snow+aerosol layer (lyr) [frc]
-    real(kind=kind_noahmp), allocatable, dimension(:) :: tau_star             ! transformed (i.e. Delta-Eddington) optical depth of snow+aerosol layer! (lyr) [unitless]
-    real(kind=kind_noahmp), allocatable, dimension(:) :: omega_star           ! transformed (i.e. Delta-Eddington) SSA of snow+aerosol layer (lyr) [frc]
-    real(kind=kind_noahmp), allocatable, dimension(:) :: g_star               ! transformed (i.e. Delta-Eddington) asymmetry paramater of snow+aerosol layer! (lyr) [frc]
-    real(kind=kind_noahmp), allocatable, dimension(:) :: tau_clm              ! column optical depth from layer bottom to snowpack top (lyr) [unitless]
-    real(kind=kind_noahmp), allocatable, dimension(:) :: albout_lcl           ! snow albedo by band [frc]
-    real(kind=kind_noahmp), allocatable, dimension(:,:) :: L_aer              ! aerosol mass in snow layer (lyr,nbr_aer) [kg/m2]
-    real(kind=kind_noahmp), allocatable, dimension(:,:) :: tau_aer            ! aerosol optical depth (lyr,nbr_aer) [unitless]
-    real(kind=kind_noahmp), allocatable, dimension(:,:) :: flx_abs_lcl        ! absorbed flux per unit incident flux at top of snowpack (lyr,bnd) [frc]
-    real(kind=kind_noahmp), allocatable, dimension(:,:) :: mss_cnc_aer_lcl    ! aerosol mass concentration [kg/kg]
+    real(kind=kind_noahmp)             :: h2osno_liq_lcl(-NSNOW_MAX+1:0)       ! liquid water mass [kg/m2]
+    real(kind=kind_noahmp)             :: h2osno_ice_lcl(-NSNOW_MAX+1:0)       ! ice mass [kg/m2]
+    real(kind=kind_noahmp)             :: ss_alb_snw_lcl(-NSNOW_MAX+1:0)       ! single-scatter albedo of ice grains (lyr) [frc]
+    real(kind=kind_noahmp)             :: asm_prm_snw_lcl(-NSNOW_MAX+1:0)      ! asymmetry parameter of ice grains (lyr) [frc]
+    real(kind=kind_noahmp)             :: ext_cff_mss_snw_lcl(-NSNOW_MAX+1:0)  ! mass extinction coefficient of ice grains (lyr) [m2/kg]
+    real(kind=kind_noahmp)             :: ss_alb_aer_lcl(1:NAER)       ! single-scatter albedo of aerosol species (aer_nbr) [frc]
+    real(kind=kind_noahmp)             :: asm_prm_aer_lcl(1:NAER)      ! asymmetry parameter of aerosol species (aer_nbr) [frc]
+    real(kind=kind_noahmp)             :: ext_cff_mss_aer_lcl(1:NAER)  ! mass extinction coefficient of aerosol species (aer_nbr) [m2/kg]
+    real(kind=kind_noahmp)             :: F_direct(-NSNOW_MAX+1:0)             ! direct-beam radiation at bottom of layer interface (lyr) [W/m^2]
+    real(kind=kind_noahmp)             :: F_net(-NSNOW_MAX+1:0)                ! net radiative flux at bottom of layer interface (lyr) [W/m^2]
+    real(kind=kind_noahmp)             :: F_abs(-NSNOW_MAX+1:0)                ! net absorbed radiative energy (lyr) [W/m^2]
+    real(kind=kind_noahmp)             :: L_snw(-NSNOW_MAX+1:0)                ! h2o mass (liquid+solid) in snow layer (lyr) [kg/m2]
+    real(kind=kind_noahmp)             :: tau_snw(-NSNOW_MAX+1:0)              ! snow optical depth (lyr) [unitless]
+    real(kind=kind_noahmp)             :: tau(-NSNOW_MAX+1:0)                  ! weighted optical depth of snow+aerosol layer (lyr) [unitless]
+    real(kind=kind_noahmp)             :: omega(-NSNOW_MAX+1:0)                ! weighted single-scatter albedo of snow+aerosol layer (lyr) [frc]
+    real(kind=kind_noahmp)             :: g(-NSNOW_MAX+1:0)                    ! weighted asymmetry parameter of snow+aerosol layer (lyr) [frc]
+    real(kind=kind_noahmp)             :: tau_star(-NSNOW_MAX+1:0)             ! transformed (i.e. Delta-Eddington) optical depth of snow+aerosol layer! (lyr) [unitless]
+    real(kind=kind_noahmp)             :: omega_star(-NSNOW_MAX+1:0)           ! transformed (i.e. Delta-Eddington) SSA of snow+aerosol layer (lyr) [frc]
+    real(kind=kind_noahmp)             :: g_star(-NSNOW_MAX+1:0)               ! transformed (i.e. Delta-Eddington) asymmetry paramater of snow+aerosol layer! (lyr) [frc]
+    real(kind=kind_noahmp)             :: tau_clm(-NSNOW_MAX+1:0)              ! column optical depth from layer bottom to snowpack top (lyr) [unitless]
+    real(kind=kind_noahmp)             :: L_aer(-NSNOW_MAX+1:0, 1:NAER)              ! aerosol mass in snow layer (lyr,nbr_aer) [kg/m2]
+    real(kind=kind_noahmp)             :: tau_aer(-NSNOW_MAX+1:0, 1:NAER)            ! aerosol optical depth (lyr,nbr_aer) [unitless]
+    real(kind=kind_noahmp)             :: mss_cnc_aer_lcl(-NSNOW_MAX+1:0, 1:NAER)    ! aerosol mass concentration [kg/kg]
 
     ! local variables used for Toon et al. 1989 2-stream solver (Flanner et al. 2007):
     ! intermediate variables for radiative transfer approximation:
-    real(kind=kind_noahmp), allocatable, dimension(:)   :: gamma1             ! two-stream coefficient from Toon et al. (lyr) [unitless]
-    real(kind=kind_noahmp), allocatable, dimension(:)   :: gamma2             ! two-stream coefficient from Toon et al. (lyr) [unitless]
-    real(kind=kind_noahmp), allocatable, dimension(:)   :: gamma3             ! two-stream coefficient from Toon et al. (lyr) [unitless]
-    real(kind=kind_noahmp), allocatable, dimension(:)   :: gamma4             ! two-stream coefficient from Toon et al. (lyr) [unitless]
-    real(kind=kind_noahmp), allocatable, dimension(:)   :: lambda             ! two-stream coefficient from Toon et al. (lyr) [unitless]
-    real(kind=kind_noahmp), allocatable, dimension(:)   :: GAMMA              ! two-stream coefficient from Toon et al. (lyr) [unitless]
+    real(kind=kind_noahmp)             :: gamma1(-NSNOW_MAX+1:0)             ! two-stream coefficient from Toon et al. (lyr) [unitless]
+    real(kind=kind_noahmp)             :: gamma2(-NSNOW_MAX+1:0)             ! two-stream coefficient from Toon et al. (lyr) [unitless]
+    real(kind=kind_noahmp)             :: gamma3(-NSNOW_MAX+1:0)             ! two-stream coefficient from Toon et al. (lyr) [unitless]
+    real(kind=kind_noahmp)             :: gamma4(-NSNOW_MAX+1:0)             ! two-stream coefficient from Toon et al. (lyr) [unitless]
+    real(kind=kind_noahmp)             :: lambda(-NSNOW_MAX+1:0)             ! two-stream coefficient from Toon et al. (lyr) [unitless]
+    real(kind=kind_noahmp)             :: GAMMA(-NSNOW_MAX+1:0)              ! two-stream coefficient from Toon et al. (lyr) [unitless]
     real(kind=kind_noahmp)                              :: mu_one             ! two-stream coefficient from Toon et al. (lyr) [unitless]
-    real(kind=kind_noahmp), allocatable, dimension(:)   :: e1                 ! tri-diag intermediate variable from Toon et al. (lyr)
-    real(kind=kind_noahmp), allocatable, dimension(:)   :: e2                 ! tri-diag intermediate variable from Toon et al. (lyr)
-    real(kind=kind_noahmp), allocatable, dimension(:)   :: e3                 ! tri-diag intermediate variable from Toon et al. (lyr)
-    real(kind=kind_noahmp), allocatable, dimension(:)   :: e4                 ! tri-diag intermediate variable from Toon et al. (lyr)
-    real(kind=kind_noahmp), allocatable, dimension(:)   :: C_pls_btm          ! intermediate variable: upward flux at bottom interface (lyr) [W/m2]
-    real(kind=kind_noahmp), allocatable, dimension(:)   :: C_mns_btm          ! intermediate variable: downward flux at bottom interface (lyr) [W/m2]
-    real(kind=kind_noahmp), allocatable, dimension(:)   :: C_pls_top          ! intermediate variable: upward flux at top interface (lyr) [W/m2]
-    real(kind=kind_noahmp), allocatable, dimension(:)   :: C_mns_top          ! intermediate variable: downward flux at top interface (lyr) [W/m2]
-    real(kind=kind_noahmp), allocatable, dimension(:)   :: A                  ! tri-diag intermediate variable from Toon et al. (2*lyr)
-    real(kind=kind_noahmp), allocatable, dimension(:)   :: B                  ! tri-diag intermediate variable from Toon et al. (2*lyr)
-    real(kind=kind_noahmp), allocatable, dimension(:)   :: D                  ! tri-diag intermediate variable from Toon et al. (2*lyr)
-    real(kind=kind_noahmp), allocatable, dimension(:)   :: E                  ! tri-diag intermediate variable from Toon et al. (2*lyr)
-    real(kind=kind_noahmp), allocatable, dimension(:)   :: AS                 ! tri-diag intermediate variable from Toon et al. (2*lyr)
-    real(kind=kind_noahmp), allocatable, dimension(:)   :: DS                 ! tri-diag intermediate variable from Toon et al. (2*lyr)
-    real(kind=kind_noahmp), allocatable, dimension(:)   :: X                  ! tri-diag intermediate variable from Toon et al. (2*lyr)
-    real(kind=kind_noahmp), allocatable, dimension(:)   :: Y                  ! tri-diag intermediate variable from Toon et al. (2*lyr)
+    real(kind=kind_noahmp)             :: e1(-NSNOW_MAX+1:0)                 ! tri-diag intermediate variable from Toon et al. (lyr)
+    real(kind=kind_noahmp)             :: e2(-NSNOW_MAX+1:0)                 ! tri-diag intermediate variable from Toon et al. (lyr)
+    real(kind=kind_noahmp)             :: e3(-NSNOW_MAX+1:0)                 ! tri-diag intermediate variable from Toon et al. (lyr)
+    real(kind=kind_noahmp)             :: e4(-NSNOW_MAX+1:0)                 ! tri-diag intermediate variable from Toon et al. (lyr)
+    real(kind=kind_noahmp)             :: C_pls_btm(-NSNOW_MAX+1:0)          ! intermediate variable: upward flux at bottom interface (lyr) [W/m2]
+    real(kind=kind_noahmp)             :: C_mns_btm(-NSNOW_MAX+1:0)          ! intermediate variable: downward flux at bottom interface (lyr) [W/m2]
+    real(kind=kind_noahmp)             :: C_pls_top(-NSNOW_MAX+1:0)          ! intermediate variable: upward flux at top interface (lyr) [W/m2]
+    real(kind=kind_noahmp)             :: C_mns_top(-NSNOW_MAX+1:0)          ! intermediate variable: downward flux at top interface (lyr) [W/m2]
+    real(kind=kind_noahmp)             :: A(-2*NSNOW_MAX+1:0)                  ! tri-diag intermediate variable from Toon et al. (2*lyr)
+    real(kind=kind_noahmp)             :: B(-2*NSNOW_MAX+1:0)                  ! tri-diag intermediate variable from Toon et al. (2*lyr)
+    real(kind=kind_noahmp)             :: D(-2*NSNOW_MAX+1:0)                  ! tri-diag intermediate variable from Toon et al. (2*lyr)
+    real(kind=kind_noahmp)             :: E(-2*NSNOW_MAX+1:0)                  ! tri-diag intermediate variable from Toon et al. (2*lyr)
+    real(kind=kind_noahmp)             :: AS(-2*NSNOW_MAX+1:0)                 ! tri-diag intermediate variable from Toon et al. (2*lyr)
+    real(kind=kind_noahmp)             :: DS(-2*NSNOW_MAX+1:0)                 ! tri-diag intermediate variable from Toon et al. (2*lyr)
+    real(kind=kind_noahmp)             :: X(-2*NSNOW_MAX+1:0)                  ! tri-diag intermediate variable from Toon et al. (2*lyr)
+    real(kind=kind_noahmp)             :: Y(-2*NSNOW_MAX+1:0)                  ! tri-diag intermediate variable from Toon et al. (2*lyr)
 
     ! local variables used for Adding-doubling 2-stream solver based on SNICAR-ADv3 version
     ! (Dang et al. 2019; Flanner et al. 2021)
-    real(kind=kind_noahmp), allocatable, dimension(:)   :: trndir             ! solar beam down transmission from top
-    real(kind=kind_noahmp), allocatable, dimension(:)   :: trntdr             ! total transmission to direct beam for layers above
-    real(kind=kind_noahmp), allocatable, dimension(:)   :: trndif             ! diffuse transmission to diffuse beam for layers above
-    real(kind=kind_noahmp), allocatable, dimension(:)   :: rupdir             ! reflectivity to direct radiation for layers below
-    real(kind=kind_noahmp), allocatable, dimension(:)   :: rupdif             ! reflectivity to diffuse radiation for layers below
-    real(kind=kind_noahmp), allocatable, dimension(:)   :: rdndif             ! reflectivity to diffuse radiation for layers above
-    real(kind=kind_noahmp), allocatable, dimension(:)   :: dfdir              ! down-up flux at interface due to direct beam at top surface
-    real(kind=kind_noahmp), allocatable, dimension(:)   :: dfdif              ! down-up flux at interface due to diffuse beam at top surface
-    real(kind=kind_noahmp), allocatable, dimension(:)   :: dftmp              ! temporary variable for down-up flux at interface
-    real(kind=kind_noahmp), allocatable, dimension(:)   :: rdir               ! layer reflectivity to direct radiation
-    real(kind=kind_noahmp), allocatable, dimension(:)   :: rdif_a             ! layer reflectivity to diffuse radiation from above
-    real(kind=kind_noahmp), allocatable, dimension(:)   :: rdif_b             ! layer reflectivity to diffuse radiation from below
-    real(kind=kind_noahmp), allocatable, dimension(:)   :: tdir               ! layer transmission to direct radiation (solar beam + diffuse)
-    real(kind=kind_noahmp), allocatable, dimension(:)   :: tdif_a             ! layer transmission to diffuse radiation from above
-    real(kind=kind_noahmp), allocatable, dimension(:)   :: tdif_b             ! layer transmission to diffuse radiation from below
-    real(kind=kind_noahmp), allocatable, dimension(:)   :: trnlay             ! solar beam transm for layer (direct beam only)
+    real(kind=kind_noahmp)             :: trndir(-NSNOW_MAX+1:1)             ! solar beam down transmission from top
+    real(kind=kind_noahmp)             :: trntdr(-NSNOW_MAX+1:1)             ! total transmission to direct beam for layers above
+    real(kind=kind_noahmp)             :: trndif(-NSNOW_MAX+1:1)             ! diffuse transmission to diffuse beam for layers above
+    real(kind=kind_noahmp)             :: rupdir(-NSNOW_MAX+1:1)             ! reflectivity to direct radiation for layers below
+    real(kind=kind_noahmp)             :: rupdif(-NSNOW_MAX+1:1)             ! reflectivity to diffuse radiation for layers below
+    real(kind=kind_noahmp)             :: rdndif(-NSNOW_MAX+1:1)             ! reflectivity to diffuse radiation for layers above
+    real(kind=kind_noahmp)             :: dfdir(-NSNOW_MAX+1:1)              ! down-up flux at interface due to direct beam at top surface
+    real(kind=kind_noahmp)             :: dfdif(-NSNOW_MAX+1:1)              ! down-up flux at interface due to diffuse beam at top surface
+    real(kind=kind_noahmp)             :: dftmp(-NSNOW_MAX+1:1)              ! temporary variable for down-up flux at interface
+    real(kind=kind_noahmp)             :: rdir(-NSNOW_MAX+1:0)               ! layer reflectivity to direct radiation
+    real(kind=kind_noahmp)             :: rdif_a(-NSNOW_MAX+1:0)             ! layer reflectivity to diffuse radiation from above
+    real(kind=kind_noahmp)             :: rdif_b(-NSNOW_MAX+1:0)             ! layer reflectivity to diffuse radiation from below
+    real(kind=kind_noahmp)             :: tdir(-NSNOW_MAX+1:0)               ! layer transmission to direct radiation (solar beam + diffuse)
+    real(kind=kind_noahmp)             :: tdif_a(-NSNOW_MAX+1:0)             ! layer transmission to diffuse radiation from above
+    real(kind=kind_noahmp)             :: tdif_b(-NSNOW_MAX+1:0)             ! layer transmission to diffuse radiation from below
+    real(kind=kind_noahmp)             :: trnlay(-NSNOW_MAX+1:0)             ! solar beam transm for layer (direct beam only)
     real(kind=kind_noahmp)                              :: ts                 ! layer delta-scaled extinction optical depth
     real(kind=kind_noahmp)                              :: ws                 ! layer delta-scaled single scattering albedo
     real(kind=kind_noahmp)                              :: gs                 ! layer delta-scaled asymmetry parameter
@@ -369,82 +375,58 @@ contains
              )
 ! ----------------------------------------------------------------------
 
-    ! initialize
-    if (.not. allocated(snw_rds_lcl   ))  allocate(snw_rds_lcl   (-NumSnowLayerMax+1:0))
-    if (.not. allocated(sno_shp       ))  allocate(sno_shp       (-NumSnowLayerMax+1:0))
-    if (.not. allocated(sno_fs        ))  allocate(sno_fS        (-NumSnowLayerMax+1:0))
-    if (.not. allocated(sno_AR        ))  allocate(sno_AR        (-NumSnowLayerMax+1:0))
-    if (.not. allocated(h2osno_liq_lcl))  allocate(h2osno_liq_lcl(-NumSnowLayerMax+1:0))
-    if (.not. allocated(h2osno_ice_lcl))  allocate(h2osno_ice_lcl(-NumSnowLayerMax+1:0))
-    if (.not. allocated(F_direct      ))  allocate(F_direct      (-NumSnowLayerMax+1:0))
-    if (.not. allocated(F_net         ))  allocate(F_net         (-NumSnowLayerMax+1:0))
-    if (.not. allocated(F_abs         ))  allocate(F_abs         (-NumSnowLayerMax+1:0))
-    if (.not. allocated(L_snw         ))  allocate(L_snw         (-NumSnowLayerMax+1:0))
-    if (.not. allocated(tau_snw       ))  allocate(tau_snw       (-NumSnowLayerMax+1:0))
-    if (.not. allocated(tau           ))  allocate(tau           (-NumSnowLayerMax+1:0))
-    if (.not. allocated(omega         ))  allocate(omega         (-NumSnowLayerMax+1:0))
-    if (.not. allocated(g             ))  allocate(g             (-NumSnowLayerMax+1:0))
-    if (.not. allocated(tau_star      ))  allocate(tau_star      (-NumSnowLayerMax+1:0))
-    if (.not. allocated(omega_star    ))  allocate(omega_star    (-NumSnowLayerMax+1:0))
-    if (.not. allocated(g_star        ))  allocate(g_star        (-NumSnowLayerMax+1:0))
-    if (.not. allocated(tau_clm       ))  allocate(tau_clm       (-NumSnowLayerMax+1:0))
-    if (.not. allocated(ss_alb_snw_lcl     ))  allocate(ss_alb_snw_lcl     (-NumSnowLayerMax+1:0))
-    if (.not. allocated(asm_prm_snw_lcl    ))  allocate(asm_prm_snw_lcl    (-NumSnowLayerMax+1:0))
-    if (.not. allocated(ext_cff_mss_snw_lcl))  allocate(ext_cff_mss_snw_lcl(-NumSnowLayerMax+1:0))
+    ! Allocate promoted arrays (band-sized, on device)
+    allocate(flx_wgt_3d(noahmp%config%domain%ITS:noahmp%config%domain%ITE, &
+             1:NumSnicarRadBand, noahmp%config%domain%JTS:noahmp%config%domain%JTE))
+    allocate(albout_lcl_3d(noahmp%config%domain%ITS:noahmp%config%domain%ITE, &
+             1:NumSnicarRadBand, noahmp%config%domain%JTS:noahmp%config%domain%JTE))
+    allocate(flx_abs_lcl_4d(noahmp%config%domain%ITS:noahmp%config%domain%ITE, &
+             -NumSnowLayerMax+1:1, 1:NumSnicarRadBand, noahmp%config%domain%JTS:noahmp%config%domain%JTE))
 
-    !Toon 2-stream solver
-    if (.not. allocated(gamma1             ))  allocate(gamma1             (-NumSnowLayerMax+1:0))
-    if (.not. allocated(gamma2             ))  allocate(gamma2             (-NumSnowLayerMax+1:0))
-    if (.not. allocated(gamma3             ))  allocate(gamma3             (-NumSnowLayerMax+1:0))
-    if (.not. allocated(gamma4             ))  allocate(gamma4             (-NumSnowLayerMax+1:0))
-    if (.not. allocated(lambda             ))  allocate(lambda             (-NumSnowLayerMax+1:0))
-    if (.not. allocated(GAMMA              ))  allocate(GAMMA              (-NumSnowLayerMax+1:0))
-    if (.not. allocated(e1                 ))  allocate(e1                 (-NumSnowLayerMax+1:0))
-    if (.not. allocated(e2                 ))  allocate(e2                 (-NumSnowLayerMax+1:0))
-    if (.not. allocated(e3                 ))  allocate(e3                 (-NumSnowLayerMax+1:0))
-    if (.not. allocated(e4                 ))  allocate(e4                 (-NumSnowLayerMax+1:0))
-    if (.not. allocated(C_pls_btm          ))  allocate(C_pls_btm          (-NumSnowLayerMax+1:0))
-    if (.not. allocated(C_mns_btm          ))  allocate(C_mns_btm          (-NumSnowLayerMax+1:0))
-    if (.not. allocated(C_pls_top          ))  allocate(C_pls_top          (-NumSnowLayerMax+1:0))
-    if (.not. allocated(C_mns_top          ))  allocate(C_mns_top          (-NumSnowLayerMax+1:0))
-    if (.not. allocated(A                  ))  allocate(A                  (-2*NumSnowLayerMax+1:0))
-    if (.not. allocated(B                  ))  allocate(B                  (-2*NumSnowLayerMax+1:0))
-    if (.not. allocated(D                  ))  allocate(D                  (-2*NumSnowLayerMax+1:0))
-    if (.not. allocated(E                  ))  allocate(E                  (-2*NumSnowLayerMax+1:0))
-    if (.not. allocated(AS                 ))  allocate(AS                 (-2*NumSnowLayerMax+1:0))
-    if (.not. allocated(DS                 ))  allocate(DS                 (-2*NumSnowLayerMax+1:0))
-    if (.not. allocated(X                  ))  allocate(X                  (-2*NumSnowLayerMax+1:0))
-    if (.not. allocated(Y                  ))  allocate(Y                  (-2*NumSnowLayerMax+1:0))
-    
-    ! Adding-doubling 2-stream solver based on SNICAR-ADv3 version
-    if (.not. allocated(trndir             ))  allocate(trndir             (-NumSnowLayerMax+1:1))
-    if (.not. allocated(trntdr             ))  allocate(trntdr             (-NumSnowLayerMax+1:1))
-    if (.not. allocated(trndif             ))  allocate(trndif             (-NumSnowLayerMax+1:1))
-    if (.not. allocated(rupdir             ))  allocate(rupdir             (-NumSnowLayerMax+1:1))
-    if (.not. allocated(rupdif             ))  allocate(rupdif             (-NumSnowLayerMax+1:1))
-    if (.not. allocated(rdndif             ))  allocate(rdndif             (-NumSnowLayerMax+1:1))
-    if (.not. allocated(dfdir              ))  allocate(dfdir              (-NumSnowLayerMax+1:1))
-    if (.not. allocated(dfdif              ))  allocate(dfdif              (-NumSnowLayerMax+1:1))
-    if (.not. allocated(dftmp              ))  allocate(dftmp              (-NumSnowLayerMax+1:1))
-    if (.not. allocated(rdir               ))  allocate(rdir               (-NumSnowLayerMax+1:0))
-    if (.not. allocated(rdif_a             ))  allocate(rdif_a             (-NumSnowLayerMax+1:0))
-    if (.not. allocated(rdif_b             ))  allocate(rdif_b             (-NumSnowLayerMax+1:0))
-    if (.not. allocated(tdir               ))  allocate(tdir               (-NumSnowLayerMax+1:0))
-    if (.not. allocated(tdif_a             ))  allocate(tdif_a             (-NumSnowLayerMax+1:0))
-    if (.not. allocated(tdif_b             ))  allocate(tdif_b             (-NumSnowLayerMax+1:0))
-    if (.not. allocated(trnlay             ))  allocate(trnlay             (-NumSnowLayerMax+1:0))
-    if (.not. allocated(ss_alb_aer_lcl     ))  allocate(ss_alb_aer_lcl     (1:NumSnicarAerosol  ))
-    if (.not. allocated(asm_prm_aer_lcl    ))  allocate(asm_prm_aer_lcl    (1:NumSnicarAerosol  ))
-    if (.not. allocated(ext_cff_mss_aer_lcl))  allocate(ext_cff_mss_aer_lcl(1:NumSnicarAerosol  ))
-    if (.not. allocated(albsfc_lcl         ))  allocate(albsfc_lcl         (1:NumSnicarRadBand  ))
-    if (.not. allocated(flx_wgt            ))  allocate(flx_wgt            (1:NumSnicarRadBand  ))
-    if (.not. allocated(flx_slrd_lcl       ))  allocate(flx_slrd_lcl       (1:NumSnicarRadBand  ))
-    if (.not. allocated(flx_slri_lcl       ))  allocate(flx_slri_lcl       (1:NumSnicarRadBand  ))
-    if (.not. allocated(albout_lcl         ))  allocate(albout_lcl         (1:NumSnicarRadBand  ))
-    if (.not. allocated(L_aer              ))  allocate(L_aer              (-NumSnowLayerMax+1:0,NumSnicarAerosol))
-    if (.not. allocated(tau_aer            ))  allocate(tau_aer            (-NumSnowLayerMax+1:0,NumSnicarAerosol))
-    if (.not. allocated(flx_abs_lcl        ))  allocate(flx_abs_lcl        (-NumSnowLayerMax+1:1,NumSnicarRadBand))
-    if (.not. allocated(mss_cnc_aer_lcl    ))  allocate(mss_cnc_aer_lcl    (-NumSnowLayerMax+1:0,NumSnicarAerosol))
+    !$acc data create(flx_wgt_3d, albout_lcl_3d, flx_abs_lcl_4d)
+
+    !$acc parallel loop collapse(2) gang vector default(present) &
+    !$acc private(i, j, n, ng, trip, SnowLayerTop, SnowLayerBottom, LoopInd, &
+    !$acc   nir_bnd_bgn, nir_bnd_end, flg_nosnl, snl_lcl, flg_dover, err_idx, &
+    !$acc   APRX_TYP, rds_idx, snl_btm_itf, ibb, idb, igb, &
+    !$acc   snw_rds_lcl, sno_shp, sno_fs, sno_AR, &
+    !$acc   h2osno_liq_lcl, h2osno_ice_lcl, F_direct, F_net, F_abs, L_snw, &
+    !$acc   tau_snw, tau, omega, g, tau_star, omega_star, g_star, tau_clm, &
+    !$acc   ss_alb_snw_lcl, asm_prm_snw_lcl, ext_cff_mss_snw_lcl, &
+    !$acc   ss_alb_aer_lcl, asm_prm_aer_lcl, ext_cff_mss_aer_lcl, &
+    !$acc   L_aer, tau_aer, mss_cnc_aer_lcl, &
+    !$acc   gamma1, gamma2, gamma3, gamma4, lambda, GAMMA, &
+    !$acc   e1, e2, e3, e4, C_pls_btm, C_mns_btm, C_pls_top, C_mns_top, &
+    !$acc   A, B, D, E, AS, DS, X, Y, &
+    !$acc   trndir, trntdr, trndif, rupdir, rupdif, rdndif, &
+    !$acc   dfdir, dfdif, dftmp, rdir, rdif_a, rdif_b, tdir, tdif_a, tdif_b, trnlay, &
+    !$acc   difgauspt, difgauswt, wvl_ct5, &
+    !$acc   g_wvl, g_wvl_ct, g_b0, g_b1, g_b2, &
+    !$acc   g_F07_c2, g_F07_c1, g_F07_c0, g_F07_p2, g_F07_p1, g_F07_p0, &
+    !$acc   g_ice_Cg_tmp, gg_ice_F07_tmp, &
+    !$acc   bcint_wvl, bcint_wvl_ct, bcint_d0, bcint_d1, bcint_d2, bcint_m, bcint_n, &
+    !$acc   enh_omg_bcint_tmp, enh_omg_bcint_tmp2, &
+    !$acc   dstint_wvl, dstint_wvl_ct, dstint_a1, dstint_a2, dstint_a3, &
+    !$acc   enh_omg_dstint_tmp, enh_omg_dstint_tmp2, &
+    !$acc   tau_sum, omega_sum, g_sum, F_direct_btm, F_sfc_pls, F_btm_net, F_sfc_net, &
+    !$acc   energy_sum, albedo, F_abs_sum, flx_sum, flx_slrd_val, flx_slri_val, &
+    !$acc   albsfc_val, flx_sum_wgt, flx_sum_wgt_vis, &
+    !$acc   mu_not, mu_one, SnowWaterEquivMin, diam_ice, &
+    !$acc   fs_sphd, fs_hex, fs_hex0, fs_koch, AR_tmp, &
+    !$acc   g_Cg_intp, gg_F07_intp, g_ice_F07, &
+    !$acc   enh_omg_bcint, bcint_dd, bcint_dd2, bcint_f, &
+    !$acc   enh_omg_bcint_intp, enh_omg_bcint_intp2, wvl_doint, &
+    !$acc   enh_omg_dstint, enh_omg_dstint_intp, enh_omg_dstint_intp2, tot_dst_snw_conc, &
+    !$acc   ts, ws, gs, extins, alp, gam, amg, apg, ue, refk, refkp1, refkm1, &
+    !$acc   tdrrdir, tdndif, taus, omgs, asys, lm, mu, ne, &
+    !$acc   R1, R2, T1, T2, Rf_dir_a, Tf_dir_a, Rf_dif_a, Rf_dif_b, Tf_dif_a, Tf_dif_b, &
+    !$acc   gwt, swt, trn, rdr, tdr, smr, smt, exp_min, &
+    !$acc   sza_c1, sza_c0, sza_factor, flx_sza_adjust)
+    do JJ = noahmp%config%domain%JTS, noahmp%config%domain%JTE
+      do II = noahmp%config%domain%ITS, noahmp%config%domain%ITE
+
+    ! Skip dark points (no sunlight)
+    if (CosSolarZenithAngle(II,JJ) <= 0.0) cycle
 
     ! determin band start and end index
     if (NumSnicarRadBand == 5)   nir_bnd_bgn = 2
@@ -464,14 +446,20 @@ contains
                          0.1826034,  0.1894506/)
 
     ! initialize for nonspherical snow grains
-    sno_shp(:) = OptSnicarSnowShape ! currently only assuming same shapes for all snow layers
-    sno_fs(:)  = 0.0
-    sno_AR(:)  = 0.0
+    !$acc loop seq
+    do k = -NSNOW_MAX+1, 0
+       sno_shp(k) = OptSnicarSnowShape
+       sno_fs(k)  = 0.0
+       sno_AR(k)  = 0.0
+    enddo
 
     ! Table 3 of He et al 2017 JC
     g_wvl(1:8)    = (/ 0.25, 0.70, 1.41, 1.90, &
                        2.50, 3.50, 4.00, 5.00 /)
-    g_wvl_ct(1:7) = g_wvl(2:8) / 2.0 + g_wvl(1:7) / 2.0
+    !$acc loop seq
+    do k = 1, 7
+       g_wvl_ct(k) = g_wvl(k+1) / 2.0_kind_noahmp + g_wvl(k) / 2.0_kind_noahmp
+    enddo
     g_b0(1:7)     = (/  9.76029E-1,  9.67798E-1,  1.00111, 1.00224,        &
                         9.64295E-1,  9.97475E-1,  9.97475E-1 /)
     g_b1(1:7)     = (/  5.21042E-1,  4.96181E-1,  1.83711E-1,  1.37082E-1, &
@@ -497,7 +485,10 @@ contains
     ! Eq. 8b & Table 4 in He et al., 2017 J. Climate (wavelength>1.2um, no BC-snow int mixing effect)
     bcint_wvl(1:17) = (/ 0.20, 0.25, 0.30, 0.33, 0.36, 0.40, 0.44, 0.48,       &
                          0.52, 0.57, 0.64, 0.69, 0.75, 0.78, 0.87, 1.0, 1.2 /)
-    bcint_wvl_ct(1:16) = bcint_wvl(2:17)/2.0 + bcint_wvl(1:16)/2.0
+    !$acc loop seq
+    do k = 1, 16
+       bcint_wvl_ct(k) = bcint_wvl(k+1) / 2.0_kind_noahmp + bcint_wvl(k) / 2.0_kind_noahmp
+    enddo
     bcint_d0(1:16)  = (/ 2.48045   , 4.70305   , 4.68619   , 4.67369   , 4.65040   , &
                          2.40364   , 7.95408E-1, 2.92745E-1, 8.63396E-2, 2.76299E-2, &
                          1.40864E-2, 8.65705E-3, 6.12971E-3, 4.45697E-3, 3.06648E-2, &
@@ -517,20 +508,25 @@ contains
     ! initialize for dust-snow internal mixing
     ! Eq. 1 and Table 1 in He et al. 2019 JAMES (wavelength>1.2um, no dust-snow int mixing effect)
     dstint_wvl(1:7) = (/ 0.2, 0.2632, 0.3448, 0.4415, 0.625, 0.7782, 1.2422/)
-    dstint_wvl_ct(1:6) = dstint_wvl(2:7)/2.0 + dstint_wvl(1:6)/2.0
+    !$acc loop seq
+    do k = 1, 6
+       dstint_wvl_ct(k) = dstint_wvl(k+1) / 2.0_kind_noahmp + dstint_wvl(k) / 2.0_kind_noahmp
+    enddo
     dstint_a1(1:6) = (/ -2.1307E+1, -1.5815E+1, -9.2880   , 1.1115   , 1.0307   , 1.0185    /)
     dstint_a2(1:6) = (/  1.1746E+2,  9.3241E+1,  4.0605E+1, 3.7389E-1, 1.4800E-2, 2.8921E-4 /)
     dstint_a3(1:6) = (/  9.9701E-1,  9.9781E-1,  9.9848E-1, 1.0035   , 1.0024   , 1.0356    /)
 
     ! SNICAR snow band center wavelength (um)
     wvl_ct5(1:5)  = (/ 0.5, 0.85, 1.1, 1.35, 3.25 /)  ! 5-band
-    do LoopInd = 1,480
-       wvl_ct480(LoopInd) = 0.205 + 0.01 * (LoopInd-1)  ! 480-band
-    enddo
+    ! wvl_ct480 replaced by inline computation: (0.205_kind_noahmp + 0.01_kind_noahmp * (LoopInd - 1))
 
     ! Zero absorbed radiative fluxes:
-    do LoopInd=-NumSnowLayerMax+1,1,1
-       flx_abs_lcl(LoopInd,:)   = 0.0
+    !$acc loop seq
+    do LoopInd=-NSNOW_MAX+1,1,1
+       !$acc loop seq
+       do k=1,NumSnicarRadBand
+          flx_abs_lcl_4d(II,LoopInd,k,JJ) = 0.0
+       enddo
     enddo
 
     ! set SWE (mm) threshold for precision
@@ -543,22 +539,25 @@ contains
     ! Qualifier for computing snow RT: 
     ! minimum amount of snow on ground. 
     ! Otherwise, set snow albedo to zero
-    if (SnowWaterEquiv >= SnowWaterEquivMin) then
+    if (SnowWaterEquiv(II,JJ) >= SnowWaterEquivMin) then
 
        ! If there is snow, but zero snow layers, we must create a layer locally.
        ! This layer is presumed to have the fresh snow effective radius.
-          if (NumSnowLayerNeg > -1) then
+          if (NumSnowLayerNeg(II,JJ) > -1) then
              flg_nosnl         =  1
              snl_lcl           =  -1
-             h2osno_ice_lcl(0) =  SnowWaterEquiv
+             h2osno_ice_lcl(0) =  SnowWaterEquiv(II,JJ)
              h2osno_liq_lcl(0) =  0.0
-             snw_rds_lcl(0)    =  nint(SnowRadius(0))
+             snw_rds_lcl(0)    =  nint(SnowRadius(II,0,JJ))
           else
              flg_nosnl         =  0
-             snl_lcl           =  NumSnowLayerNeg
-             h2osno_liq_lcl(:) =  SnowLiqWater(:)
-             h2osno_ice_lcl(:) =  SnowIce(:)
-             snw_rds_lcl(:)    =  nint(SnowRadius(:))
+             snl_lcl           =  NumSnowLayerNeg(II,JJ)
+             !$acc loop seq
+             do k = -NSNOW_MAX+1, 0
+                h2osno_liq_lcl(k) = SnowLiqWater(II,k,JJ)
+                h2osno_ice_lcl(k) = SnowIce(II,k,JJ)
+                snw_rds_lcl(k)    = nint(SnowRadius(II,k,JJ))
+             enddo
           endif
 
           SnowLayerBottom = 0
@@ -566,46 +565,48 @@ contains
 
        ! Set local aerosol array
        if (FlagSnicarUseAerosol .eqv. .true.) then
-          mss_cnc_aer_lcl(:,1) = MassConcBChydrophi(:)
-          mss_cnc_aer_lcl(:,2) = MassConcBChydropho(:)
+          !$acc loop seq
+          do k = -NSNOW_MAX+1, 0
+             mss_cnc_aer_lcl(k,1) = MassConcBChydrophi(II,k,JJ)
+             mss_cnc_aer_lcl(k,2) = MassConcBChydropho(II,k,JJ)
+          enddo
           if (FlagSnicarUseOC .eqv. .true.) then
-             mss_cnc_aer_lcl(:,3) = MassConcOChydrophi(:)
-             mss_cnc_aer_lcl(:,4) = MassConcOChydropho(:)
+             !$acc loop seq
+             do k = -NSNOW_MAX+1, 0
+                mss_cnc_aer_lcl(k,3) = MassConcOChydrophi(II,k,JJ)
+                mss_cnc_aer_lcl(k,4) = MassConcOChydropho(II,k,JJ)
+             enddo
           else
-             mss_cnc_aer_lcl(:,3) = 0.0
-             mss_cnc_aer_lcl(:,4) = 0.0
+             !$acc loop seq
+             do k = -NSNOW_MAX+1, 0
+                mss_cnc_aer_lcl(k,3) = 0.0
+                mss_cnc_aer_lcl(k,4) = 0.0
+             enddo
           endif
-          mss_cnc_aer_lcl(:,5) = MassConcDust1(:)
-          mss_cnc_aer_lcl(:,6) = MassConcDust2(:)
-          mss_cnc_aer_lcl(:,7) = MassConcDust3(:)
-          mss_cnc_aer_lcl(:,8) = MassConcDust4(:)
-          mss_cnc_aer_lcl(:,9) = MassConcDust5(:)
+          !$acc loop seq
+          do k = -NSNOW_MAX+1, 0
+             mss_cnc_aer_lcl(k,5) = MassConcDust1(II,k,JJ)
+             mss_cnc_aer_lcl(k,6) = MassConcDust2(II,k,JJ)
+             mss_cnc_aer_lcl(k,7) = MassConcDust3(II,k,JJ)
+             mss_cnc_aer_lcl(k,8) = MassConcDust4(II,k,JJ)
+             mss_cnc_aer_lcl(k,9) = MassConcDust5(II,k,JJ)
+          enddo
        else
-          mss_cnc_aer_lcl(:,:) = 0.0
+          !$acc loop seq
+          do k = -NSNOW_MAX+1, 0
+             !$acc loop seq
+             do j = 1, NAER
+                mss_cnc_aer_lcl(k,j) = 0.0
+             enddo
+          enddo
        endif
 
-       ! Set spectral underlying surface albedos to their corresponding VIS or NIR albedos
-       if (IndicatorIceSfc == 0) then
-          if (FlagSwRadType == 1) then
-             albsfc_lcl(1:(nir_bnd_bgn-1))       = AlbedoSoilDir(1)  
-             albsfc_lcl(nir_bnd_bgn:nir_bnd_end) = AlbedoSoilDir(2) 
-          elseif (FlagSwRadType == 2) then
-             albsfc_lcl(1:(nir_bnd_bgn-1))       = AlbedoSoilDif(1) 
-             albsfc_lcl(nir_bnd_bgn:nir_bnd_end) = AlbedoSoilDif(2) 
-          endif
-       elseif (IndicatorIceSfc == -1) then !land ice
-          albsfc_lcl(1:(nir_bnd_bgn-1))       = AlbedoLandIce(1)
-          albsfc_lcl(nir_bnd_bgn:nir_bnd_end) = AlbedoLandIce(2)
-       endif
+       ! albsfc_val computed inline per band inside band loop
 
-       ! Error check for snow grain size:
+       ! Clamp snow grain size to valid range (GPU-safe)
+       !$acc loop seq
        do i=SnowLayerTop,SnowLayerBottom,1
-          if ((snw_rds_lcl(i) < snw_rds_min_tbl) .or. (snw_rds_lcl(i) > snw_rds_max_tbl)) then
-             write (*,*) "SNICAR ERROR: snow grain radius of ", snw_rds_lcl(i), " out of bounds."
-             write (*,*)  "snl= ", snl_lcl
-             write (*,*) "h2osno_total= ", SnowWaterEquiv
-             stop "ERROR in SNICAR grain size"
-          endif
+          snw_rds_lcl(i) = max(snw_rds_min_tbl, min(snw_rds_max_tbl, snw_rds_lcl(i)))
        enddo
 
 
@@ -630,33 +631,63 @@ contains
        if (NumSnicarRadBand == 3) then
           ! Direct:
           if (FlagSwRadType == 1) then
-             flx_wgt(1) = 1.0
-             flx_wgt(2) = 0.66628670195247
-             flx_wgt(3) = 0.33371329804753
+             flx_wgt_3d(II,1,JJ) = 1.0
+             flx_wgt_3d(II,2,JJ) = 0.66628670195247
+             flx_wgt_3d(II,3,JJ) = 0.33371329804753
           ! Diffuse:
           elseif (FlagSwRadType == 2) then
-             flx_wgt(1) = 1.0
-             flx_wgt(2) = 0.77887652162877
-             flx_wgt(3) = 0.22112347837123
+             flx_wgt_3d(II,1,JJ) = 1.0
+             flx_wgt_3d(II,2,JJ) = 0.77887652162877
+             flx_wgt_3d(II,3,JJ) = 0.22112347837123
           endif
        else   ! works for both 5-band & 480-band, flux weights directly read from input data, cenlin
           ! Direct:
           if (FlagSwRadType == 1) then
-             flx_wgt(1:NumSnicarRadBand) = RadSwWgtDir(1:NumSnicarRadBand)  ! VIS or NIR band sum is already normalized to 1.0 in input data
+             !$acc loop seq
+             do k = 1, NumSnicarRadBand
+                flx_wgt_3d(II,k,JJ) = RadSwWgtDir(II,k,JJ)
+             enddo  ! VIS or NIR band sum is already normalized to 1.0 in input data
           ! Diffuse:
           elseif (FlagSwRadType == 2) then
-             flx_wgt(1:NumSnicarRadBand) = RadSwWgtDif(1:NumSnicarRadBand)  ! VIS or NIR band sum is already normalized to 1.0 in input data
+             !$acc loop seq
+             do k = 1, NumSnicarRadBand
+                flx_wgt_3d(II,k,JJ) = RadSwWgtDif(II,k,JJ)
+             enddo  ! VIS or NIR band sum is already normalized to 1.0 in input data
           endif
        endif
 
        exp_min = exp(-argmax)
 
        ! Loop over snow spectral bands
+       !$acc loop seq
        do LoopInd = 1,NumSnicarRadBand
+
+          ! Compute surface albedo for this band (replaces albsfc_lcl array)
+          if (IndicatorIceSfc(II,JJ) == 0) then
+             if (FlagSwRadType == 1) then
+                if (LoopInd < nir_bnd_bgn) then
+                   albsfc_val = AlbedoSoilDir(II,1,JJ)
+                else
+                   albsfc_val = AlbedoSoilDir(II,2,JJ)
+                endif
+             else
+                if (LoopInd < nir_bnd_bgn) then
+                   albsfc_val = AlbedoSoilDif(II,1,JJ)
+                else
+                   albsfc_val = AlbedoSoilDif(II,2,JJ)
+                endif
+             endif
+          elseif (IndicatorIceSfc(II,JJ) == -1) then
+             if (LoopInd < nir_bnd_bgn) then
+                albsfc_val = AlbedoLandIce(II,1,JJ)
+             else
+                albsfc_val = AlbedoLandIce(II,2,JJ)
+             endif
+          endif
 
           ! Toon et al 2-stream
           if (OptSnicarRTSolver == 1) then
-             mu_not = CosSolarZenithAngle    ! must set here, because of error handling
+             mu_not = CosSolarZenithAngle(II,JJ)    ! must set here, because of error handling
 
           ! Adding-doubling 2-stream
           elseif (OptSnicarRTSolver == 2) then
@@ -665,12 +696,13 @@ contains
              ! sure mu_not is large enough for stable and meaningful radiation
              ! solution: .01 is like sun just touching horizon with its lower edge
              ! equivalent to mu0 in sea-ice shortwave model ice_shortwave.F90
-             mu_not = max(CosSolarZenithAngle, cp01)
+             mu_not = max(CosSolarZenithAngle(II,JJ), cp01)
           endif
 
           flg_dover = 1    ! default is to redo
           err_idx   = 0    ! number of times through loop
 
+          !$acc loop seq
           do while (flg_dover > 0)
 
              ! for Toon et al 2-stream solver:
@@ -699,7 +731,7 @@ contains
                       APRX_TYP = 3
                    elseif (flg_dover == 3) then
                       APRX_TYP = 1
-                      if (CosSolarZenithAngle > 0.5) then
+                      if (CosSolarZenithAngle(II,JJ) > 0.5) then
                          mu_not = mu_not - 0.02
                       else
                          mu_not = mu_not + 0.02
@@ -716,7 +748,7 @@ contains
                       APRX_TYP = 1
                    elseif (flg_dover == 3) then
                       APRX_TYP = 3
-                      if (CosSolarZenithAngle > 0.5) then
+                      if (CosSolarZenithAngle(II,JJ) > 0.5) then
                          mu_not = mu_not - 0.02
                       else
                          mu_not = mu_not + 0.02
@@ -734,50 +766,71 @@ contains
              ! Set direct or diffuse incident irradiance to 1
              ! (This has to be within the bnd loop because mu_not is adjusted in rare cases)
              if (FlagSwRadType == 1) then
-                flx_slrd_lcl(LoopInd) = 1.0/(mu_not*ConstPI) ! this corresponds to incident irradiance of 1.0
-                flx_slri_lcl(LoopInd) = 0.0
+                flx_slrd_val = 1.0/(mu_not*ConstPI) ! this corresponds to incident irradiance of 1.0
+                flx_slri_val = 0.0
              else
-                flx_slrd_lcl(LoopInd) = 0.0
-                flx_slri_lcl(LoopInd) = 1.0
+                flx_slrd_val = 0.0
+                flx_slri_val = 1.0
              endif
 
              ! Pre-emptive error handling: aerosols can reap havoc on these absorptive bands.
              ! Since extremely high soot concentrations have a negligible effect on these bands, zero them.
              if ( (NumSnicarRadBand == 5).and.((LoopInd == 5).or.(LoopInd == 4)) ) then
-                mss_cnc_aer_lcl(:,:) = 0.0
+                !$acc loop seq
+                do k = -NSNOW_MAX+1, 0
+                   !$acc loop seq
+                   do j = 1, NAER
+                      mss_cnc_aer_lcl(k,j) = 0.0
+                   enddo
+                enddo
              endif
 
              if ( (NumSnicarRadBand == 3).and.(LoopInd == 3) ) then
-                mss_cnc_aer_lcl(:,:) = 0.0
+                !$acc loop seq
+                do k = -NSNOW_MAX+1, 0
+                   !$acc loop seq
+                   do j = 1, NAER
+                      mss_cnc_aer_lcl(k,j) = 0.0
+                   enddo
+                enddo
              endif
 
              if ( (NumSnicarRadBand == 480).and.(LoopInd > 100) ) then ! >1.2um 
-                mss_cnc_aer_lcl(:,:) = 0.0
+                !$acc loop seq
+                do k = -NSNOW_MAX+1, 0
+                   !$acc loop seq
+                   do j = 1, NAER
+                      mss_cnc_aer_lcl(k,j) = 0.0
+                   enddo
+                enddo
              endif
 
              !--------------------------- Start snow & aerosol optics --------------------------------
              ! Define local Mie parameters based on snow grain size and aerosol species retrieved from a lookup table.
              ! Spherical snow: single-scatter albedo, mass extinction coefficient, asymmetry factor
              if (FlagSwRadType == 1) then
+                !$acc loop seq
                 do i=SnowLayerTop,SnowLayerBottom,1
                    rds_idx = snw_rds_lcl(i) - snw_rds_min_tbl + 1
                    ! snow optical properties (direct radiation)
-                   ss_alb_snw_lcl(i)      = SsAlbSnwRadDir(rds_idx,LoopInd)
-                   ext_cff_mss_snw_lcl(i) = ExtCffMassSnwRadDir(rds_idx,LoopInd)
-                   if (sno_shp(i) == 1) asm_prm_snw_lcl(i) = AsyPrmSnwRadDir(rds_idx,LoopInd)
+                   ss_alb_snw_lcl(i)      = SsAlbSnwRadDir(II,rds_idx,LoopInd,JJ)
+                   ext_cff_mss_snw_lcl(i) = ExtCffMassSnwRadDir(II,rds_idx,LoopInd,JJ)
+                   if (sno_shp(i) == 1) asm_prm_snw_lcl(i) = AsyPrmSnwRadDir(II,rds_idx,LoopInd,JJ)
                 enddo
              elseif (FlagSwRadType == 2) then
+                !$acc loop seq
                 do i=SnowLayerTop,SnowLayerBottom,1
                    rds_idx = snw_rds_lcl(i) - snw_rds_min_tbl + 1
                    ! snow optical properties (diffuse radiation)
-                   ss_alb_snw_lcl(i)      = SsAlbSnwRadDif(rds_idx,LoopInd)
-                   ext_cff_mss_snw_lcl(i) = ExtCffMassSnwRadDif(rds_idx,LoopInd)
-                   if (sno_shp(i) == 1) asm_prm_snw_lcl(i) = AsyPrmSnwRadDif(rds_idx,LoopInd)
+                   ss_alb_snw_lcl(i)      = SsAlbSnwRadDif(II,rds_idx,LoopInd,JJ)
+                   ext_cff_mss_snw_lcl(i) = ExtCffMassSnwRadDif(II,rds_idx,LoopInd,JJ)
+                   if (sno_shp(i) == 1) asm_prm_snw_lcl(i) = AsyPrmSnwRadDif(II,rds_idx,LoopInd,JJ)
                 enddo
              endif
 
 
              ! Nonspherical snow: shape-dependent asymmetry factors
+             !$acc loop seq
              do i=SnowLayerTop,SnowLayerBottom,1
              
                 ! spheroid
@@ -794,6 +847,7 @@ contains
                    else
                       AR_tmp = sno_AR(i)  ! user specified value
                    endif
+                   !$acc loop seq
                    do igb = 1,7
                       g_ice_Cg_tmp(igb) = g_b0(igb) * ((fs_sphd/fs_hex)**g_b1(igb)) * (diam_ice**g_b2(igb))   ! Eq.7, He et al. (2017)
                       gg_ice_F07_tmp(igb) = g_F07_c0(igb) + g_F07_c1(igb)*AR_tmp + g_F07_c2(igb)*(AR_tmp**2.0)  ! Eqn. 3.1 in Fu (2007)
@@ -813,6 +867,7 @@ contains
                    else
                       AR_tmp = sno_AR(i)  ! user specified value
                    endif
+                   !$acc loop seq
                    do igb = 1,7
                       g_ice_Cg_tmp(igb) = g_b0(igb) * ((fs_hex0/fs_hex)**g_b1(igb)) * (diam_ice**g_b2(igb))   ! Eq.7, He et al. (2017)
                       gg_ice_F07_tmp(igb) = g_F07_p0(igb)+g_F07_p1(igb)*LOG(AR_tmp)+g_F07_p2(igb)*((LOG(AR_tmp))**2.0) ! Eqn. 3.3 in Fu (2007)
@@ -832,6 +887,7 @@ contains
                    else
                       AR_tmp = sno_AR(i)  ! user specified value
                    endif
+                   !$acc loop seq
                    do igb = 1,7
                       g_ice_Cg_tmp(igb) = g_b0(igb) * ((fs_koch/fs_hex)**g_b1(igb)) * (diam_ice**g_b2(igb))   ! Eq.7, He et al. (2017)
                       gg_ice_F07_tmp(igb) = g_F07_p0(igb)+g_F07_p1(igb)*LOG(AR_tmp)+g_F07_p2(igb)*((LOG(AR_tmp))**2.0) ! Eqn. 3.3 in Fu (2007)
@@ -849,8 +905,8 @@ contains
                       call PiecewiseLinearInterp1d(7,g_wvl_ct,gg_ice_F07_tmp,wvl_ct5(LoopInd),gg_F07_intp)
                    endif
                    if (NumSnicarRadBand == 480) then
-                      call PiecewiseLinearInterp1d(7,g_wvl_ct,g_ice_Cg_tmp,wvl_ct480(LoopInd),g_Cg_intp)
-                      call PiecewiseLinearInterp1d(7,g_wvl_ct,gg_ice_F07_tmp,wvl_ct480(LoopInd),gg_F07_intp)
+                      call PiecewiseLinearInterp1d(7,g_wvl_ct,g_ice_Cg_tmp,(0.205_kind_noahmp + 0.01_kind_noahmp * (LoopInd - 1)),g_Cg_intp)
+                      call PiecewiseLinearInterp1d(7,g_wvl_ct,gg_ice_F07_tmp,(0.205_kind_noahmp + 0.01_kind_noahmp * (LoopInd - 1)),gg_F07_intp)
                    endif
                    g_ice_F07 = gg_F07_intp + (1.0 - gg_F07_intp) / ss_alb_snw_lcl(i) / 2.0  ! Eq.2.2 in Fu (2007)
                    asm_prm_snw_lcl(i) = g_ice_F07 * g_Cg_intp     ! Eq.6, He et al. (2017)
@@ -861,56 +917,57 @@ contains
              enddo !snow layer
 
              ! aerosol species 2 optical properties, hydrophobic BC
-             ss_alb_aer_lcl(2)        = SsAlbBCpho(LoopInd)
-             asm_prm_aer_lcl(2)       = AsyPrmBCpho(LoopInd)
-             ext_cff_mss_aer_lcl(2)   = ExtCffMassBCpho(LoopInd)
+             ss_alb_aer_lcl(2)        = SsAlbBCpho(II,LoopInd,JJ)
+             asm_prm_aer_lcl(2)       = AsyPrmBCpho(II,LoopInd,JJ)
+             ext_cff_mss_aer_lcl(2)   = ExtCffMassBCpho(II,LoopInd,JJ)
 
              ! aerosol species 3 optical properties, hydrophilic OC
-             ss_alb_aer_lcl(3)        = SsAlbOCphi(LoopInd)
-             asm_prm_aer_lcl(3)       = AsyPrmOCphi(LoopInd)
-             ext_cff_mss_aer_lcl(3)   = ExtCffMassOCphi(LoopInd)
+             ss_alb_aer_lcl(3)        = SsAlbOCphi(II,LoopInd,JJ)
+             asm_prm_aer_lcl(3)       = AsyPrmOCphi(II,LoopInd,JJ)
+             ext_cff_mss_aer_lcl(3)   = ExtCffMassOCphi(II,LoopInd,JJ)
 
              ! aerosol species 4 optical properties, hydrophobic OC
-             ss_alb_aer_lcl(4)        = SsAlbOCpho(LoopInd)
-             asm_prm_aer_lcl(4)       = AsyPrmOCpho(LoopInd)
-             ext_cff_mss_aer_lcl(4)   = ExtCffMassOCpho(LoopInd)
+             ss_alb_aer_lcl(4)        = SsAlbOCpho(II,LoopInd,JJ)
+             asm_prm_aer_lcl(4)       = AsyPrmOCpho(II,LoopInd,JJ)
+             ext_cff_mss_aer_lcl(4)   = ExtCffMassOCpho(II,LoopInd,JJ)
 
              ! 1. snow and aerosol layer column mass (L_snw, L_aer [kg/m^2])
              ! 2. optical Depths (tau_snw, tau_aer)
              ! 3. weighted Mie properties (tau, omega, g)
 
              ! Weighted Mie parameters of each layer
+             !$acc loop seq
              do i=SnowLayerTop,SnowLayerBottom,1
 
                 ! Optics for BC/dust-snow external mixing:
                 ! aerosol species 1 optical properties, hydrophilic BC
-                ss_alb_aer_lcl(1)        = SsAlbBCphi(LoopInd)
-                asm_prm_aer_lcl(1)       = AsyPrmBCphi(LoopInd)
-                ext_cff_mss_aer_lcl(1)   = ExtCffMassBCphi(LoopInd)
+                ss_alb_aer_lcl(1)        = SsAlbBCphi(II,LoopInd,JJ)
+                asm_prm_aer_lcl(1)       = AsyPrmBCphi(II,LoopInd,JJ)
+                ext_cff_mss_aer_lcl(1)   = ExtCffMassBCphi(II,LoopInd,JJ)
                 ! aerosol species 5 optical properties, dust size1
-                ss_alb_aer_lcl(5)      = SsAlbDustB1(LoopInd)
-                asm_prm_aer_lcl(5)     = AsyPrmDustB1(LoopInd)
-                ext_cff_mss_aer_lcl(5) = ExtCffMassDustB1(LoopInd)
+                ss_alb_aer_lcl(5)      = SsAlbDustB1(II,LoopInd,JJ)
+                asm_prm_aer_lcl(5)     = AsyPrmDustB1(II,LoopInd,JJ)
+                ext_cff_mss_aer_lcl(5) = ExtCffMassDustB1(II,LoopInd,JJ)
                 ! aerosol species 6 optical properties, dust size2
-                ss_alb_aer_lcl(6)      = SsAlbDustB2(LoopInd)
-                asm_prm_aer_lcl(6)     = AsyPrmDustB2(LoopInd)
-                ext_cff_mss_aer_lcl(6) = ExtCffMassDustB2(LoopInd)
+                ss_alb_aer_lcl(6)      = SsAlbDustB2(II,LoopInd,JJ)
+                asm_prm_aer_lcl(6)     = AsyPrmDustB2(II,LoopInd,JJ)
+                ext_cff_mss_aer_lcl(6) = ExtCffMassDustB2(II,LoopInd,JJ)
                 ! aerosol species 7 optical properties, dust size3
-                ss_alb_aer_lcl(7)      = SsAlbDustB3(LoopInd)
-                asm_prm_aer_lcl(7)     = AsyPrmDustB3(LoopInd)
-                ext_cff_mss_aer_lcl(7) = ExtCffMassDustB3(LoopInd)
+                ss_alb_aer_lcl(7)      = SsAlbDustB3(II,LoopInd,JJ)
+                asm_prm_aer_lcl(7)     = AsyPrmDustB3(II,LoopInd,JJ)
+                ext_cff_mss_aer_lcl(7) = ExtCffMassDustB3(II,LoopInd,JJ)
                 ! aerosol species 8 optical properties, dust size4
-                ss_alb_aer_lcl(8)      = SsAlbDustB4(LoopInd)
-                asm_prm_aer_lcl(8)     = AsyPrmDustB4(LoopInd)
-                ext_cff_mss_aer_lcl(8) = ExtCffMassDustB4(LoopInd)
+                ss_alb_aer_lcl(8)      = SsAlbDustB4(II,LoopInd,JJ)
+                asm_prm_aer_lcl(8)     = AsyPrmDustB4(II,LoopInd,JJ)
+                ext_cff_mss_aer_lcl(8) = ExtCffMassDustB4(II,LoopInd,JJ)
                 ! aerosol species 9 optical properties, dust size5
-                ss_alb_aer_lcl(9)      = SsAlbDustB5(LoopInd)
-                asm_prm_aer_lcl(9)     = AsyPrmDustB5(LoopInd)
-                ext_cff_mss_aer_lcl(9) = ExtCffMassDustB5(LoopInd)
+                ss_alb_aer_lcl(9)      = SsAlbDustB5(II,LoopInd,JJ)
+                asm_prm_aer_lcl(9)     = AsyPrmDustB5(II,LoopInd,JJ)
+                ext_cff_mss_aer_lcl(9) = ExtCffMassDustB5(II,LoopInd,JJ)
 
                 ! Start BC/dust-snow internal mixing for wavelength<=1.2um
                 if (NumSnicarRadBand == 5)   wvl_doint = wvl_ct5(LoopInd)
-                if (NumSnicarRadBand == 480) wvl_doint = wvl_ct480(LoopInd)
+                if (NumSnicarRadBand == 480) wvl_doint = (0.205_kind_noahmp + 0.01_kind_noahmp * (LoopInd - 1))
                 
                 if (wvl_doint <= 1.2) then
                    ! BC-snow internal mixing applied to hydrophilic BC if activated
@@ -926,6 +983,7 @@ contains
                       ! These adjustments also lead to consistent results with Flanner et al. 2012 (ACP) lookup table
                       ! for BC-snow internal mixing enhancement in albedo reduction (He et al. 2018 ACP)
 
+                      !$acc loop seq
                       do ibb=1,16
 
                          enh_omg_bcint_tmp(ibb) = bcint_d0(ibb) * &
@@ -975,6 +1033,7 @@ contains
                                        mss_cnc_aer_lcl(i,9)) * 1.0E6 !kg/kg->ppm
 
                    if ( FlagSnicarSnowDustIntmix .and. (tot_dst_snw_conc > 0.0) ) then
+                      !$acc loop seq
                       do idb=1,6
                          enh_omg_dstint_tmp(idb) = dstint_a1(idb)+dstint_a2(idb)*(tot_dst_snw_conc**dstint_a3(idb))
                          enh_omg_dstint_tmp2(idb) = LOG10(max(enh_omg_dstint_tmp(idb),1.0))
@@ -989,9 +1048,12 @@ contains
                       ss_alb_snw_lcl(i) = max(0.5, min(ss_alb_snw_lcl(i),1.0))
 
                       ! reset all dust optics to zero  since it is accounted by updated snow ss_alb above
-                      ss_alb_aer_lcl(5:9)      = 0.0
-                      asm_prm_aer_lcl(5:9)     = 0.0
-                      ext_cff_mss_aer_lcl(5:9) = 0.0
+                      !$acc loop seq
+                      do k = 5, NAER
+                         ss_alb_aer_lcl(k)      = 0.0
+                         asm_prm_aer_lcl(k)     = 0.0
+                         ext_cff_mss_aer_lcl(k) = 0.0
+                      enddo
                    endif ! end if dust-snow internal mixing
 
                 endif ! end if BC/dust-snow internal mixing (bands<1.2um)
@@ -999,7 +1061,8 @@ contains
                 L_snw(i)   = h2osno_ice_lcl(i)+h2osno_liq_lcl(i)
                 tau_snw(i) = L_snw(i)*ext_cff_mss_snw_lcl(i)
 
-                do j=1,NumSnicarAerosol
+                !$acc loop seq
+                do j=1,NAER
                    L_aer(i,j)   = L_snw(i)*mss_cnc_aer_lcl(i,j)
                    tau_aer(i,j) = L_aer(i,j)*ext_cff_mss_aer_lcl(j)
                 enddo
@@ -1008,7 +1071,8 @@ contains
                 omega_sum = 0.0
                 g_sum     = 0.0
 
-                do j=1,NumSnicarAerosol
+                !$acc loop seq
+                do j=1,NAER
                    tau_sum    = tau_sum + tau_aer(i,j)
                    omega_sum  = omega_sum + (tau_aer(i,j)*ss_alb_aer_lcl(j))
                    g_sum      = g_sum + (tau_aer(i,j)*ss_alb_aer_lcl(j)*asm_prm_aer_lcl(j))
@@ -1021,6 +1085,7 @@ contains
              enddo ! end do snow layers
 
              ! DELTA transformations, requested
+             !$acc loop seq
              do i=SnowLayerTop,SnowLayerBottom,1
                 g_star(i)     = g(i)/(1+g(i))
                 omega_star(i) = ((1-(g(i)**2))*omega(i)) / (1-(omega(i)*(g(i)**2)))
@@ -1035,19 +1100,21 @@ contains
                 ! tau_clm(i) = total optical depth above the bottom of layer i
                 tau_clm(SnowLayerTop) = 0.0
 
+                !$acc loop seq
                 do i=SnowLayerTop+1,SnowLayerBottom,1
                    tau_clm(i) = tau_clm(i-1)+tau_star(i-1)
                 enddo
 
                 ! Direct radiation at bottom of snowpack:
-                F_direct_btm = albsfc_lcl(LoopInd)*mu_not * &
-                               exp(-(tau_clm(SnowLayerBottom)+tau_star(SnowLayerBottom))/mu_not)*ConstPI*flx_slrd_lcl(LoopInd)
+                F_direct_btm = albsfc_val*mu_not * &
+                               exp(-(tau_clm(SnowLayerBottom)+tau_star(SnowLayerBottom))/mu_not)*ConstPI*flx_slrd_val
 
                 ! Intermediates
                 ! Gamma values are approximation-specific.
 
                 ! Eddington
                 if (APRX_TYP==1) then
+                   !$acc loop seq
                    do i=SnowLayerTop,SnowLayerBottom,1
                       gamma1(i) = (7.0-(omega_star(i)*(4.0+(3.0*g_star(i)))))/4.0
                       gamma2(i) = -(1.0-(omega_star(i)*(4.0-(3.0*g_star(i)))))/4.0
@@ -1058,6 +1125,7 @@ contains
 
                 ! Quadrature
                 elseif (APRX_TYP==2) then
+                   !$acc loop seq
                    do i=SnowLayerTop,SnowLayerBottom,1
                       gamma1(i) = (3.0**0.5)*(2.0-(omega_star(i)*(1.0+g_star(i))))/2.0
                       gamma2(i) = omega_star(i)*(3.0**0.5)*(1.0-g_star(i))/2.0
@@ -1068,6 +1136,7 @@ contains
 
                 ! Hemispheric Mean
                 elseif (APRX_TYP==3) then
+                   !$acc loop seq
                    do i=SnowLayerTop,SnowLayerBottom,1
                       gamma1(i) = 2.0 - (omega_star(i)*(1.0+g_star(i)))
                       gamma2(i) = omega_star(i)*(1.0-g_star(i))
@@ -1078,6 +1147,7 @@ contains
                 endif
 
                 ! Intermediates for tri-diagonal solution
+                !$acc loop seq
                 do i=SnowLayerTop,SnowLayerBottom,1
                    lambda(i) = sqrt(abs((gamma1(i)**2) - (gamma2(i)**2)))
                    GAMMA(i)  = gamma2(i)/(gamma1(i)+lambda(i))
@@ -1089,20 +1159,21 @@ contains
 
                 enddo !Snow layer
 
+                !$acc loop seq
                 do i=SnowLayerTop,SnowLayerBottom,1
                    if (FlagSwRadType == 1) then
-                      C_pls_btm(i) = (omega_star(i)*ConstPI*flx_slrd_lcl(LoopInd)* &
+                      C_pls_btm(i) = (omega_star(i)*ConstPI*flx_slrd_val* &
                               exp(-(tau_clm(i)+tau_star(i))/mu_not)*   &
                               (((gamma1(i)-(1/mu_not))*gamma3(i))+     &
                               (gamma4(i)*gamma2(i))))/((lambda(i)**2)-(1/(mu_not**2)))
-                      C_mns_btm(i) = (omega_star(i)*ConstPI*flx_slrd_lcl(LoopInd)* &
+                      C_mns_btm(i) = (omega_star(i)*ConstPI*flx_slrd_val* &
                               exp(-(tau_clm(i)+tau_star(i))/mu_not)*   &
                               (((gamma1(i)+(1/mu_not))*gamma4(i))+     &
                               (gamma2(i)*gamma3(i))))/((lambda(i)**2)-(1/(mu_not**2)))
-                      C_pls_top(i) = (omega_star(i)*ConstPI*flx_slrd_lcl(LoopInd)* &
+                      C_pls_top(i) = (omega_star(i)*ConstPI*flx_slrd_val* &
                               exp(-tau_clm(i)/mu_not)*(((gamma1(i)-(1/mu_not))* &
                               gamma3(i))+(gamma4(i)*gamma2(i))))/((lambda(i)**2)-(1/(mu_not**2)))
-                      C_mns_top(i) = (omega_star(i)*ConstPI*flx_slrd_lcl(LoopInd)* &
+                      C_mns_top(i) = (omega_star(i)*ConstPI*flx_slrd_val* &
                               exp(-tau_clm(i)/mu_not)*(((gamma1(i)+(1/mu_not))* &
                               gamma4(i))+(gamma2(i)*gamma3(i))))/((lambda(i)**2)-(1/(mu_not**2)))
 
@@ -1115,18 +1186,19 @@ contains
                 enddo !Snow layer
 
                 ! Coefficients for tridiaganol matrix solution
+                !$acc loop seq
                 do i=2*snl_lcl+1,0,1
                    !Boundary values for i=1 and i=2*snl_lcl, specifics for i=odd and i=even    
                    if (i==(2*snl_lcl+1)) then
                       A(i) = 0.0
                       B(i) = e1(SnowLayerTop)
                       D(i) = -e2(SnowLayerTop)
-                      E(i) = flx_slri_lcl(LoopInd)-C_mns_top(SnowLayerTop)
+                      E(i) = flx_slri_val-C_mns_top(SnowLayerTop)
                    elseif(i==0) then
-                      A(i) = e1(SnowLayerBottom)-(albsfc_lcl(LoopInd)*e3(SnowLayerBottom))
-                      B(i) = e2(SnowLayerBottom)-(albsfc_lcl(LoopInd)*e4(SnowLayerBottom))
+                      A(i) = e1(SnowLayerBottom)-(albsfc_val*e3(SnowLayerBottom))
+                      B(i) = e2(SnowLayerBottom)-(albsfc_val*e4(SnowLayerBottom))
                       D(i) = 0.0
-                      E(i) = F_direct_btm-C_pls_btm(SnowLayerBottom)+(albsfc_lcl(LoopInd)*C_mns_btm(SnowLayerBottom))
+                      E(i) = F_direct_btm-C_pls_btm(SnowLayerBottom)+(albsfc_val*C_mns_btm(SnowLayerBottom))
                    elseif(mod(i,2)==-1) then   ! If odd and i>=3 (n=1 for i=3)
                       n=floor(i/2.0)
                       A(i) = (e2(n)*e3(n))-(e4(n)*e1(n))
@@ -1145,6 +1217,7 @@ contains
                 AS(0) = A(0)/B(0)
                 DS(0) = E(0)/B(0)
 
+                !$acc loop seq
                 do i=-1,(2*snl_lcl+1),-1
                    X(i)  = 1/(B(i)-(D(i)*AS(i+1)))
                    AS(i) = A(i)*X(i)
@@ -1152,13 +1225,15 @@ contains
                 enddo
 
                 Y(2*snl_lcl+1) = DS(2*snl_lcl+1)
+                !$acc loop seq
                 do i=(2*snl_lcl+2),0,1
                    Y(i) = DS(i)-(AS(i)*Y(i-1))
                 enddo
 
                 ! Downward direct-beam and net flux (F_net) at the base of each layer:
+                !$acc loop seq
                 do i=SnowLayerTop,SnowLayerBottom,1
-                   F_direct(i) = mu_not*ConstPI*flx_slrd_lcl(LoopInd)*exp(-(tau_clm(i)+tau_star(i))/mu_not)
+                   F_direct(i) = mu_not*ConstPI*flx_slrd_val*exp(-(tau_clm(i)+tau_star(i))/mu_not)
                    F_net(i)    = (Y(2*i-1)*(e1(i)-e3(i))) + (Y(2*i)*(e2(i)-e4(i))) + &
                                      C_pls_btm(i) - C_mns_btm(i) - F_direct(i)
                 enddo
@@ -1172,26 +1247,27 @@ contains
                 F_btm_net = -F_net(SnowLayerBottom)
 
                 ! Bulk column albedo and surface net flux
-                albedo    = F_sfc_pls/((mu_not*ConstPI*flx_slrd_lcl(LoopInd))+flx_slri_lcl(LoopInd))
-                F_sfc_net = F_sfc_pls - ((mu_not*ConstPI*flx_slrd_lcl(LoopInd))+flx_slri_lcl(LoopInd))
+                albedo    = F_sfc_pls/((mu_not*ConstPI*flx_slrd_val)+flx_slri_val)
+                F_sfc_net = F_sfc_pls - ((mu_not*ConstPI*flx_slrd_val)+flx_slri_val)
 
                 trip = 0
                 ! Absorbed flux in each layer
+                !$acc loop seq
                 do i=SnowLayerTop,SnowLayerBottom,1
                    if(i==SnowLayerTop) then
                       F_abs(i) = F_net(i)-F_sfc_net
                    else
                       F_abs(i) = F_net(i)-F_net(i-1)
                    endif
-                   flx_abs_lcl(i,LoopInd) = F_abs(i)
+                   flx_abs_lcl_4d(II,i,LoopInd,JJ) = F_abs(i)
 
                    ! ERROR check: negative absorption
-                   if (flx_abs_lcl(i,LoopInd) < -0.00001) then
+                   if (flx_abs_lcl_4d(II,i,LoopInd,JJ) < -0.00001) then
                       trip = 1
                    endif
                 enddo
 
-                flx_abs_lcl(1,LoopInd) = F_btm_net
+                flx_abs_lcl_4d(II,1,LoopInd,JJ) = F_btm_net
 
                 if (flg_nosnl == 1) then
                    ! If there are no snow layers (but still snow), all absorbed energy must be in top soil layer
@@ -1202,18 +1278,20 @@ contains
                    ! OK to put absorbed energy in the fictitous snow layer because routine SurfaceRadiation
                    ! handles the case of no snow layers. Then, if a snow layer is addded between now and
                    ! SurfaceRadiation (called in CanopyHydrology), absorbed energy will be properly distributed.
-                   flx_abs_lcl(0,LoopInd) = F_abs(0)
-                   flx_abs_lcl(1,LoopInd) = F_btm_net
+                   flx_abs_lcl_4d(II,0,LoopInd,JJ) = F_abs(0)
+                   flx_abs_lcl_4d(II,1,LoopInd,JJ) = F_btm_net
                 endif
 
                 !Underflow check (we've already tripped the error condition above)
+                !$acc loop seq
                 do i=SnowLayerTop,1,1
-                   if (flx_abs_lcl(i,LoopInd) < 0.0) then
-                      flx_abs_lcl(i,LoopInd) = 0.0
+                   if (flx_abs_lcl_4d(II,i,LoopInd,JJ) < 0.0) then
+                      flx_abs_lcl_4d(II,i,LoopInd,JJ) = 0.0
                    endif
                 enddo
 
                 F_abs_sum = 0.0
+                !$acc loop seq
                 do i=SnowLayerTop,SnowLayerBottom,1
                    F_abs_sum = F_abs_sum + F_abs(i)
                 enddo
@@ -1241,10 +1319,11 @@ contains
                    err_idx = err_idx + 1
                 elseif((trip == 1).and.(flg_dover == 4).and.(err_idx >= 20)) then
                    flg_dover = 0
+#ifndef _OPENACC
                    write(*,*) "SNICAR ERROR: FOUND A WORMHOLE. STUCK IN INFINITE LOOP!"
                    write(*,*) "SNICAR STATS: L_snw(0)= ", L_snw(0)
                    write(*,*) "SNICAR STATS: snw_rds_lcl(0)= ", snw_rds_lcl(0)
-                   write(*,*) "SNICAR STATS: h2osno= ", SnowWaterEquiv, " snl= ", snl_lcl
+                   write(*,*) "SNICAR STATS: h2osno= ", SnowWaterEquiv(II,JJ), " snl= ", snl_lcl
                    write(*,*) "SNICAR STATS: BCphi(0)= ", mss_cnc_aer_lcl(0,1)
                    write(*,*) "SNICAR STATS: BCpho(0)= ", mss_cnc_aer_lcl(0,2)
                    write(*,*) "SNICAR STATS: dust1(0)= ", mss_cnc_aer_lcl(0,5)
@@ -1252,6 +1331,7 @@ contains
                    write(*,*) "SNICAR STATS: dust3(0)= ", mss_cnc_aer_lcl(0,7)
                    write(*,*) "SNICAR STATS: dust4(0)= ", mss_cnc_aer_lcl(0,8)
                    write(*,*) "SNICAR STATS: dust5(0)= ", mss_cnc_aer_lcl(0,9)
+#endif
                 else
                    flg_dover = 0
                 endif
@@ -1269,6 +1349,7 @@ contains
                 snl_btm_itf = SnowLayerBottom + 1
 
                 ! initialization for layer interface
+                !$acc loop seq
                 do i = SnowLayerTop,snl_btm_itf,1
                    trndir(i) = c0
                    trntdr(i) = c0
@@ -1285,6 +1366,7 @@ contains
                 rdndif(SnowLayerTop) = c0
 
                 ! begin main level loop for snow layer interfaces except for the very bottom
+                !$acc loop seq
                 do i = SnowLayerTop,SnowLayerBottom,1
 
                    ! initialize all layer apparent optical properties to 0
@@ -1346,6 +1428,7 @@ contains
                       smt = c0
                       ! gaussian angles for the AD integral
 
+                      !$acc loop seq
                       do ng=1,ngmax
                          mu  = difgauspt(ng)
                          gwt = difgauswt(ng)
@@ -1411,31 +1494,32 @@ contains
 
                 ! set the underlying ground albedo == albedo of near-IR
                 ! unless bnd_idx < nir_bnd_bgn, for visible
-                if (IndicatorIceSfc == 0) then
+                if (IndicatorIceSfc(II,JJ) == 0) then
                    if (FlagSwRadType == 1) then
-                      rupdir(snl_btm_itf) = AlbedoSoilDir(2)
-                      rupdif(snl_btm_itf) = AlbedoSoilDir(2)
+                      rupdir(snl_btm_itf) = AlbedoSoilDir(II,2,JJ)
+                      rupdif(snl_btm_itf) = AlbedoSoilDir(II,2,JJ)
                       if (LoopInd < nir_bnd_bgn) then
-                         rupdir(snl_btm_itf) = AlbedoSoilDir(1)
-                         rupdif(snl_btm_itf) = AlbedoSoilDir(1)
+                         rupdir(snl_btm_itf) = AlbedoSoilDir(II,1,JJ)
+                         rupdif(snl_btm_itf) = AlbedoSoilDir(II,1,JJ)
                       endif
                    elseif (FlagSwRadType == 2) then
-                      rupdir(snl_btm_itf) = AlbedoSoilDif(2)
-                      rupdif(snl_btm_itf) = AlbedoSoilDif(2)
+                      rupdir(snl_btm_itf) = AlbedoSoilDif(II,2,JJ)
+                      rupdif(snl_btm_itf) = AlbedoSoilDif(II,2,JJ)
                       if (LoopInd < nir_bnd_bgn) then
-                         rupdir(snl_btm_itf) = AlbedoSoilDif(1)
-                         rupdif(snl_btm_itf) = AlbedoSoilDif(1)
+                         rupdir(snl_btm_itf) = AlbedoSoilDif(II,1,JJ)
+                         rupdif(snl_btm_itf) = AlbedoSoilDif(II,1,JJ)
                       endif
                    endif
-                elseif (IndicatorIceSfc == -1) then !land ice
-                   rupdir(snl_btm_itf) = AlbedoLandIce(2)
-                   rupdif(snl_btm_itf) = AlbedoLandIce(2)
+                elseif (IndicatorIceSfc(II,JJ) == -1) then !land ice
+                   rupdir(snl_btm_itf) = AlbedoLandIce(II,2,JJ)
+                   rupdif(snl_btm_itf) = AlbedoLandIce(II,2,JJ)
                    if (LoopInd < nir_bnd_bgn) then
-                      rupdir(snl_btm_itf) = AlbedoLandIce(1)
-                      rupdif(snl_btm_itf) = AlbedoLandIce(1)
+                      rupdir(snl_btm_itf) = AlbedoLandIce(II,1,JJ)
+                      rupdif(snl_btm_itf) = AlbedoLandIce(II,1,JJ)
                    endif
                 endif
 
+                !$acc loop seq
                 do i=SnowLayerBottom,SnowLayerTop,-1
                    ! interface scattering Eq. B5; Briegleb and Light 2007
                    refkp1 = c1/( c1 - rdif_b(i)*rupdif(i+1))
@@ -1465,6 +1549,7 @@ contains
                 !       ---------------------
 
  
+                !$acc loop seq
                 do i = SnowLayerTop, snl_btm_itf
                    ! interface scattering, Eq. 52; Briegleb and Light 2007
                    refk = c1/(c1 - rdndif(i)*rupdif(i))
@@ -1499,7 +1584,10 @@ contains
                 ! direct incident
                 if (FlagSwRadType == 1) then
                    albedo = rupdir(SnowLayerTop)
-                   dftmp  = dfdir
+                   !$acc loop seq
+                   do k = -NSNOW_MAX+1, 1
+                      dftmp(k) = dfdir(k)
+                   enddo
                    refk   = c1/(c1 - rdndif(SnowLayerTop)*rupdif(SnowLayerTop))
                    F_sfc_pls = (trndir(SnowLayerTop)*rupdir(SnowLayerTop) + &
                                    (trntdr(SnowLayerTop)-trndir(SnowLayerTop))  &
@@ -1507,25 +1595,30 @@ contains
                 !diffuse incident
                 else
                    albedo = rupdif(SnowLayerTop)
-                   dftmp  = dfdif
+                   !$acc loop seq
+                   do k = -NSNOW_MAX+1, 1
+                      dftmp(k) = dfdif(k)
+                   enddo
                    refk   = c1/(c1 - rdndif(SnowLayerTop)*rupdif(SnowLayerTop))
                    F_sfc_pls = trndif(SnowLayerTop)*rupdif(SnowLayerTop)*refk
                 endif
 
                 ! Absorbed flux in each layer
+                !$acc loop seq
                 do i=SnowLayerTop,SnowLayerBottom,1
                    F_abs(i) = dftmp(i)-dftmp(i+1)
-                   flx_abs_lcl(i,LoopInd) = F_abs(i)
+                   flx_abs_lcl_4d(II,i,LoopInd,JJ) = F_abs(i)
 
                    ! ERROR check: negative absorption
-                   if (flx_abs_lcl(i,LoopInd) < -0.0001) then !original -0.00001, but not work for Koch snowflake
+                   if (flx_abs_lcl_4d(II,i,LoopInd,JJ) < -0.0001) then !original -0.00001, but not work for Koch snowflake
+#ifndef _OPENACC
                       write (*,"(a,e13.6,i0,i0,i0,i0)") "SNICAR ERROR: negative absoption : ", &
-                            flx_abs_lcl(i,LoopInd),i,LoopInd,SnowLayerTop,SnowLayerBottom
+                            flx_abs_lcl_4d(II,i,LoopInd,JJ),i,LoopInd,SnowLayerTop,SnowLayerBottom
                       write(*,*) "SNICAR_AD STATS: L_snw(0)= ", L_snw(0)
                       write(*,*) "SNICAR_AD STATS: snw_rds_lcl(0)= ", snw_rds_lcl(0)
-                      write(*,*) "SNICAR_AD STATS: coszen= ",  CosSolarZenithAngle
-                      write(*,*) 'SNICAR_AD STATS: wavelength=', wvl_ct480(LoopInd)
-                      write(*,*) "SNICAR_AD STATS: h2osno= ", SnowWaterEquiv, " snl= ", snl_lcl
+                      write(*,*) "SNICAR_AD STATS: coszen= ",  CosSolarZenithAngle(II,JJ)
+                      write(*,*) 'SNICAR_AD STATS: wavelength=', (0.205_kind_noahmp + 0.01_kind_noahmp * (LoopInd - 1))
+                      write(*,*) "SNICAR_AD STATS: h2osno= ", SnowWaterEquiv(II,JJ), " snl= ", snl_lcl
                       write(*,*) "SNICAR_AD STATS: BCphi(0)= ", mss_cnc_aer_lcl(0,1)
                       write(*,*) "SNICAR_AD STATS: BCpho(0)= ", mss_cnc_aer_lcl(0,2)
                       write(*,*) "SNICAR_AD STATS: OCphi(0)= ", mss_cnc_aer_lcl(0,3)
@@ -1536,6 +1629,7 @@ contains
                       write(*,*) "SNICAR_AD STATS: dust4(0)= ", mss_cnc_aer_lcl(0,8)
                       write(*,*) "SNICAR_AD STATS: dust5(0)= ", mss_cnc_aer_lcl(0,9)
                       stop "ERROR in SNICAR absorption"
+#endif
                     endif
                 enddo
 
@@ -1543,7 +1637,7 @@ contains
                 F_btm_net = dftmp(snl_btm_itf)
 
                 ! note here, snl_btm_itf = 1 by snow column set up in CLM
-                flx_abs_lcl(1,LoopInd) = F_btm_net
+                flx_abs_lcl_4d(II,1,LoopInd,JJ) = F_btm_net
 
                 if (flg_nosnl == 1) then
                    ! If there are no snow layers (but still snow), all absorbed energy must be in top soil layer
@@ -1554,18 +1648,20 @@ contains
                    ! OK to put absorbed energy in the fictitous snow layer because routine SurfaceRadiation
                    ! handles the case of no snow layers. Then, if a snow layer is addded between now and
                    ! SurfaceRadiation (called in CanopyHydrology), absorbed energy will be properly distributed.
-                   flx_abs_lcl(0,LoopInd) = F_abs(0)
-                   flx_abs_lcl(1,LoopInd) = F_btm_net
+                   flx_abs_lcl_4d(II,0,LoopInd,JJ) = F_abs(0)
+                   flx_abs_lcl_4d(II,1,LoopInd,JJ) = F_btm_net
                 endif
 
                 !Underflow check (we've already tripped the error condition above)
+                !$acc loop seq
                 do i=SnowLayerTop,1,1
-                   if (flx_abs_lcl(i,LoopInd) < 0.0) then
-                      flx_abs_lcl(i,LoopInd) = 0.0
+                   if (flx_abs_lcl_4d(II,i,LoopInd,JJ) < 0.0) then
+                      flx_abs_lcl_4d(II,i,LoopInd,JJ) = 0.0
                    endif
                 enddo
 
                 F_abs_sum = 0.0
+                !$acc loop seq
                 do i=SnowLayerTop,SnowLayerBottom,1
                    F_abs_sum = F_abs_sum + F_abs(i)
                 enddo
@@ -1580,35 +1676,38 @@ contains
 
           ! Energy conservation check:
           ! Incident direct+diffuse radiation equals (absorbed+bulk_transmitted+bulk_reflected)
-          energy_sum = (mu_not*ConstPI*flx_slrd_lcl(LoopInd)) + flx_slri_lcl(LoopInd) - (F_abs_sum + F_btm_net + F_sfc_pls)
+          energy_sum = (mu_not*ConstPI*flx_slrd_val) + flx_slri_val - (F_abs_sum + F_btm_net + F_sfc_pls)
 
           if (abs(energy_sum) > 0.00001) then
+#ifndef _OPENACC
               write (*,*) "SNICAR ERROR: Energy conservation error of : ", energy_sum
               write (*,*) "Snow Top layer",SnowLayerTop
               write(*,*) "F_abs_sum: ",F_abs_sum
               write(*,*) "F_btm_net: ",F_btm_net
               write(*,*) "F_sfc_pls: ",F_sfc_pls
-              write(*,*) "mu_not*pi*flx_slrd_lcl(LoopInd): ", mu_not*ConstPI*flx_slrd_lcl(LoopInd)
-              write(*,*) "flx_slri_lcl(LoopInd)", flx_slri_lcl(LoopInd)
+              write(*,*) "mu_not*pi*flx_slrd_val: ", mu_not*ConstPI*flx_slrd_val
+              write(*,*) "flx_slri_val", flx_slri_val
               write(*,*) "bnd_idx", LoopInd
               write(*,*) "F_abs", F_abs
               write(*,*) "albedo", albedo
-              write(*,*) "direct soil albedo",AlbedoSoilDir(1),AlbedoSoilDir(2)
-              write(*,*) "diffuse soil albedo",AlbedoSoilDif(1),AlbedoSoilDif(2)
+              write(*,*) "direct soil albedo",AlbedoSoilDir(II,1,JJ),AlbedoSoilDir(II,2,JJ)
+              write(*,*) "diffuse soil albedo",AlbedoSoilDif(II,1,JJ),AlbedoSoilDif(II,2,JJ)
               stop "ERROR in SNICAR energy conservation"
+#endif
           endif
 
-          albout_lcl(LoopInd) = albedo
+          albout_lcl_3d(II,LoopInd,JJ) = albedo
 
           ! Check that albedo is less than 1
-          if (albout_lcl(LoopInd) > 1.0) then
+          if (albout_lcl_3d(II,LoopInd,JJ) > 1.0) then
 
+#ifndef _OPENACC
               write (*,*) "SNICAR ERROR: Albedo > 1.0"
               write (*,*) "SNICAR STATS: bnd_idx= ",LoopInd
-              write (*,*) "SNICAR STATS: albout_lcl(bnd)= ",albout_lcl(LoopInd), &
-                       " albsfc_lcl(bnd_idx)= ",albsfc_lcl(LoopInd)
-              write (*,*) "SNICAR STATS: h2osno_total= ", SnowWaterEquiv, " snl= ", snl_lcl
-              write (*,*) "SNICAR STATS: coszen= ", CosSolarZenithAngle, " flg_slr= ", FlagSwRadType
+              write (*,*) "SNICAR STATS: albout_lcl_3d(II,bnd,JJ)= ",albout_lcl_3d(II,LoopInd,JJ), &
+                       " albsfc_lcl(bnd_idx)= ",albsfc_val
+              write (*,*) "SNICAR STATS: h2osno_total= ", SnowWaterEquiv(II,JJ), " snl= ", snl_lcl
+              write (*,*) "SNICAR STATS: coszen= ", CosSolarZenithAngle(II,JJ), " flg_slr= ", FlagSwRadType
               write (*,*) "SNICAR STATS: BCphi(-2)= ", mss_cnc_aer_lcl(-2,1)
               write (*,*) "SNICAR STATS: BCphi(-1)= ", mss_cnc_aer_lcl(-1,1)
               write (*,*) "SNICAR STATS: BCphi(0)= ", mss_cnc_aer_lcl(0,1)
@@ -1617,33 +1716,47 @@ contains
               write (*,*) "SNICAR STATS: L_snw(-1)= ", L_snw(-1)
               write (*,*) "SNICAR STATS: L_snw(0)= ", L_snw(0)
 
-              write (*,*) "SNICAR STATS: snw_rds(-2)= ", SnowRadius(-2)
-              write (*,*) "SNICAR STATS: snw_rds(-1)= ", SnowRadius(-1)
-              write (*,*) "SNICAR STATS: snw_rds(0)= ", SnowRadius(0)
+              write (*,*) "SNICAR STATS: snw_rds(-2)= ", SnowRadius(II,-2,JJ)
+              write (*,*) "SNICAR STATS: snw_rds(-1)= ", SnowRadius(II,-1,JJ)
+              write (*,*) "SNICAR STATS: snw_rds(0)= ", SnowRadius(II,0,JJ)
               stop "ERROR in SNICAR too large albedo"
+#endif
 
           endif
 
        enddo ! loop over all snow spectral bands
 
+       ! Pre-compute spectral weight sums for post-processing
+       flx_sum_wgt = 0.0_kind_noahmp
+       !$acc loop seq
+       do k = nir_bnd_bgn, nir_bnd_end
+          flx_sum_wgt = flx_sum_wgt + flx_wgt_3d(II,k,JJ)
+       enddo
+       flx_sum_wgt_vis = 0.0_kind_noahmp
+       !$acc loop seq
+       do k = 1, nir_bnd_bgn - 1
+          flx_sum_wgt_vis = flx_sum_wgt_vis + flx_wgt_3d(II,k,JJ)
+       enddo
+
        ! Weight output NIR albedo appropriately
        ! for 5- and 3-band cases
        if (NumSnicarRadBand <= 5) then
           if (FlagSwRadType == 1) then
-              AlbedoSnowDir(1) = albout_lcl(1)
+              AlbedoSnowDir(II,1,JJ) = albout_lcl_3d(II,1,JJ)
           elseif (FlagSwRadType == 2)then
-              AlbedoSnowDif(1) = albout_lcl(1)
+              AlbedoSnowDif(II,1,JJ) = albout_lcl_3d(II,1,JJ)
           endif
 
           flx_sum         = 0.0
+          !$acc loop seq
           do LoopInd= nir_bnd_bgn,nir_bnd_end
-              flx_sum = flx_sum + flx_wgt(LoopInd)*albout_lcl(LoopInd)
+              flx_sum = flx_sum + flx_wgt_3d(II,LoopInd,JJ)*albout_lcl_3d(II,LoopInd,JJ)
           end do
 
           if (FlagSwRadType == 1) then
-              AlbedoSnowDir(2) = flx_sum / sum(flx_wgt(nir_bnd_bgn:nir_bnd_end))
+              AlbedoSnowDir(II,2,JJ) = flx_sum / flx_sum_wgt
           elseif (FlagSwRadType == 2)then
-              AlbedoSnowDif(2) = flx_sum / sum(flx_wgt(nir_bnd_bgn:nir_bnd_end))
+              AlbedoSnowDif(II,2,JJ) = flx_sum / flx_sum_wgt
           endif
 
        end if
@@ -1652,48 +1765,58 @@ contains
        if (NumSnicarRadBand == 480) then
           ! average for VIS band
           flx_sum         = 0.0
+          !$acc loop seq
           do LoopInd= 1, (nir_bnd_bgn-1)
-             flx_sum = flx_sum + flx_wgt(LoopInd)*albout_lcl(LoopInd)
+             flx_sum = flx_sum + flx_wgt_3d(II,LoopInd,JJ)*albout_lcl_3d(II,LoopInd,JJ)
           end do
 
           if (FlagSwRadType == 1) then
-             AlbedoSnowDir(1) = flx_sum / sum(flx_wgt(1:(nir_bnd_bgn-1)))
+             AlbedoSnowDir(II,1,JJ) = flx_sum / flx_sum_wgt_vis
           elseif (FlagSwRadType == 2)then
-             AlbedoSnowDif(1) = flx_sum / sum(flx_wgt(1:(nir_bnd_bgn-1)))
+             AlbedoSnowDif(II,1,JJ) = flx_sum / flx_sum_wgt_vis
           endif
 
           ! average for NIR band
           flx_sum         = 0.0
+          !$acc loop seq
           do LoopInd= nir_bnd_bgn,nir_bnd_end
-             flx_sum = flx_sum + flx_wgt(LoopInd)*albout_lcl(LoopInd)
+             flx_sum = flx_sum + flx_wgt_3d(II,LoopInd,JJ)*albout_lcl_3d(II,LoopInd,JJ)
           end do
 
           if (FlagSwRadType == 1) then
-              AlbedoSnowDir(2) = flx_sum / sum(flx_wgt(nir_bnd_bgn:nir_bnd_end))
+              AlbedoSnowDir(II,2,JJ) = flx_sum / flx_sum_wgt
           elseif (FlagSwRadType == 2) then
-              AlbedoSnowDif(2) = flx_sum / sum(flx_wgt(nir_bnd_bgn:nir_bnd_end))
+              AlbedoSnowDif(II,2,JJ) = flx_sum / flx_sum_wgt
           endif
 
        end if
 
        if (NumSnicarRadBand <= 5) then
           if (FlagSwRadType == 1) then
-             FracRadSwAbsSnowDir(:,1) = flx_abs_lcl(:,1)
+             !$acc loop seq
+             do k = -NSNOW_MAX+1, 1
+                FracRadSwAbsSnowDir(II,k,1,JJ) = flx_abs_lcl_4d(II,k,1,JJ)
+             enddo
           elseif (FlagSwRadType == 2) then
-             FracRadSwAbsSnowDif(:,1) = flx_abs_lcl(:,1)
+             !$acc loop seq
+             do k = -NSNOW_MAX+1, 1
+                FracRadSwAbsSnowDif(II,k,1,JJ) = flx_abs_lcl_4d(II,k,1,JJ)
+             enddo
           endif
 
+          !$acc loop seq
           do i=SnowLayerTop,1,1
 
              flx_sum = 0.0
+             !$acc loop seq
              do LoopInd= nir_bnd_bgn,nir_bnd_end
-                flx_sum = flx_sum + flx_wgt(LoopInd)*flx_abs_lcl(i,LoopInd)
+                flx_sum = flx_sum + flx_wgt_3d(II,LoopInd,JJ)*flx_abs_lcl_4d(II,i,LoopInd,JJ)
              enddo
 
           if (FlagSwRadType == 1) then
-             FracRadSwAbsSnowDir(i,2) = flx_sum / sum(flx_wgt(nir_bnd_bgn:nir_bnd_end))
+             FracRadSwAbsSnowDir(II,i,2,JJ) = flx_sum / flx_sum_wgt
           elseif (FlagSwRadType == 2) then
-             FracRadSwAbsSnowDif(i,2) = flx_sum / sum(flx_wgt(nir_bnd_bgn:nir_bnd_end))
+             FracRadSwAbsSnowDif(II,i,2,JJ) = flx_sum / flx_sum_wgt
           endif
  
           end do
@@ -1702,30 +1825,33 @@ contains
 
        ! for 480-band case
        if (NumSnicarRadBand == 480) then
+          !$acc loop seq
           do i=SnowLayerTop,1,1
 
              ! average for VIS band
              flx_sum = 0.0
+             !$acc loop seq
              do LoopInd= 1,(nir_bnd_bgn-1)
-                flx_sum = flx_sum + flx_wgt(LoopInd)*flx_abs_lcl(i,LoopInd)
+                flx_sum = flx_sum + flx_wgt_3d(II,LoopInd,JJ)*flx_abs_lcl_4d(II,i,LoopInd,JJ)
              enddo
 
              if (FlagSwRadType == 1) then
-                FracRadSwAbsSnowDir(i,1)=flx_sum / sum(flx_wgt(1:(nir_bnd_bgn-1)))
+                FracRadSwAbsSnowDir(II,i,1,JJ)=flx_sum / flx_sum_wgt_vis
              elseif (FlagSwRadType == 2) then
-                FracRadSwAbsSnowDif(i,1)=flx_sum / sum(flx_wgt(1:(nir_bnd_bgn-1)))
+                FracRadSwAbsSnowDif(II,i,1,JJ)=flx_sum / flx_sum_wgt_vis
              endif
 
              ! average for NIR band
              flx_sum = 0.0
+             !$acc loop seq
              do LoopInd= nir_bnd_bgn,nir_bnd_end
-                flx_sum = flx_sum + flx_wgt(LoopInd)*flx_abs_lcl(i,LoopInd)
+                flx_sum = flx_sum + flx_wgt_3d(II,LoopInd,JJ)*flx_abs_lcl_4d(II,i,LoopInd,JJ)
              enddo
 
              if (FlagSwRadType == 1) then
-                FracRadSwAbsSnowDir(i,2)=flx_sum / sum(flx_wgt(nir_bnd_bgn:nir_bnd_end))
+                FracRadSwAbsSnowDir(II,i,2,JJ)=flx_sum / flx_sum_wgt
              elseif (FlagSwRadType == 2) then
-                FracRadSwAbsSnowDif(i,2)=flx_sum / sum(flx_wgt(nir_bnd_bgn:nir_bnd_end))
+                FracRadSwAbsSnowDif(II,i,2,JJ)=flx_sum / flx_sum_wgt
              endif
            end do
 
@@ -1741,54 +1867,64 @@ contains
              sza_c1 = sza_a0 + sza_a1 * mu_not + sza_a2 * mu_not**2
              sza_c0 = sza_b0 + sza_b1 * mu_not + sza_b2 * mu_not**2
              sza_factor = sza_c1 * (log10(snw_rds_lcl(SnowLayerTop) * c1) - c6) + sza_c0
-             flx_sza_adjust  = AlbedoSnowDir(2) * (sza_factor-c1) * sum(flx_wgt(nir_bnd_bgn:nir_bnd_end))
-             AlbedoSnowDir(2) = AlbedoSnowDir(2) * sza_factor
-             FracRadSwAbsSnowDir(SnowLayerTop,2) = FracRadSwAbsSnowDir(SnowLayerTop,2) - flx_sza_adjust
+             flx_sza_adjust  = AlbedoSnowDir(II,2,JJ) * (sza_factor-c1) * flx_sum_wgt
+             AlbedoSnowDir(II,2,JJ) = AlbedoSnowDir(II,2,JJ) * sza_factor
+             FracRadSwAbsSnowDir(II,SnowLayerTop,2,JJ) = FracRadSwAbsSnowDir(II,SnowLayerTop,2,JJ) - flx_sza_adjust
           endif
        endif ! end of  OptSnicarRTSolver==2
 
 
     ! If snow < minimum_snow, but > 0, and there is sun, set albedo to underlying surface albedo
-    elseif ((SnowWaterEquiv < SnowWaterEquivMin) .and. (SnowWaterEquiv > 0.0) ) then
+    elseif ((SnowWaterEquiv(II,JJ) < SnowWaterEquivMin) .and. (SnowWaterEquiv(II,JJ) > 0.0) ) then
 
-       if (IndicatorIceSfc == 0) then
+       if (IndicatorIceSfc(II,JJ) == 0) then
           if (FlagSwRadType == 1) then
-             AlbedoSnowDir(1) = AlbedoSoilDir(1) 
-             AlbedoSnowDir(2) = AlbedoSoilDir(2) 
+             AlbedoSnowDir(II,1,JJ) = AlbedoSoilDir(II,1,JJ) 
+             AlbedoSnowDir(II,2,JJ) = AlbedoSoilDir(II,2,JJ) 
           elseif (FlagSwRadType == 2) then
-             AlbedoSnowDif(1) = AlbedoSoilDif(1)
-             AlbedoSnowDif(2) = AlbedoSoilDif(2)
+             AlbedoSnowDif(II,1,JJ) = AlbedoSoilDif(II,1,JJ)
+             AlbedoSnowDif(II,2,JJ) = AlbedoSoilDif(II,2,JJ)
           endif
-       elseif (IndicatorIceSfc == -1) then !land ice
-          AlbedoSnowDif(1) = AlbedoLandIce(1)
-          AlbedoSnowDif(2) = AlbedoLandIce(2)
+       elseif (IndicatorIceSfc(II,JJ) == -1) then !land ice
+          AlbedoSnowDif(II,1,JJ) = AlbedoLandIce(II,1,JJ)
+          AlbedoSnowDif(II,2,JJ) = AlbedoLandIce(II,2,JJ)
        endif
     ! There is either zero snow, or no sun
     else
 
        if (FlagSwRadType == 1) then
-          AlbedoSnowDir(1) = 0.0
-          AlbedoSnowDir(2) = 0.0
+          AlbedoSnowDir(II,1,JJ) = 0.0
+          AlbedoSnowDir(II,2,JJ) = 0.0
        elseif (FlagSwRadType == 2) then
-          AlbedoSnowDif(1) = 0.0
-          AlbedoSnowDif(2) = 0.0
+          AlbedoSnowDif(II,1,JJ) = 0.0
+          AlbedoSnowDif(II,2,JJ) = 0.0
        endif
 
     endif ! if column has mim snow
 
     if (FlagSwRadType == 1) then
-       if (AlbedoSnowDir(1)<0.0 .or. AlbedoSnowDir(2)<0.0 .or. AlbedoSnowDir(1)>1.0 .or. AlbedoSnowDir(2)>1.0)then
-          print *,'Error in SNICAR direct snow albedo: ',FlagSwRadType,AlbedoSnowDir(1),AlbedoSnowDir(2),CosSolarZenithAngle
+       if (AlbedoSnowDir(II,1,JJ)<0.0 .or. AlbedoSnowDir(II,2,JJ)<0.0 .or. AlbedoSnowDir(II,1,JJ)>1.0 .or. AlbedoSnowDir(II,2,JJ)>1.0)then
+#ifndef _OPENACC
+          print *,'Error in SNICAR direct snow albedo: ',FlagSwRadType,AlbedoSnowDir(II,1,JJ),AlbedoSnowDir(II,2,JJ),CosSolarZenithAngle(II,JJ)
           stop "Error in SNICAR direct snow albedo"
+#endif
        endif
     endif
 
     if (FlagSwRadType == 2) then
-       if (AlbedoSnowDif(1)<0.0 .or. AlbedoSnowDif(2)<0.0 .or. AlbedoSnowDif(1)>1.0 .or. AlbedoSnowDif(2)>1.0)then
-          print *,'Error in SNICAR diffuse snow albedo',FlagSwRadType,AlbedoSnowDif(1),AlbedoSnowDif(2),CosSolarZenithAngle
+       if (AlbedoSnowDif(II,1,JJ)<0.0 .or. AlbedoSnowDif(II,2,JJ)<0.0 .or. AlbedoSnowDif(II,1,JJ)>1.0 .or. AlbedoSnowDif(II,2,JJ)>1.0)then
+#ifndef _OPENACC
+          print *,'Error in SNICAR diffuse snow albedo',FlagSwRadType,AlbedoSnowDif(II,1,JJ),AlbedoSnowDif(II,2,JJ),CosSolarZenithAngle(II,JJ)
           stop "Error in SNICAR diffuse snow albedo"
+#endif
        endif
     endif
+
+      enddo ! II
+    enddo ! JJ
+
+    !$acc end data
+    deallocate(flx_wgt_3d, albout_lcl_3d, flx_abs_lcl_4d)
 
     end associate
 
