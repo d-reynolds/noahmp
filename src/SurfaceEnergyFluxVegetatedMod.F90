@@ -227,11 +227,20 @@ contains
     end do
     !$acc end parallel loop
 
+   !$acc parallel default(present) firstprivate(IndIter) &
+   !$acc private(LastIter, TemperatureCanChg, TemperatureGrdChg) &
+   !$acc private(LeafAreaIndSunEff, LeafAreaIndShdEff) &
+   !$acc private(VapPresSatWatTmp, VapPresSatIceTmp, VapPresSatWatTmpD, VapPresSatIceTmpD, TempTmp) &
+   !$acc private(LwCoeffAir, LwCoeffCan, ShCoeff, LhCoeff, GrdHeatCoeff, TranspHeatCoeff) &
+   !$acc private(ExchCoeffShAbvCanTmp, ExchCoeffShLeafTmp, ExchCoeffTot, TempShGhTmp) &
+   !$acc private(ExchCoeffShFrac, VapPresLhTot, ExchCoeffEtFrac, FluxTotCoeff, EnergyResTmp) &
+   !$acc private(MoistureFluxSfc, HeatCapacCan)
+
     ! begin stability iteration for canopy temperature and flux
     loop1: do IndIter = 1, NumIterC
 
        ! Roughness length calculation
-       !$acc parallel loop collapse(2) gang vector default(present) firstprivate(IndIter)
+       !$acc loop gang vector collapse(2) 
        do J = noahmp%config%domain%JTS, noahmp%config%domain%JTE
          do I = noahmp%config%domain%ITS, noahmp%config%domain%ITE
             
@@ -249,7 +258,6 @@ contains
 
          end do
        end do
-       !$acc end parallel loop
 
        ! aerodyn resistances between RefHeightAboveGrd and d+z0v
        if ( noahmp%config%nmlist%OptSurfaceDrag == 1 ) call ResistanceAboveCanopyMOST(noahmp, IndIter, ShCanTmp, MoStabParaSgn)
@@ -275,14 +283,7 @@ contains
        endif
 
        ! Canopy flux calculations
-       !$acc parallel loop collapse(2) gang vector default(present) &
-       !$acc private(LastIter, TemperatureCanChg, TemperatureGrdChg) &
-       !$acc private(LeafAreaIndSunEff, LeafAreaIndShdEff) &
-       !$acc private(VapPresSatWatTmp, VapPresSatIceTmp, VapPresSatWatTmpD, VapPresSatIceTmpD, TempTmp) &
-       !$acc private(LwCoeffAir, LwCoeffCan, ShCoeff, LhCoeff, GrdHeatCoeff, TranspHeatCoeff) &
-       !$acc private(ExchCoeffShAbvCanTmp, ExchCoeffShLeafTmp, ExchCoeffTot, TempShGhTmp) &
-       !$acc private(ExchCoeffShFrac, VapPresLhTot, ExchCoeffEtFrac, FluxTotCoeff, EnergyResTmp) &
-       !$acc private(MoistureFluxSfc, HeatCapacCan)
+       !$acc loop gang vector collapse(2) 
        do J = noahmp%config%domain%JTS, noahmp%config%domain%JTE
          do I = noahmp%config%domain%ITS, noahmp%config%domain%ITE
 
@@ -381,16 +382,11 @@ contains
 
          end do
        end do
-       !$acc end parallel loop
 
     enddo loop1  ! end stability iteration
 
     ! Ground temperature iteration (loop2) and final calculations
-    !$acc parallel loop collapse(2) gang vector default(present) &
-    !$acc private(LastIter, TemperatureCanChg, TemperatureGrdChg, IndIter) &
-    !$acc private(VapPresSatWatTmp, VapPresSatIceTmp, VapPresSatWatTmpD, VapPresSatIceTmpD, TempTmp) &
-    !$acc private(LwCoeffAir, LwCoeffCan, ShCoeff, LhCoeff, GrdHeatCoeff) &
-    !$acc private(FluxTotCoeff, EnergyResTmp, ExchCoeffShAbvCanTmp, ExchCoeffShLeafTmp)
+    !$acc loop gang vector collapse(2)
     do J = noahmp%config%domain%JTS, noahmp%config%domain%JTE
       do I = noahmp%config%domain%ITS, noahmp%config%domain%ITE
         if ( .not. ((noahmp%energy%state%VegAreaIndEff(I,J) > 0.0 ) .and. (noahmp%energy%state%VegFrac(I,J) > 0)) ) cycle ! skip non-vegetated surface
@@ -492,7 +488,7 @@ contains
 
       end do
     end do
-    !$acc end parallel loop
+    !$acc end parallel
 
 
 
