@@ -5,7 +5,7 @@ module SnowAlbedoSnicarMod
   use Machine
   use NoahmpVarType
   use ConstantDefineMod
-  ! use SnowRadiationSnicarMod, only : SnowRadiationSnicar
+  use SnowRadiationSnicarMod, only : SnowRadiationSnicar
 
   implicit none
 
@@ -51,11 +51,11 @@ contains
       end do
     end do
 
-    ! FlagSwRadType = 1 ! Direct
-    ! call SnowRadiationSnicar(noahmp,FlagSwRadType) 
+    FlagSwRadType = 1 ! Direct
+    call SnowRadiationSnicar(noahmp,FlagSwRadType)
 
-    ! FlagSwRadType = 2 ! Diffuse
-    ! call SnowRadiationSnicar(noahmp,FlagSwRadType)
+    FlagSwRadType = 2 ! Diffuse
+    call SnowRadiationSnicar(noahmp,FlagSwRadType)
     
 
 

@@ -25,9 +25,6 @@ file(GLOB_RECURSE NOAHMP_SOURCES
     "${CMAKE_CURRENT_SOURCE_DIR}/*.F90"
 )
 
-#Remove SnowInputSnicarMod.F90 and SnowRadiationSnicarMod.F90 from the build
-list(FILTER NOAHMP_SOURCES EXCLUDE REGEX "SnowInputSnicarMod\\.F90$")
-list(FILTER NOAHMP_SOURCES EXCLUDE REGEX "SnowRadiationSnicarMod\\.F90$")
 
 # Create a static library
 add_library(noahmp STATIC ${NOAHMP_SOURCES})

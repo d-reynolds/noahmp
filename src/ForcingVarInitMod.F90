@@ -33,138 +33,95 @@ contains
                JTS => noahmp%config%domain%JTS, JTE => noahmp%config%domain%JTE  &
              )
 
-
-    if (.not.(allocated(noahmp%forcing%SpecHumidityRefHeight))) then
+    ! Phase 1: Host allocations
+    if (.not.(allocated(noahmp%forcing%SpecHumidityRefHeight))) &
       allocate(noahmp%forcing%SpecHumidityRefHeight(ITS:ITE,JTS:JTE))
-      !$acc enter data create(noahmp%forcing%SpecHumidityRefHeight)
-    end if
-
-    if (.not.(allocated(noahmp%forcing%TemperatureAirRefHeight))) then
+    if (.not.(allocated(noahmp%forcing%TemperatureAirRefHeight))) &
       allocate(noahmp%forcing%TemperatureAirRefHeight(ITS:ITE,JTS:JTE))
-      !$acc enter data create(noahmp%forcing%TemperatureAirRefHeight)
-    end if
-
-    if (.not.(allocated(noahmp%forcing%WindEastwardRefHeight))) then
+    if (.not.(allocated(noahmp%forcing%WindEastwardRefHeight))) &
       allocate(noahmp%forcing%WindEastwardRefHeight(ITS:ITE,JTS:JTE))
-      !$acc enter data create(noahmp%forcing%WindEastwardRefHeight)
-    end if
-
-    if (.not.(allocated(noahmp%forcing%WindNorthwardRefHeight))) then
+    if (.not.(allocated(noahmp%forcing%WindNorthwardRefHeight))) &
       allocate(noahmp%forcing%WindNorthwardRefHeight(ITS:ITE,JTS:JTE))
-      !$acc enter data create(noahmp%forcing%WindNorthwardRefHeight)
-    end if
-
-    if (.not.(allocated(noahmp%forcing%RadLwDownRefHeight))) then
+    if (.not.(allocated(noahmp%forcing%RadLwDownRefHeight))) &
       allocate(noahmp%forcing%RadLwDownRefHeight(ITS:ITE,JTS:JTE))
-      !$acc enter data create(noahmp%forcing%RadLwDownRefHeight)
-    end if
-
-    if (.not.(allocated(noahmp%forcing%RadSwDownRefHeight))) then
+    if (.not.(allocated(noahmp%forcing%RadSwDownRefHeight))) &
       allocate(noahmp%forcing%RadSwDownRefHeight(ITS:ITE,JTS:JTE))
-      !$acc enter data create(noahmp%forcing%RadSwDownRefHeight)
-    end if
-
-    if (.not.(allocated(noahmp%forcing%PrecipConvRefHeight))) then
+    if (.not.(allocated(noahmp%forcing%PrecipConvRefHeight))) &
       allocate(noahmp%forcing%PrecipConvRefHeight(ITS:ITE,JTS:JTE))
-      !$acc enter data create(noahmp%forcing%PrecipConvRefHeight)
-    end if
-
-    if (.not.(allocated(noahmp%forcing%PrecipNonConvRefHeight))) then
+    if (.not.(allocated(noahmp%forcing%PrecipNonConvRefHeight))) &
       allocate(noahmp%forcing%PrecipNonConvRefHeight(ITS:ITE,JTS:JTE))
-      !$acc enter data create(noahmp%forcing%PrecipNonConvRefHeight)
-    end if
-
-    if (.not.(allocated(noahmp%forcing%PrecipShConvRefHeight))) then
+    if (.not.(allocated(noahmp%forcing%PrecipShConvRefHeight))) &
       allocate(noahmp%forcing%PrecipShConvRefHeight(ITS:ITE,JTS:JTE))
-      !$acc enter data create(noahmp%forcing%PrecipShConvRefHeight)
-    end if
-
-    if (.not.(allocated(noahmp%forcing%PrecipSnowRefHeight))) then
+    if (.not.(allocated(noahmp%forcing%PrecipSnowRefHeight))) &
       allocate(noahmp%forcing%PrecipSnowRefHeight(ITS:ITE,JTS:JTE))
-      !$acc enter data create(noahmp%forcing%PrecipSnowRefHeight)
-    end if
-
-    if (.not.(allocated(noahmp%forcing%PrecipGraupelRefHeight))) then
+    if (.not.(allocated(noahmp%forcing%PrecipGraupelRefHeight))) &
       allocate(noahmp%forcing%PrecipGraupelRefHeight(ITS:ITE,JTS:JTE))
-      !$acc enter data create(noahmp%forcing%PrecipGraupelRefHeight)
-    end if
-
-    if (.not.(allocated(noahmp%forcing%PrecipHailRefHeight))) then
+    if (.not.(allocated(noahmp%forcing%PrecipHailRefHeight))) &
       allocate(noahmp%forcing%PrecipHailRefHeight(ITS:ITE,JTS:JTE))
-      !$acc enter data create(noahmp%forcing%PrecipHailRefHeight)
-    end if
-
-    if (.not.(allocated(noahmp%forcing%PressureAirSurface))) then
+    if (.not.(allocated(noahmp%forcing%PressureAirSurface))) &
       allocate(noahmp%forcing%PressureAirSurface(ITS:ITE,JTS:JTE))
-      !$acc enter data create(noahmp%forcing%PressureAirSurface)
-    end if
-
-    if (.not.(allocated(noahmp%forcing%PressureAirRefHeight))) then
+    if (.not.(allocated(noahmp%forcing%PressureAirRefHeight))) &
       allocate(noahmp%forcing%PressureAirRefHeight(ITS:ITE,JTS:JTE))
-      !$acc enter data create(noahmp%forcing%PressureAirRefHeight)
-    end if
-
-    if (.not.(allocated(noahmp%forcing%TemperatureSoilBottom))) then
+    if (.not.(allocated(noahmp%forcing%TemperatureSoilBottom))) &
       allocate(noahmp%forcing%TemperatureSoilBottom(ITS:ITE,JTS:JTE))
-      !$acc enter data create(noahmp%forcing%TemperatureSoilBottom)
-    end if
-
-    if (.not.(allocated(noahmp%forcing%DepBChydropho))) then
+    if (.not.(allocated(noahmp%forcing%DepBChydropho))) &
       allocate(noahmp%forcing%DepBChydropho(ITS:ITE,JTS:JTE))
-      !$acc enter data create(noahmp%forcing%DepBChydropho)
-    end if
-
-    if (.not.(allocated(noahmp%forcing%DepBChydrophi))) then
+    if (.not.(allocated(noahmp%forcing%DepBChydrophi))) &
       allocate(noahmp%forcing%DepBChydrophi(ITS:ITE,JTS:JTE))
-      !$acc enter data create(noahmp%forcing%DepBChydrophi)
-    end if
-
-    if (.not.(allocated(noahmp%forcing%DepOChydropho))) then
+    if (.not.(allocated(noahmp%forcing%DepOChydropho))) &
       allocate(noahmp%forcing%DepOChydropho(ITS:ITE,JTS:JTE))
-      !$acc enter data create(noahmp%forcing%DepOChydropho)
-    end if
-
-    if (.not.(allocated(noahmp%forcing%DepOChydrophi))) then
+    if (.not.(allocated(noahmp%forcing%DepOChydrophi))) &
       allocate(noahmp%forcing%DepOChydrophi(ITS:ITE,JTS:JTE))
-      !$acc enter data create(noahmp%forcing%DepOChydrophi)
-    end if
-
-    if (.not.(allocated(noahmp%forcing%DepDust1))) then
+    if (.not.(allocated(noahmp%forcing%DepDust1))) &
       allocate(noahmp%forcing%DepDust1(ITS:ITE,JTS:JTE))
-      !$acc enter data create(noahmp%forcing%DepDust1)
-    end if
-
-    if (.not.(allocated(noahmp%forcing%DepDust2))) then
+    if (.not.(allocated(noahmp%forcing%DepDust2))) &
       allocate(noahmp%forcing%DepDust2(ITS:ITE,JTS:JTE))
-      !$acc enter data create(noahmp%forcing%DepDust2)
-    end if
-
-    if (.not.(allocated(noahmp%forcing%DepDust3))) then
+    if (.not.(allocated(noahmp%forcing%DepDust3))) &
       allocate(noahmp%forcing%DepDust3(ITS:ITE,JTS:JTE))
-      !$acc enter data create(noahmp%forcing%DepDust3)
-    end if
-
-    if (.not.(allocated(noahmp%forcing%DepDust4))) then
+    if (.not.(allocated(noahmp%forcing%DepDust4))) &
       allocate(noahmp%forcing%DepDust4(ITS:ITE,JTS:JTE))
-      !$acc enter data create(noahmp%forcing%DepDust4)
-    end if
-
-    if (.not.(allocated(noahmp%forcing%DepDust5))) then
+    if (.not.(allocated(noahmp%forcing%DepDust5))) &
       allocate(noahmp%forcing%DepDust5(ITS:ITE,JTS:JTE))
-      !$acc enter data create(noahmp%forcing%DepDust5)
-    end if
-
-    if (.not.(allocated(noahmp%forcing%RadSwVisFrac))) then
+    if (.not.(allocated(noahmp%forcing%RadSwVisFrac))) &
       allocate(noahmp%forcing%RadSwVisFrac(ITS:ITE,JTS:JTE))
-      !$acc enter data create(noahmp%forcing%RadSwVisFrac)
-    end if
-
-    if (.not.(allocated(noahmp%forcing%RadSwDirFrac))) then
+    if (.not.(allocated(noahmp%forcing%RadSwDirFrac))) &
       allocate(noahmp%forcing%RadSwDirFrac(ITS:ITE,JTS:JTE))
-      !$acc enter data create(noahmp%forcing%RadSwDirFrac)
-    end if
+
+    ! Phase 2: Batched async device create
+    !$acc enter data create(                              &
+    !$acc   noahmp%forcing%SpecHumidityRefHeight,         &
+    !$acc   noahmp%forcing%TemperatureAirRefHeight,       &
+    !$acc   noahmp%forcing%WindEastwardRefHeight,         &
+    !$acc   noahmp%forcing%WindNorthwardRefHeight,        &
+    !$acc   noahmp%forcing%RadLwDownRefHeight,            &
+    !$acc   noahmp%forcing%RadSwDownRefHeight,            &
+    !$acc   noahmp%forcing%PrecipConvRefHeight,           &
+    !$acc   noahmp%forcing%PrecipNonConvRefHeight,        &
+    !$acc   noahmp%forcing%PrecipShConvRefHeight,         &
+    !$acc   noahmp%forcing%PrecipSnowRefHeight,           &
+    !$acc   noahmp%forcing%PrecipGraupelRefHeight,        &
+    !$acc   noahmp%forcing%PrecipHailRefHeight,           &
+    !$acc   noahmp%forcing%PressureAirSurface,            &
+    !$acc   noahmp%forcing%PressureAirRefHeight,          &
+    !$acc   noahmp%forcing%TemperatureSoilBottom,         &
+    !$acc   noahmp%forcing%DepBChydropho,                 &
+    !$acc   noahmp%forcing%DepBChydrophi,                 &
+    !$acc   noahmp%forcing%DepOChydropho,                 &
+    !$acc   noahmp%forcing%DepOChydrophi,                 &
+    !$acc   noahmp%forcing%DepDust1,                      &
+    !$acc   noahmp%forcing%DepDust2,                      &
+    !$acc   noahmp%forcing%DepDust3,                      &
+    !$acc   noahmp%forcing%DepDust4,                      &
+    !$acc   noahmp%forcing%DepDust5,                      &
+    !$acc   noahmp%forcing%RadSwVisFrac,                  &
+    !$acc   noahmp%forcing%RadSwDirFrac                   &
+    !$acc   ) async(NOAHMP_ACC_QUEUE)
+
     end associate
-    ! Allocate 3D crop parameter arrays and transfer to GPU
+
+    ! Phase 3: Wait for device memory, then initialize
+    !$acc wait(NOAHMP_ACC_QUEUE)
+
     associate(                                                                      &
               NumCropGrowStage => noahmp%config%domain%NumCropGrowStage ,&
                ITS => noahmp%config%domain%ITS, ITE => noahmp%config%domain%ITE ,&
@@ -240,4 +197,41 @@ contains
 
   end subroutine ForcingVarInitDefault
 
+
+  subroutine ForcingVarExitDevice(noahmp)
+
+    implicit none
+
+    type(noahmp_type), intent(inout) :: noahmp
+
+    !$acc exit data delete(               &
+    !$acc   noahmp%forcing%SpecHumidityRefHeight,   &
+    !$acc   noahmp%forcing%TemperatureAirRefHeight,   &
+    !$acc   noahmp%forcing%WindEastwardRefHeight,   &
+    !$acc   noahmp%forcing%WindNorthwardRefHeight,   &
+    !$acc   noahmp%forcing%RadLwDownRefHeight,   &
+    !$acc   noahmp%forcing%RadSwDownRefHeight,   &
+    !$acc   noahmp%forcing%PrecipConvRefHeight,   &
+    !$acc   noahmp%forcing%PrecipNonConvRefHeight,   &
+    !$acc   noahmp%forcing%PrecipShConvRefHeight,   &
+    !$acc   noahmp%forcing%PrecipSnowRefHeight,   &
+    !$acc   noahmp%forcing%PrecipGraupelRefHeight,   &
+    !$acc   noahmp%forcing%PrecipHailRefHeight,   &
+    !$acc   noahmp%forcing%PressureAirSurface,   &
+    !$acc   noahmp%forcing%PressureAirRefHeight,   &
+    !$acc   noahmp%forcing%TemperatureSoilBottom,   &
+    !$acc   noahmp%forcing%DepBChydropho,   &
+    !$acc   noahmp%forcing%DepBChydrophi,   &
+    !$acc   noahmp%forcing%DepOChydropho,   &
+    !$acc   noahmp%forcing%DepOChydrophi,   &
+    !$acc   noahmp%forcing%DepDust1,   &
+    !$acc   noahmp%forcing%DepDust2,   &
+    !$acc   noahmp%forcing%DepDust3,   &
+    !$acc   noahmp%forcing%DepDust4,   &
+    !$acc   noahmp%forcing%DepDust5,   &
+    !$acc   noahmp%forcing%RadSwVisFrac,   &
+    !$acc   noahmp%forcing%RadSwDirFrac    &
+    !$acc   )
+
+  end subroutine ForcingVarExitDevice
 end module ForcingVarInitMod

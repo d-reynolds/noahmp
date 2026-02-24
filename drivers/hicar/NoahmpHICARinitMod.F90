@@ -47,7 +47,8 @@ contains
     use NoahmpReadTableMod
     use NoahmpInitMainMod
     use LanduseConvertMod
-   !  use SnowInputSnicarMod
+    use SnowInputSnicarMod
+    use NoahmpDriverMainMod, only : NoahmpDriverInit, noahmp_initialized
 
     implicit none
 
@@ -222,7 +223,7 @@ contains
 
     ! read in SNICAR parameter netcdif file
     if ( NoahmpIO%IOPT_ALB == 3 ) then
-      !  call SnowInputSnicar(NoahmpIO, snicar_optic_flnm="snicar_optics_5bnd_c013122.nc", snicar_age_flnm="snicar_drdt_bst_fit_60_c070416.nc")
+      call SnowInputSnicar(NoahmpIO, snicar_optic_flnm="snicar_optics_5bnd_c013122.nc", snicar_age_flnm="snicar_drdt_bst_fit_60_c070416.nc")
     endif
 
     !--------- WRF variables mapped to NoahmpIO variables
@@ -238,6 +239,10 @@ contains
     if(present(DX)) NoahmpIO%DX                 = DX
     if(present(DY)) NoahmpIO%DY                 = DY
 
+    ! If re-initializing, delete old noahmpIO device data first
+    if (noahmp_initialized) then
+       !$acc exit data delete(noahmpIO)
+    endif
     !$acc enter data copyin(noahmpIO)
 
     ! 2D/3D variables
@@ -470,6 +475,10 @@ contains
     endif
 
     !--------- WRF -> NoahmpIO variables mapping ends
+
+    !--------- initialize noahmp data types and create device arrays (batched async)
+    call NoahmpDriverInit(NoahmpIO)
+    !---------
 
     !--------- main Noahmp initialization module
     call NoahmpInitMain(NoahmpIO)
