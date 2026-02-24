@@ -78,8 +78,9 @@ contains
     enddo
 
     ! solve the tri-diagonal matrix equation
-    call MatrixSolverTriDiagonal(MatLeft3(I,:,J),MatLeft1(I,:,J),MatLeft2(I,:,J),MatLeft3Tmp(I,:,J),MatRightTmp(I,:,J),MatRight(I,:,J),&
-                                 NumSnowLayerNeg(I,J)+1,NumSoilLayer,NumSnowLayerMax)
+    call MatrixSolverTriDiagonal(MatLeft3,MatLeft1,MatLeft2,MatLeft3Tmp,MatRightTmp,MatRight, &
+                                 NumSnowLayerNeg(I,J)+1,NumSoilLayer,NumSnowLayerMax,I,J, &
+                                 noahmp%config%domain%ITS,noahmp%config%domain%JTS)
 
     ! update snow & glacier temperature
     !$acc loop seq

@@ -75,6 +75,7 @@ contains
     integer                            :: snl_lcl                 ! negative number of snow layers [nbr]
     integer                            :: flg_dover               ! defines conditions for RT redo (explained below)
     integer                            :: err_idx                 ! counter for number of times through error loop [nbr]
+    integer                            :: DummyInd                ! dummy loop counter to avoid do while loop on GPU
     integer                            :: APRX_TYP                ! two-stream approximation type (1=Eddington, 2=Quadrature, 3=Hemispheric Mean) [nbr]
     integer                            :: rds_idx                 ! snow effective radius index for retrieving, Mie parameters from lookup table [idx]
     integer                            :: snl_btm_itf             ! index of bottom snow layer interfaces (1) [idx]
@@ -703,7 +704,7 @@ contains
           err_idx   = 0    ! number of times through loop
 
           !$acc loop seq
-          do while (flg_dover > 0)
+          do DummyInd = 1, 100
 
              ! for Toon et al 2-stream solver:
              if (OptSnicarRTSolver == 1) then
@@ -1318,7 +1319,6 @@ contains
                    flg_dover = 3
                    err_idx = err_idx + 1
                 elseif((trip == 1).and.(flg_dover == 4).and.(err_idx >= 20)) then
-                   flg_dover = 0
 #ifndef _OPENACC
                    write(*,*) "SNICAR ERROR: FOUND A WORMHOLE. STUCK IN INFINITE LOOP!"
                    write(*,*) "SNICAR STATS: L_snw(0)= ", L_snw(0)
@@ -1332,8 +1332,9 @@ contains
                    write(*,*) "SNICAR STATS: dust4(0)= ", mss_cnc_aer_lcl(0,8)
                    write(*,*) "SNICAR STATS: dust5(0)= ", mss_cnc_aer_lcl(0,9)
 #endif
+                   exit
                 else
-                   flg_dover = 0
+                   exit
                 endif
 
              endif ! end if OptSnicarRTSolver == 1
@@ -1667,7 +1668,7 @@ contains
                 enddo
 
                 ! no need to repeat calculations for adding-doubling solver
-                flg_dover = 0
+                exit
 
              endif ! end if OptSnicarRTSolver == 2
              !--------------------------- End of Adding-doubling RT solver  --------------------------------

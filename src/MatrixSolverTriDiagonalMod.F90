@@ -10,14 +10,14 @@ module MatrixSolverTriDiagonalMod
 
 contains
 
-  subroutine MatrixSolverTriDiagonal(P, A, B, C, D, Delta, IndTopLayer, NumSoilLayer, NumSnowLayerMax)
+  subroutine MatrixSolverTriDiagonal(P, A, B, C, D, Delta, IndTopLayer, NumSoilLayer, NumSnowLayerMax, I, J, ITS, JTS)
   !$acc routine seq
 
 ! ------------------------ Code history --------------------------------------------------
 ! Original Noah-MP subroutine: ROSR12
 ! Original code: Guo-Yue Niu and Noah-MP team (Niu et al. 2011)
 ! Refactered code: C. He, P. Valayamkunnath, & refactor team (He et al. 2023)
-! GPU port: Added OpenACC routine directive for device execution (2026)
+! GPU port: Accepts 3D arrays + I,J indices to avoid array sections in OpenACC (2026)
 ! ----------------------------------------------------------------------------------------
 ! INVERT (SOLVE) THE TRI-DIAGONAL MATRIX PROBLEM SHOWN BELOW:
 ! ###                                            ### ###  ###   ###  ###
@@ -41,33 +41,35 @@ contains
     integer               , intent(in) :: IndTopLayer          ! top layer index: soil layer starts from IndTopLayer = 1
     integer               , intent(in) :: NumSoilLayer         ! number of soil layers
     integer               , intent(in) :: NumSnowLayerMax      ! maximum number of snow layers
-    real(kind=kind_noahmp), dimension(-NumSnowLayerMax+1:NumSoilLayer), intent(in)    :: A, B, D    ! Tri-diagonal matrix elements
-    real(kind=kind_noahmp), dimension(-NumSnowLayerMax+1:NumSoilLayer), intent(inout) :: C,P,Delta  ! Tri-diagonal matrix elements
+    integer               , intent(in) :: I, J                 ! horizontal grid indices
+    integer               , intent(in) :: ITS, JTS             ! lower bounds of dims 1 and 3
+    real(kind=kind_noahmp), dimension(ITS:,-NumSnowLayerMax+1:,JTS:), intent(in)    :: A, B, D    ! Tri-diagonal matrix elements
+    real(kind=kind_noahmp), dimension(ITS:,-NumSnowLayerMax+1:,JTS:), intent(inout) :: C,P,Delta  ! Tri-diagonal matrix elements
 
 ! local variables
     integer  :: K, KK   ! loop indices
 ! ----------------------------------------------------------------------
 
     ! INITIALIZE EQN COEF C FOR THE LOWEST SOIL LAYER
-    C (NumSoilLayer) = 0.0
-    P (IndTopLayer)  = - C (IndTopLayer) / B (IndTopLayer)
+    C (I, NumSoilLayer, J) = 0.0
+    P (I, IndTopLayer, J)  = - C (I, IndTopLayer, J) / B (I, IndTopLayer, J)
 
     ! SOLVE THE COEFS FOR THE 1ST SOIL LAYER
-    Delta (IndTopLayer) = D (IndTopLayer) / B (IndTopLayer)
+    Delta (I, IndTopLayer, J) = D (I, IndTopLayer, J) / B (I, IndTopLayer, J)
 
     ! SOLVE THE COEFS FOR SOIL LAYERS 2 THRU NumSoilLayer
     do K = IndTopLayer+1, NumSoilLayer
-       P (K)     = - C (K) * ( 1.0 / (B (K) + A (K) * P (K -1)) )
-       Delta (K) = (D (K) - A (K) * Delta (K -1)) * (1.0 / (B (K) + A (K) * P (K -1)))
+       P (I,K,J)     = - C (I,K,J) * ( 1.0 / (B (I,K,J) + A (I,K,J) * P (I,K-1,J)) )
+       Delta (I,K,J) = (D (I,K,J) - A (I,K,J) * Delta (I,K-1,J)) * (1.0 / (B (I,K,J) + A (I,K,J) * P (I,K-1,J)))
     enddo
 
     ! SET P TO Delta FOR LOWEST SOIL LAYER
-    P (NumSoilLayer) = Delta (NumSoilLayer)
+    P (I, NumSoilLayer, J) = Delta (I, NumSoilLayer, J)
 
     ! ADJUST P FOR SOIL LAYERS 2 THRU NumSoilLayer
     do K = IndTopLayer+1, NumSoilLayer
        KK     = NumSoilLayer - K + (IndTopLayer-1) + 1
-       P (KK) = P (KK) * P (KK +1) + Delta (KK)
+       P (I,KK,J) = P (I,KK,J) * P (I,KK+1,J) + Delta (I,KK,J)
     enddo
 
   end subroutine MatrixSolverTriDiagonal
