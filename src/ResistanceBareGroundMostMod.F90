@@ -12,7 +12,7 @@ module ResistanceBareGroundMostMod
 contains
 
   subroutine ResistanceBareGroundMOST(noahmp, IndIter, HeatSensibleTmp, MoStabParaSgn)
-
+   !$acc routine gang
 ! ------------------------ Code history -----------------------------------
 ! Original Noah-MP subroutine: SFCDIF1 for bare ground portion
 ! Original code: Guo-Yue Niu and Noah-MP team (Niu et al. 2011)
@@ -70,9 +70,9 @@ contains
                   ResistanceLhBareGrd     => noahmp%energy%state%ResistanceLhBareGrd  & ! out,   aerodynamic resistance for water vapor [s/m], bare ground
                  )
 
-   !$acc parallel loop collapse(2) gang vector default(present) private(MPE, TMPCM, TMPCH, FMNEW, FHNEW, MOZOLD, &
+   !$acc loop gang vector collapse(2) private(MPE, TMPCM, TMPCH, FMNEW, FHNEW, MOZOLD, &
    !$acc TMP1,TMP2,TMP3,TMP4,TMP5, TVIR) private(TMPCM2, TMPCH2, FM2NEW, FH2NEW, TMP12,TMP22,TMP32, CMFM, CHFH, &
-   !$acc CM2FM2, CH2FH2 ) firstprivate(IndIter)
+   !$acc CM2FM2, CH2FH2 )
     do J = noahmp%config%domain%JTS, noahmp%config%domain%JTE
       do I = noahmp%config%domain%ITS, noahmp%config%domain%ITE
 

@@ -13,7 +13,7 @@ module ResistanceBareGroundChen97Mod
 contains
 
   subroutine ResistanceBareGroundChen97(noahmp, IndIter)
-
+   !$acc routine gang
 ! ------------------------ Code history -----------------------------------
 ! Original Noah-MP subroutine: SFCDIF2 for bare ground portion
 ! Original code: Guo-Yue Niu and Noah-MP team (Niu et al. 2011)
@@ -94,10 +94,9 @@ contains
               ResistanceLhBareGrd     => noahmp%energy%state%ResistanceLhBareGrd     & ! out,   aerodynamic resistance for water vapor [s/m], bare ground
              )
 
-   !$acc parallel loop collapse(2) gang vector default(present) &
+   !$acc loop gang vector collapse(2) &
    !$acc private(ILECH,ZILFC,ZU,ZT,RDZ,CXCH,DTHV,DU2,BTGH,ZSLU,ZSLT,RLOGU,RLOGT,RLMA) &
-   !$acc private(ZETALT,ZETALU,ZETAU,ZETAT,XLU4,XLT4,XU4,XT4,XLU,XLT,XU,XT) private(PSMZ,SIMM,PSHZ,SIMH,USTARK,RLMN) &
-   !$acc firstprivate(IndIter)
+   !$acc private(ZETALT,ZETALU,ZETAU,ZETAT,XLU4,XLT4,XU4,XT4,XLU,XLT,XU,XT) private(PSMZ,SIMM,PSHZ,SIMH,USTARK,RLMN)
     do J = noahmp%config%domain%JTS, noahmp%config%domain%JTE
       do I = noahmp%config%domain%ITS, noahmp%config%domain%ITE
 
@@ -221,7 +220,6 @@ contains
 
       end do
     end do
-   !$acc end parallel loop
 
 
     end associate

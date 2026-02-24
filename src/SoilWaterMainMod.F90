@@ -89,7 +89,9 @@ contains
                   SoilLiqWaterMin        => noahmp%water%state%SoilLiqWaterMin ,& ! out,   minimum soil liquid water content [m3/m3]
                   SoilMoisture           => noahmp%water%state%SoilMoisture ,& ! inout, total soil moisture [m3/m3]
                   RechargeGwDeepWT       => noahmp%water%state%RechargeGwDeepWT ,& ! inout, recharge to or from water table when deep [m]
-                  SoilWatConductivity    => noahmp%water%state%SoilWatConductivity  & ! in,    soil hydraulic conductivity [m/s]
+                  SoilWatConductivity    => noahmp%water%state%SoilWatConductivity,  & ! in,    soil hydraulic conductivity [m/s]
+                  SoilSaturationExcess   => noahmp%water%state%SoilSaturationExcess, & ! in,    
+                  DrainSoilBot           => noahmp%water%flux%DrainSoilBot & ! in,    
              )
 
 
@@ -222,6 +224,7 @@ contains
     end do
     !$acc end parallel loop
 
+    !$acc data present(SoilSatExcAcc2D, DrainSoilBotAcc2D, RunoffSurfaceAcc2D, SoilSaturationExcess, DrainSoilBot, RunoffSurface)
     do IndIter = 1, NumIterSoilWat
 
        ! surface runoff update within iteration (subroutines have own parallel regions)
@@ -236,14 +239,15 @@ contains
        !$acc parallel loop collapse(2) gang vector default(present)
        do J = noahmp%config%domain%JTS, noahmp%config%domain%JTE
          do I = noahmp%config%domain%ITS, noahmp%config%domain%ITE
-           SoilSatExcAcc2D(I,J)    = SoilSatExcAcc2D(I,J)    + noahmp%water%state%SoilSaturationExcess(I,J)
-           DrainSoilBotAcc2D(I,J)  = DrainSoilBotAcc2D(I,J)  + noahmp%water%flux%DrainSoilBot(I,J)
-           RunoffSurfaceAcc2D(I,J) = RunoffSurfaceAcc2D(I,J) + noahmp%water%flux%RunoffSurface(I,J)
+           SoilSatExcAcc2D(I,J)    = SoilSatExcAcc2D(I,J)    + SoilSaturationExcess(I,J)
+           DrainSoilBotAcc2D(I,J)  = DrainSoilBotAcc2D(I,J)  + DrainSoilBot(I,J)
+           RunoffSurfaceAcc2D(I,J) = RunoffSurfaceAcc2D(I,J) + RunoffSurface(I,J)
          end do
        end do
        !$acc end parallel loop
 
     enddo  ! IndIter
+    !$acc end data
 
     !$acc parallel loop collapse(2) gang vector default(present) firstprivate(NumIterSoilWat)
     do J = noahmp%config%domain%JTS, noahmp%config%domain%JTE

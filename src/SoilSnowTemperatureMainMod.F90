@@ -102,13 +102,16 @@ contains
     if (.not. allocated(MatLeft3)) allocate(MatLeft3(noahmp%config%domain%ITS:noahmp%config%domain%ITE, &
                                                      -noahmp%config%domain%NumSnowLayerMax+1:noahmp%config%domain%NumSoilLayer,                   &
                                                      noahmp%config%domain%JTS:noahmp%config%domain%JTE))
-    MatRight(:,:,:) = 0.0
-    MatLeft1(:,:,:) = 0.0
-    MatLeft2(:,:,:) = 0.0
-    MatLeft3(:,:,:) = 0.0
 
-    !$acc data copyin(MatRight, MatLeft1, MatLeft2, MatLeft3)
+    !$acc data create(MatRight, MatLeft1, MatLeft2, MatLeft3)
 
+    !$acc kernels present(MatRight, MatLeft1, MatLeft2, MatLeft3)
+    MatRight = 0.0
+    MatLeft1 = 0.0
+    MatLeft2 = 0.0
+    MatLeft3 = 0.0
+    !$acc end kernels
+    
     ! compute soil temperatures
     call SoilSnowThermalDiffusion(noahmp, noahmp%config%domain%SoilTimeStep, MatLeft1, MatLeft2, MatLeft3, MatRight)
     call SoilSnowTemperatureSolver(noahmp, noahmp%config%domain%SoilTimeStep, MatLeft1, MatLeft2, MatLeft3, MatRight)

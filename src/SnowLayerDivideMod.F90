@@ -81,19 +81,23 @@ contains
     allocate(SnowIceTmp(noahmp%config%domain%ITS:noahmp%config%domain%ITE, 1:NumSnowLayerMax, noahmp%config%domain%JTS:noahmp%config%domain%JTE))
     allocate(SnowLiqTmp(noahmp%config%domain%ITS:noahmp%config%domain%ITE, 1:NumSnowLayerMax, noahmp%config%domain%JTS:noahmp%config%domain%JTE))
     allocate(TemperatureSnowTmp(noahmp%config%domain%ITS:noahmp%config%domain%ITE, 1:NumSnowLayerMax, noahmp%config%domain%JTS:noahmp%config%domain%JTE))
-    allocate(MassBChydrophoTmp(noahmp%config%domain%ITS:noahmp%config%domain%ITE, 1:NumSnowLayerMax, noahmp%config%domain%JTS:noahmp%config%domain%JTE))
-    allocate(MassBChydrophiTmp(noahmp%config%domain%ITS:noahmp%config%domain%ITE, 1:NumSnowLayerMax, noahmp%config%domain%JTS:noahmp%config%domain%JTE))
-    allocate(MassOChydrophoTmp(noahmp%config%domain%ITS:noahmp%config%domain%ITE, 1:NumSnowLayerMax, noahmp%config%domain%JTS:noahmp%config%domain%JTE))
-    allocate(MassOChydrophiTmp(noahmp%config%domain%ITS:noahmp%config%domain%ITE, 1:NumSnowLayerMax, noahmp%config%domain%JTS:noahmp%config%domain%JTE))
-    allocate(MassDust1Tmp(noahmp%config%domain%ITS:noahmp%config%domain%ITE, 1:NumSnowLayerMax, noahmp%config%domain%JTS:noahmp%config%domain%JTE))
-    allocate(MassDust2Tmp(noahmp%config%domain%ITS:noahmp%config%domain%ITE, 1:NumSnowLayerMax, noahmp%config%domain%JTS:noahmp%config%domain%JTE))
-    allocate(MassDust3Tmp(noahmp%config%domain%ITS:noahmp%config%domain%ITE, 1:NumSnowLayerMax, noahmp%config%domain%JTS:noahmp%config%domain%JTE))
-    allocate(MassDust4Tmp(noahmp%config%domain%ITS:noahmp%config%domain%ITE, 1:NumSnowLayerMax, noahmp%config%domain%JTS:noahmp%config%domain%JTE))
-    allocate(MassDust5Tmp(noahmp%config%domain%ITS:noahmp%config%domain%ITE, 1:NumSnowLayerMax, noahmp%config%domain%JTS:noahmp%config%domain%JTE))
-    allocate(SnowRadiusTmp(noahmp%config%domain%ITS:noahmp%config%domain%ITE, 1:NumSnowLayerMax, noahmp%config%domain%JTS:noahmp%config%domain%JTE))
-    !$acc data create(SnowThickTmp, SnowIceTmp, SnowLiqTmp, TemperatureSnowTmp, &
-    !$acc             MassBChydrophoTmp, MassBChydrophiTmp, MassOChydrophoTmp, MassOChydrophiTmp, &
-    !$acc             MassDust1Tmp, MassDust2Tmp, MassDust3Tmp, MassDust4Tmp, MassDust5Tmp, SnowRadiusTmp)
+    !$acc data create(SnowThickTmp, SnowIceTmp, SnowLiqTmp, TemperatureSnowTmp)
+
+    if ( OptSnowAlbedo == 3 ) then
+
+      allocate(MassBChydrophoTmp(noahmp%config%domain%ITS:noahmp%config%domain%ITE, 1:NumSnowLayerMax, noahmp%config%domain%JTS:noahmp%config%domain%JTE))
+      allocate(MassBChydrophiTmp(noahmp%config%domain%ITS:noahmp%config%domain%ITE, 1:NumSnowLayerMax, noahmp%config%domain%JTS:noahmp%config%domain%JTE))
+      allocate(MassOChydrophoTmp(noahmp%config%domain%ITS:noahmp%config%domain%ITE, 1:NumSnowLayerMax, noahmp%config%domain%JTS:noahmp%config%domain%JTE))
+      allocate(MassOChydrophiTmp(noahmp%config%domain%ITS:noahmp%config%domain%ITE, 1:NumSnowLayerMax, noahmp%config%domain%JTS:noahmp%config%domain%JTE))
+      allocate(MassDust1Tmp(noahmp%config%domain%ITS:noahmp%config%domain%ITE, 1:NumSnowLayerMax, noahmp%config%domain%JTS:noahmp%config%domain%JTE))
+      allocate(MassDust2Tmp(noahmp%config%domain%ITS:noahmp%config%domain%ITE, 1:NumSnowLayerMax, noahmp%config%domain%JTS:noahmp%config%domain%JTE))
+      allocate(MassDust3Tmp(noahmp%config%domain%ITS:noahmp%config%domain%ITE, 1:NumSnowLayerMax, noahmp%config%domain%JTS:noahmp%config%domain%JTE))
+      allocate(MassDust4Tmp(noahmp%config%domain%ITS:noahmp%config%domain%ITE, 1:NumSnowLayerMax, noahmp%config%domain%JTS:noahmp%config%domain%JTE))
+      allocate(MassDust5Tmp(noahmp%config%domain%ITS:noahmp%config%domain%ITE, 1:NumSnowLayerMax, noahmp%config%domain%JTS:noahmp%config%domain%JTE))
+      allocate(SnowRadiusTmp(noahmp%config%domain%ITS:noahmp%config%domain%ITE, 1:NumSnowLayerMax, noahmp%config%domain%JTS:noahmp%config%domain%JTE))
+      !$acc enter data create (MassBChydrophoTmp, MassBChydrophiTmp, MassOChydrophoTmp, MassOChydrophiTmp, &
+      !$acc              MassDust1Tmp, MassDust2Tmp, MassDust3Tmp, MassDust4Tmp, MassDust5Tmp, SnowRadiusTmp)
+    endif
 
     !$acc parallel loop collapse(2) gang vector default(present) private(LoopInd, NumSnowLayerTmp, SnowThickCombTmp, SnowIceExtra, SnowLiqExtra, SnowFracExtra, SnowTempGrad) &
     !$acc private(MassBChydrophoExtra, MassBChydrophiExtra, MassOChydrophoExtra, MassOChydrophiExtra, MassDust1Extra, MassDust2Extra, MassDust3Extra, MassDust4Extra, MassDust5Extra)
@@ -360,21 +364,26 @@ contains
    end do
    end do
 
+    if ( OptSnowAlbedo == 3 ) then
+      !$acc exit data delete (MassBChydrophoTmp, MassBChydrophiTmp, MassOChydrophoTmp, MassOChydrophiTmp, &
+      !$acc              MassDust1Tmp, MassDust2Tmp, MassDust3Tmp, MassDust4Tmp, MassDust5Tmp, SnowRadiusTmp)
+      deallocate(TemperatureSnowTmp)
+      deallocate(MassBChydrophoTmp)
+      deallocate(MassBChydrophiTmp)
+      deallocate(MassOChydrophoTmp)
+      deallocate(MassOChydrophiTmp)
+      deallocate(MassDust1Tmp)
+      deallocate(MassDust2Tmp)
+      deallocate(MassDust3Tmp)
+      deallocate(MassDust4Tmp)
+      deallocate(MassDust5Tmp)
+      deallocate(SnowRadiusTmp)
+    endif
+
     !$acc end data
     deallocate(SnowThickTmp)
     deallocate(SnowIceTmp)
     deallocate(SnowLiqTmp)
-    deallocate(TemperatureSnowTmp)
-    deallocate(MassBChydrophoTmp)
-    deallocate(MassBChydrophiTmp)
-    deallocate(MassOChydrophoTmp)
-    deallocate(MassOChydrophiTmp)
-    deallocate(MassDust1Tmp)
-    deallocate(MassDust2Tmp)
-    deallocate(MassDust3Tmp)
-    deallocate(MassDust4Tmp)
-    deallocate(MassDust5Tmp)
-    deallocate(SnowRadiusTmp)
 
     end associate
 

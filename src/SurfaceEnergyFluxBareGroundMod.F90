@@ -117,17 +117,18 @@ contains
                 )
 
     !$acc data create(MoStabParaSgn, HeatSensibleTmp)
+
+    !$acc parallel default(present) private(TemperatureGrdChg, LwRadCoeff, ShCoeff) &
+    !$acc private(LhCoeff, GrdHeatCoeff, SoilIceTmp, ExchCoeffShTmp, ExchCoeffMomTmp, MoistureFluxSfc, VapPresSatWatTmp) &
+    !$acc private(VapPresSatIceTmp, VapPresSatWatTmpD, VapPresSatIceTmpD, FluxTotCoeff, EnergyResTmp, TempTmp) &
+    !$acc firstprivate(IndIter)
+
     ! begin stability iteration for ground temperature and flux
     loop3: do IndIter = 1, NumIter
 
-       !$acc parallel loop collapse(2) gang vector default(present) private(TemperatureGrdChg, LwRadCoeff, ShCoeff, &
-       !$acc LhCoeff, GrdHeatCoeff) private(ExchCoeffShTmp, ExchCoeffMomTmp, MoistureFluxSfc, VapPresSatWatTmp, &
-       !$acc VapPresSatIceTmp) private(VapPresSatWatTmpD, VapPresSatIceTmpD, FluxTotCoeff, EnergyResTmp, TempTmp) &
-       !$acc firstprivate(IndIter)
+       !$acc loop gang vector collapse(2) 
        do J = noahmp%config%domain%JTS, noahmp%config%domain%JTE
          do I = noahmp%config%domain%ITS, noahmp%config%domain%ITE
-
-
 
            ! ground roughness length
            if ( IndIter == 1 ) then
@@ -147,17 +148,13 @@ contains
 
          end do
        end do
-       !$acc end parallel loop
 
        ! aerodyn resistances between reference heigths and d+z0v
        if ( noahmp%config%nmlist%OptSurfaceDrag == 1 ) call ResistanceBareGroundMOST(noahmp, IndIter, HeatSensibleTmp, MoStabParaSgn)
        if ( noahmp%config%nmlist%OptSurfaceDrag == 2 ) call ResistanceBareGroundChen97(noahmp, IndIter)
 
        ! Second parallel region: flux calculations
-       !$acc parallel loop collapse(2) gang vector default(present) &
-       !$acc private(TemperatureGrdChg, LwRadCoeff, ShCoeff, LhCoeff, GrdHeatCoeff) &
-       !$acc private(ExchCoeffShTmp, ExchCoeffMomTmp, MoistureFluxSfc, VapPresSatWatTmp, VapPresSatIceTmp) &
-       !$acc private(VapPresSatWatTmpD, VapPresSatIceTmpD, FluxTotCoeff, EnergyResTmp, TempTmp)
+       !$acc loop gang vector collapse(2)
        do J = noahmp%config%domain%JTS, noahmp%config%domain%JTE
          do I = noahmp%config%domain%ITS, noahmp%config%domain%ITE
 
@@ -219,14 +216,10 @@ contains
 
          end do
        end do
-       !$acc end parallel loop
 
     enddo loop3 ! end stability iteration
 
-    ! Post-iteration parallel region: snow check, wind stresses, 2m temperature
-    !$acc parallel loop collapse(2) gang vector default(present) private(LwRadCoeff, ShCoeff, LhCoeff, ExchCoeffShTmp) &
-    !$acc private(SoilIceTmp, VapPresSatIceTmp, VapPresSatIceTmpD, VapPresSatWatTmp, VapPresSatWatTmpD) &
-    !$acc firstprivate(GrdHeatCoeff, IndIter, MoistureFluxSfc, TempTmp)
+    !$acc loop gang vector collapse(2)
     do J = noahmp%config%domain%JTS, noahmp%config%domain%JTE
       do I = noahmp%config%domain%ITS, noahmp%config%domain%ITE
 
@@ -306,7 +299,7 @@ contains
 
       end do
     end do
-    !$acc end parallel loop
+    !$acc end parallel
     !$acc end data
 
     end associate
