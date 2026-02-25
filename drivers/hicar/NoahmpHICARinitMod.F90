@@ -28,15 +28,23 @@ contains
                    massconcocphixy, massconcocphoxy, massconcdust1xy, massconcdust2xy,  &
                    massconcdust3xy, massconcdust4xy, massconcdust5xy,                   &
                    ALBSOILDIRXY, ALBSOILDIFXY,                                          &
-                   NSOIL,   NSNOW, restart,                                                    &
-                   allowed_to_read , IOPT_RUNSUB, IOPT_CROP, IOPT_IRR, IOPT_IRRM,       &
-                   SF_URBAN_PHYSICS, IOPT_SOIL, IOPT_ALB, IOPT_WETLAND,                 &
-                   SNICAR_SNOWOPTICS_OPT, SNICAR_DUSTOPTICS_OPT, SNICAR_SOLARSPEC_OPT,  & ! optional SNICAR option
-                   SNICAR_BANDNUMBER_OPT,                                               & ! optional SNICAR option
+                   NSOIL,   NSNOW, restart, allowed_to_read, XICE_THRES, DX,            &
+                   IDVEG,   IOPT_CRS, IOPT_BTR, IOPT_RUNSUB,IOPT_SFC, IOPT_FRZ,  & ! IN : User options
+                   IOPT_INF,IOPT_RAD,   IOPT_ALB, IOPT_SNF,IOPT_TBOT, IOPT_STC,  & ! IN : User options
+                   IOPT_GLA,IOPT_RSF,  IOPT_SOIL,IOPT_PEDO,IOPT_CROP, IOPT_IRR,  & ! IN : User options
+                   IOPT_IRRM,IOPT_INFDV,IOPT_TDRN, soiltstep,                    & ! IN : User options
+                   IOPT_RUNSRF, IOPT_TKSNO, IOPT_COMPACT, IOPT_SCF, IOPT_WETLAND, & ! IN : User options                 
+                   IZ0TLND, SF_URBAN_PHYSICS,                                    & ! IN : User options
+                   SNICAR_BANDNUMBER_OPT, SNICAR_SOLARSPEC_OPT,                  & ! SNICAR variable
+                   SNICAR_SNOWOPTICS_OPT, SNICAR_DUSTOPTICS_OPT,                 & ! SNICAR variable
+                   SNICAR_RTSOLVER_OPT, SNICAR_SNOWSHAPE_OPT,                    & ! SNICAR variable
+                   SNICAR_USE_AEROSOL, SNICAR_SNOWBC_INTMIX,                     & ! SNICAR variable
+                   SNICAR_SNOWDUST_INTMIX, SNICAR_USE_OC,                        & ! SNICAR variable
+                   SNICAR_AEROSOL_READTABLE,                                            &
                    ids,ide, jds,jde, kds,kde,                                           &
                    ims,ime, jms,jme, kms,kme,                                           &
                    its,ite, jts,jte, kts,kte,                                           &
-                   smoiseq,smcwtdxy,rechxy,deeprechxy,qtdrain,areaxy,dx,dy,msftx,msfty, & ! Optional groundwater
+                   smoiseq,smcwtdxy,rechxy,deeprechxy,qtdrain,areaxy,dy,msftx,msfty, & ! Optional groundwater
                    wtddt,   stepwtd, dt, qrfsxy, qspringsxy, qslatxy,                   & ! Optional groundwater
                    fdepthxy, ht, riverbedxy, eqzwt, rivercondxy, pexpxy, rechclim       ) ! Optional groundwater
 
@@ -58,12 +66,42 @@ contains
     INTEGER, INTENT(IN)                                        :: ids,ide, jds,jde, kds,kde,  &
                                                                   ims,ime, jms,jme, kms,kme,  &
                                                                   its,ite, jts,jte, kts,kte
-    INTEGER, INTENT(IN)                                        :: NSOIL, NSNOW, IOPT_RUNSUB, IOPT_CROP, &
-                                                                  IOPT_IRR, IOPT_IRRM, IOPT_SOIL,&
-                                                                  IOPT_ALB, IOPT_WETLAND
+    INTEGER, INTENT(IN)                                        :: NSOIL, NSNOW
+    INTEGER, INTENT(IN)                                        ::  IOPT_CRS     ! canopy stomatal resistance (1-> Ball-Berry; 2->Jarvis)
+    INTEGER, INTENT(IN)                                        ::  IOPT_BTR     ! soil moisture factor for stomatal resistance (1-> Noah; 2-> CLM; 3-> SSiB)
+    INTEGER, INTENT(IN)                                        ::  IOPT_RUNSUB  ! subsurface runoff and groundwater (currently keep the same as surface runoff option)
+    INTEGER, INTENT(IN)                                        ::  IOPT_RUNSRF  ! surface runoff (1->SIMGM; 2->SIMTOP; 3->Schaake96; 4->BATS; 5->MMF; 6->VIC; 7->XianAnJiang; 8->DynVIC)
+    INTEGER, INTENT(IN)                                        ::  IOPT_COMPACT ! snowpack compaction (1->Anderson1976; 2->Abolafia-Rosenzweig2024)
+    INTEGER, INTENT(IN)                                        ::  IOPT_TKSNO   ! snow thermal conductivity: 1 -> Stieglitz(yen,1965) scheme (default), 2 -> Anderson, 1976 scheme, 3 -> constant, 4 -> Verseghy (1991) scheme, 5 -> Douvill(Yen, 1981) scheme
+    INTEGER, INTENT(IN)                                        ::  IOPT_SCF     ! snow cover fraction (1->NiuYang07; 2->Abolafia-Rosenzweig2025)
+    INTEGER, INTENT(IN)                                        ::  IOPT_WETLAND ! wetland model option (0->off; 1->Zhang2022 fixed parameter; 2->Zhang2022 read in 2D parameter)
+    INTEGER, INTENT(IN)                                        ::  IOPT_SFC     ! surface layer drag coeff (CH & CM) (1->M-O; 2->Chen97)
+    INTEGER, INTENT(IN)                                        ::  IOPT_FRZ     ! supercooled liquid water (1-> NY06; 2->Koren99)
+    INTEGER, INTENT(IN)                                        ::  IOPT_INF     ! frozen soil permeability (1-> NY06; 2->Koren99)
+    INTEGER, INTENT(IN)                                        ::  IOPT_RAD     ! radiation transfer (1->gap=F(3D,cosz); 2->gap=0; 3->gap=1-Fveg)
+    INTEGER, INTENT(IN)                                        ::  IOPT_ALB     ! snow surface albedo (1->BATS; 2->CLASS; 3->SNICAR)
+    INTEGER, INTENT(IN)                                        ::  IOPT_SNF     ! rainfall & snowfall (1-Jordan91; 2->BATS; 3->Noah)
+    INTEGER, INTENT(IN)                                        ::  IOPT_TBOT    ! lower boundary of soil temperature (1->zero-flux; 2->Noah)
+    INTEGER, INTENT(IN)                                        ::  IOPT_STC     ! snow/soil temperature time scheme
+    INTEGER, INTENT(IN)                                        ::  IOPT_GLA     ! glacier option (1->phase change; 2->simple)
+    INTEGER, INTENT(IN)                                        ::  IOPT_RSF     ! surface resistance (1->Sakaguchi/Zeng; 2->Seller; 3->mod Sellers; 4->1+snow)
+    INTEGER, INTENT(IN)                                        ::  IOPT_SOIL    ! soil configuration option
+    INTEGER, INTENT(IN)                                        ::  IOPT_PEDO    ! soil pedotransfer function option
+    INTEGER, INTENT(IN)                                        ::  IOPT_CROP    ! crop model option (0->none; 1->Liu et al.; 2->Gecros)
+    INTEGER, INTENT(IN)                                        ::  IOPT_IRR     ! irrigation scheme (0->none; >1 irrigation scheme ON)
+    INTEGER, INTENT(IN)                                        ::  IOPT_IRRM    ! irrigation method
+    INTEGER, INTENT(IN)                                        ::  IOPT_INFDV   ! infiltration options for dynamic VIC infiltration (1->Philip; 2-> Green-Ampt;3->Smith-Parlange)
+    INTEGER, INTENT(IN)                                        ::  IOPT_TDRN    ! tile drainage (0-> no tile drainage; 1-> simple tile drainage;2->Hooghoudt's)
+    REAL,                                            INTENT(IN   ) ::  XICE_THRES   ! fraction of grid determining seaice
+    INTEGER,                                         INTENT(IN   ) ::  IDVEG        ! dynamic vegetation (1 -> off ; 2 -> on) with opt_crs = 1      
+    REAL,                                            INTENT(IN   ) ::  soiltstep    ! soil timestep (s), default:0->same as main model timestep
+    INTEGER,                                         INTENT(IN   ) ::  IZ0TLND      ! option of Chen adjustment of Czil (not used)
+    INTEGER,                                         INTENT(IN   ) ::  sf_urban_physics ! urban physics option
+    REAL,                                            INTENT(IN   ) ::  DX           ! horizontal grid spacing [m]
+
+
     LOGICAL, INTENT(IN)                                        :: restart, allowed_to_read
     LOGICAL, INTENT(IN)                                        :: FNDSOILW, FNDSNOWH
-    INTEGER, INTENT(IN)                                        :: SF_URBAN_PHYSICS                      
     CHARACTER(LEN=*),                    INTENT(IN)            :: MMINLU
     REAL,    DIMENSION(NSOIL), INTENT(IN)                      :: DZS                 ! Thickness of the soil layers [m]
     INTEGER, DIMENSION(ims:ime,jms:jme), INTENT(IN)            :: ISLTYP, IVGTYP
@@ -72,15 +110,25 @@ contains
     REAL,    DIMENSION(ims:ime,jms:jme), INTENT(IN)            :: TSK                 ! skin temperature (k)
     REAL,    DIMENSION(ims:ime,jms:jme), INTENT(IN)            :: XICE                ! sea ice fraction
     REAL,                                INTENT(IN), OPTIONAL  :: DT, WTDDT
-    REAL,                                INTENT(IN), OPTIONAL  :: DX, DY
+    REAL,                                INTENT(IN), OPTIONAL  :: DY
     REAL,    DIMENSION(ims:ime,jms:jme), INTENT(IN), OPTIONAL  :: FDEPTHXY            ! efolding depth for transmissivity (m)
     REAL,    DIMENSION(ims:ime,jms:jme), INTENT(IN), OPTIONAL  :: HT                  ! terrain height (m)
     REAL,    DIMENSION(ims:ime,jms:jme), INTENT(IN), OPTIONAL  :: MSFTX, MSFTY
     REAL,    DIMENSION(ims:ime,jms:jme), INTENT(IN), OPTIONAL  :: rechclim
-    INTEGER, INTENT(IN),                             OPTIONAL  :: SNICAR_SNOWOPTICS_OPT, &
-                                                                  SNICAR_DUSTOPTICS_OPT, &
-                                                                  SNICAR_SOLARSPEC_OPT,  &
-                                                                  SNICAR_BANDNUMBER_OPT
+
+    ! SNICAR snow albedo variables
+    INTEGER, INTENT(IN),                             OPTIONAL  :: SNICAR_BANDNUMBER_OPT, &
+                                                                  SNICAR_SOLARSPEC_OPT, &
+                                                                  SNICAR_SNOWOPTICS_OPT,  &
+                                                                  SNICAR_DUSTOPTICS_OPT,  &
+                                                                  SNICAR_RTSOLVER_OPT,    &
+                                                                  SNICAR_SNOWSHAPE_OPT
+    LOGICAL, INTENT(IN),                             OPTIONAL  :: SNICAR_USE_AEROSOL,     &
+                                                                  SNICAR_SNOWBC_INTMIX,   &
+                                                                  SNICAR_SNOWDUST_INTMIX, &
+                                                                  SNICAR_USE_OC,          &
+                                                                  SNICAR_AEROSOL_READTABLE
+
     ! in/out
     REAL,    DIMENSION(ims:ime,jms:jme), INTENT(INOUT)         :: TMN                 ! deep soil temperature (k)
     INTEGER, DIMENSION(ims:ime,jms:jme), INTENT(INOUT)         :: isnowxy             ! actual no. of snow layers
@@ -176,44 +224,98 @@ contains
 ! ----------------------------------------------------------------------------------
 
     ! initialize NoahmpIO dimension and key config variables
-    NoahmpIO%xstart           = ims
-    NoahmpIO%xend             = ime
-    NoahmpIO%ystart           = jms
-    NoahmpIO%yend             = jme
-    NoahmpIO%ids              = ids
-    NoahmpIO%ide              = ide
-    NoahmpIO%jds              = jds
-    NoahmpIO%jde              = jde
-    NoahmpIO%kds              = kds
-    NoahmpIO%kde              = kde
-    NoahmpIO%ims              = ims
-    NoahmpIO%ime              = ime
-    NoahmpIO%jms              = jms
-    NoahmpIO%jme              = jme
-    NoahmpIO%kms              = kms
-    NoahmpIO%kme              = kme
-    NoahmpIO%its              = its
-    NoahmpIO%ite              = ite
-    NoahmpIO%jts              = jts
-    NoahmpIO%jte              = jte
-    NoahmpIO%kts              = kts
-    NoahmpIO%kte              = kte
-    NoahmpIO%NSOIL            = NSOIL
-    NoahmpIO%LLANDUSE         = LanduseConvert(MMINLU)
-    NoahmpIO%IOPT_CROP        = IOPT_CROP
-    NoahmpIO%IOPT_IRR         = IOPT_IRR
-    NoahmpIO%IOPT_IRRM        = IOPT_IRRM
-    NoahmpIO%SF_URBAN_PHYSICS = SF_URBAN_PHYSICS
-    NoahmpIO%IOPT_SOIL        = IOPT_SOIL
-    NoahmpIO%IOPT_ALB         = IOPT_ALB
-    NoahmpIO%IOPT_WETLAND     = IOPT_WETLAND
-    NoahmpIO%IOPT_RUNSUB      = IOPT_RUNSUB
+    NoahmpIO%ids                = ids
+    NoahmpIO%ide                = ide
+    NoahmpIO%jds                = jds
+    NoahmpIO%jde                = jde
+    NoahmpIO%kds                = kds
+    NoahmpIO%kde                = kde
+    NoahmpIO%ims                = ims
+    NoahmpIO%ime                = ime
+    NoahmpIO%jms                = jms
+    NoahmpIO%jme                = jme
+    NoahmpIO%kms                = kms
+    NoahmpIO%kme                = kme
+    NoahmpIO%its                = its
+    NoahmpIO%ite                = ite
+    NoahmpIO%jts                = jts
+    NoahmpIO%jte                = jte
+    NoahmpIO%kts                = kts
+    NoahmpIO%kte                = kte
+    NoahmpIO%xstart             = ims
+    NoahmpIO%xend               = ime
+    NoahmpIO%ystart             = jms
+    NoahmpIO%yend               = jme    
+    NoahmpIO%NSOIL              = NSOIL
+    NoahmpIO%DX                 = DX
+    NoahmpIO%DY                 = DX
+    NoahmpIO%IOPT_DVEG          = IDVEG
+    NoahmpIO%IOPT_CRS           = IOPT_CRS
+    NoahmpIO%IOPT_BTR           = IOPT_BTR
+    NoahmpIO%IOPT_SFC           = IOPT_SFC
+    NoahmpIO%IOPT_FRZ           = IOPT_FRZ
+    NoahmpIO%IOPT_INF           = IOPT_INF
+    NoahmpIO%IOPT_RAD           = IOPT_RAD
+    NoahmpIO%IOPT_ALB           = IOPT_ALB
+    NoahmpIO%IOPT_SNF           = IOPT_SNF
+    NoahmpIO%IOPT_TBOT          = IOPT_TBOT
+    NoahmpIO%IOPT_STC           = IOPT_STC
+    NoahmpIO%IOPT_GLA           = IOPT_GLA
+    NoahmpIO%IOPT_RSF           = IOPT_RSF
+    NoahmpIO%IOPT_SOIL          = IOPT_SOIL
+    NoahmpIO%IOPT_PEDO          = IOPT_PEDO
+    NoahmpIO%IOPT_CROP          = IOPT_CROP
+    NoahmpIO%IOPT_IRR           = IOPT_IRR
+    NoahmpIO%IOPT_IRRM          = IOPT_IRRM
+    NoahmpIO%IOPT_INFDV         = IOPT_INFDV
+    NoahmpIO%IOPT_TDRN          = IOPT_TDRN
+    NoahmpIO%IOPT_RUNSRF        = IOPT_RUNSRF
+    NoahmpIO%IOPT_RUNSUB        = IOPT_RUNSUB
+    NoahmpIO%IOPT_TKSNO         = IOPT_TKSNO
+    NoahmpIO%IOPT_COMPACT       = IOPT_COMPACT
+    NoahmpIO%IOPT_SCF           = IOPT_SCF
+    NoahmpIO%IOPT_WETLAND       = IOPT_WETLAND
+    NoahmpIO%SOILTSTEP          = SOILTSTEP
+    NoahmpIO%SF_URBAN_PHYSICS   = SF_URBAN_PHYSICS
+    NoahmpIO%IZ0TLND            = IZ0TLND
+    NoahmpIO%LLANDUSE           = LanduseConvert(MMINLU)
+    NoahmpIO%XICE_THRESHOLD     = XICE_THRES
+    NoahmpIO%DZS                = DZS
+    ! NoahmpIO%IRI_URBAN          = IRI_SCHEME
     if ( NoahmpIO%IOPT_ALB == 3 ) then
-       NoahmpIO%SNICAR_SNOWOPTICS_OPT = SNICAR_SNOWOPTICS_OPT
-       NoahmpIO%SNICAR_DUSTOPTICS_OPT = SNICAR_DUSTOPTICS_OPT
-       NoahmpIO%SNICAR_SOLARSPEC_OPT  = SNICAR_SOLARSPEC_OPT
-       NoahmpIO%SNICAR_BANDNUMBER_OPT = SNICAR_BANDNUMBER_OPT
+       NoahmpIO%SNICAR_BANDNUMBER_OPT    = SNICAR_BANDNUMBER_OPT
+       NoahmpIO%SNICAR_SOLARSPEC_OPT     = SNICAR_SOLARSPEC_OPT
+       NoahmpIO%SNICAR_SNOWOPTICS_OPT    = SNICAR_SNOWOPTICS_OPT
+       NoahmpIO%SNICAR_DUSTOPTICS_OPT    = SNICAR_DUSTOPTICS_OPT
+       NoahmpIO%SNICAR_RTSOLVER_OPT      = SNICAR_RTSOLVER_OPT
+       NoahmpIO%SNICAR_SNOWSHAPE_OPT     = SNICAR_SNOWSHAPE_OPT
+       NoahmpIO%SNICAR_USE_AEROSOL       = SNICAR_USE_AEROSOL
+       NoahmpIO%SNICAR_SNOWBC_INTMIX     = SNICAR_SNOWBC_INTMIX
+       NoahmpIO%SNICAR_SNOWDUST_INTMIX   = SNICAR_SNOWDUST_INTMIX
+       NoahmpIO%SNICAR_USE_OC            = SNICAR_USE_OC
+       NoahmpIO%SNICAR_AEROSOL_READTABLE = SNICAR_AEROSOL_READTABLE
     endif
+
+    ! $acc update device(NoahmpIO%ids, NoahmpIO%ide, NoahmpIO%jds, NoahmpIO%jde, NoahmpIO%kds, NoahmpIO%kde) &
+    ! $acc        device(NoahmpIO%ims, NoahmpIO%ime, NoahmpIO%jms, NoahmpIO%jme, NoahmpIO%kms, NoahmpIO%kme) &
+    ! $acc        device(NoahmpIO%its, NoahmpIO%ite, NoahmpIO%jts, NoahmpIO%jte, NoahmpIO%kts, NoahmpIO%kte) &
+    ! $acc        device(NoahmpIO%xstart, NoahmpIO%xend, NoahmpIO%ystart, NoahmpIO%yend) &
+    ! $acc        device(NoahmpIO%YR, NoahmpIO%JULIAN, NoahmpIO%DTBL, NoahmpIO%NSOIL, NoahmpIO%DX, NoahmpIO%DY) &
+    ! $acc        device(NoahmpIO%IOPT_DVEG, NoahmpIO%IOPT_CRS, NoahmpIO%IOPT_BTR, NoahmpIO%IOPT_SFC) &
+    ! $acc        device(NoahmpIO%IOPT_FRZ, NoahmpIO%IOPT_INF, NoahmpIO%IOPT_RAD, NoahmpIO%IOPT_ALB) &
+    ! $acc        device(NoahmpIO%IOPT_SNF, NoahmpIO%IOPT_TBOT, NoahmpIO%IOPT_STC, NoahmpIO%IOPT_GLA) &
+    ! $acc        device(NoahmpIO%IOPT_RSF, NoahmpIO%IOPT_SOIL, NoahmpIO%IOPT_PEDO, NoahmpIO%IOPT_CROP) &
+    ! $acc        device(NoahmpIO%IOPT_IRR, NoahmpIO%IOPT_IRRM, NoahmpIO%IOPT_INFDV, NoahmpIO%IOPT_TDRN) &
+    ! $acc        device(NoahmpIO%IOPT_RUNSRF, NoahmpIO%IOPT_RUNSUB, NoahmpIO%IOPT_TKSNO, NoahmpIO%IOPT_COMPACT) &
+    ! $acc        device(NoahmpIO%IOPT_SCF, NoahmpIO%IOPT_WETLAND, NoahmpIO%SF_URBAN_PHYSICS, NoahmpIO%IZ0TLND) &
+    ! $acc        device(NoahmpIO%LLANDUSE, NoahmpIO%SOILTSTEP, NoahmpIO%XICE_THRESHOLD, NoahmpIO%DZS) &
+    ! $acc        device(NoahmpIO%ITIMESTEP) &
+    ! $acc        device(NoahmpIO%SNICAR_BANDNUMBER_OPT, NoahmpIO%SNICAR_SOLARSPEC_OPT) &
+    ! $acc        device(NoahmpIO%SNICAR_SNOWOPTICS_OPT, NoahmpIO%SNICAR_DUSTOPTICS_OPT) &
+    ! $acc        device(NoahmpIO%SNICAR_RTSOLVER_OPT, NoahmpIO%SNICAR_SNOWSHAPE_OPT) &
+    ! $acc        device(NoahmpIO%SNICAR_USE_AEROSOL, NoahmpIO%SNICAR_SNOWBC_INTMIX) &
+    ! $acc        device(NoahmpIO%SNICAR_SNOWDUST_INTMIX, NoahmpIO%SNICAR_USE_OC) &
+    ! $acc        device(NoahmpIO%SNICAR_AEROSOL_READTABLE)
 
     ! initialze all NoahmpIO variables with default values
     call NoahmpIOVarInitDefault(NoahmpIO)
@@ -234,9 +336,9 @@ contains
     NoahmpIO%DZS                = DZS
     NoahmpIO%FNDSNOWH           = FNDSNOWH
     NoahmpIO%restart_flag       = restart
+    NoahmpIO%DX                 = DX
     if(present(DT)) NoahmpIO%DTBL               = DT
     if(present(WTDDT)) NoahmpIO%WTDDT              = WTDDT
-    if(present(DX)) NoahmpIO%DX                 = DX
     if(present(DY)) NoahmpIO%DY                 = DY
 
     ! If re-initializing, delete old noahmpIO device data first

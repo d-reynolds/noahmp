@@ -81,7 +81,6 @@ contains
     noahmp%config%domain%SoilTimeStep                = NoahmpIO%DTBL * NoahmpIO%soil_update_steps
     noahmp%config%domain%GridSize                    = sqrt(max(10.0,NoahmpIO%DX) * max(10.0,NoahmpIO%DY))
     noahmp%config%domain%LandUseDataName             = NoahmpIO%LLANDUSE
-    noahmp%config%domain%DayJulianInYear             = NoahmpIO%JULIAN
     noahmp%config%domain%NumDayInYear                = NoahmpIO%YEARLEN
     noahmp%config%domain%IndexWaterPoint             = NoahmpIO%ISWATER_TABLE
     noahmp%config%domain%IndexBarrenPoint            = NoahmpIO%ISBARREN_TABLE

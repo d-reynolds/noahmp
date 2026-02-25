@@ -124,13 +124,15 @@ contains
        endif
     endif
 
+    noahmp%config%domain%DayJulianInYear = NoahmpIO%JULIAN
+
     ! depth to soil interfaces (<0) [m]
     NoahmpIO%ZSOIL(1) = -NoahmpIO%DZS(1)
     do K = 2, NoahmpIO%NSOIL
        NoahmpIO%ZSOIL(K) = -NoahmpIO%DZS(K) + NoahmpIO%ZSOIL(K-1)
     enddo
     
-    !$acc update device(NoahmpIO%YEARLEN, NoahmpiO%CALCULATE_SOIL, NoahmpIO%ZSOIL)
+    !$acc update device(NoahmpIO%YEARLEN, NoahmpIO%CALCULATE_SOIL, NoahmpIO%ZSOIL, noahmp%config%domain%DayJulianInYear)
 
     if ( NoahmpIO%ITIMESTEP == 1 ) then
        !$acc parallel loop collapse(2) gang vector default(present) private(I, J, K)
