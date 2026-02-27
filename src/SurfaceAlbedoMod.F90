@@ -95,8 +95,11 @@ contains
     GapBtwCanopy(I,J)     = 0.0
     GapInCanopy(I,J)      = 0.0
     VegAreaProjDir(I,J)   = 0.0
-    ReflectanceVeg   = 0.0
-    TransmittanceVeg = 0.0
+    !$acc loop seq
+    do IndBand = 1, NumSwRadBand
+       ReflectanceVeg(I,IndBand,J)   = 0.0
+       TransmittanceVeg(I,IndBand,J) = 0.0
+    enddo
     CanopySunlitFrac(I,J) = 0.0
     VegAreaIndEff(I,J) = LeafAreaIndEff(I,J) + StemAreaIndEff(I,J)
 
