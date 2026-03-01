@@ -216,7 +216,7 @@ contains
     REAL,    DIMENSION(ims:ime,jms:jme),         INTENT(INOUT), OPTIONAL :: PEXPXY       ! factor for river conductance
     REAL,    DIMENSION(ims:ime,1:NSOIL,jms:jme), INTENT(INOUT), OPTIONAL :: smoiseq      ! equilibrium soil moisture content [m3m-3]
     ! output only
-    INTEGER, DIMENSION(ims:ime,jms:jme), INTENT(OUT)           :: cropcat             ! crop type
+    INTEGER, DIMENSION(ims:ime,jms:jme), INTENT(INOUT)           :: cropcat             ! crop type
     INTEGER,                             INTENT(OUT), OPTIONAL :: STEPWTD
     ! local
     integer :: itf, jtf, I, J
@@ -459,6 +459,8 @@ contains
        enddo
     endif
 
+    NoahmpIO%CROPCAT(I,J) = CROPCAT(I,J)
+
     enddo ! I
     enddo ! J
 
@@ -688,7 +690,6 @@ contains
        enddo
     endif
 
-    ! out variables only
     CROPCAT(I,J) = NoahmpIO%CROPCAT(I,J)
 
     enddo ! I
