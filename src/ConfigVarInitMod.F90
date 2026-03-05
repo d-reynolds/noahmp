@@ -92,4 +92,34 @@ contains
 
   end subroutine ConfigVarInitDefault
 
+  subroutine ConfigVarExitDevice(noahmp)
+
+    implicit none
+
+    type(noahmp_type), intent(inout) :: noahmp
+
+    !$acc exit data delete( noahmp%config%domain%DepthSoilLayer, &
+    !$acc                   noahmp%config%domain%ThicknessSoilLayer, &
+    !$acc                   noahmp%config%domain%SoilType, &
+    !$acc                   noahmp%config%domain%ThicknessSnowSoilLayer, &
+    !$acc                   noahmp%config%domain%DepthSnowSoilLayer, &
+    !$acc                   noahmp%config%domain%VegType, &
+    !$acc                   noahmp%config%domain%CropType, &
+    !$acc                   noahmp%config%domain%Latitude, &
+    !$acc                   noahmp%config%domain%SurfaceType, &
+    !$acc                   noahmp%config%domain%FlagUrban, &
+    !$acc                   noahmp%config%domain%SoilColor, &
+    !$acc                   noahmp%config%domain%FlagCropland, &
+    !$acc                   noahmp%config%domain%FlagWetland, &
+    !$acc                   noahmp%config%domain%FlagDynamicCrop, &
+    !$acc                   noahmp%config%domain%FlagDynamicVeg, &
+    !$acc                   noahmp%config%domain%NumSnowLayerNeg, &
+    !$acc                   noahmp%config%domain%IndicatorIceSfc, &
+    !$acc                   noahmp%config%domain%DepthSoilTempBottom, &
+    !$acc                   noahmp%config%domain%RefHeightAboveSfc, &
+    !$acc                   noahmp%config%domain%ThicknessAtmosBotLayer, &
+    !$acc                   noahmp%config%domain%CosSolarZenithAngle )
+    
+  end subroutine ConfigVarExitDevice
+
 end module ConfigVarInitMod

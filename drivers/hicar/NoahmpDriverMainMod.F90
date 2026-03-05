@@ -24,7 +24,7 @@ module NoahmpDriverMainMod
 
   implicit none
 
-  type(noahmp_type) :: noahmp
+  type(noahmp_type), allocatable :: noahmp
   logical :: noahmp_initialized = .false.
 
 contains
@@ -276,6 +276,7 @@ contains
        call NoahmpDriverCleanup()
     endif
 
+    allocate(noahmp)
     ! Copy the top-level noahmp structure to device (sync, needed for ConfigVarInTransfer)
     !$acc enter data copyin(noahmp)
 
@@ -299,6 +300,7 @@ contains
 
     implicit none
 
+    call ConfigVarExitDevice(noahmp)
     call ForcingVarExitDevice(noahmp)
     call EnergyVarExitDevice(noahmp)
     call WaterVarExitDevice(noahmp)
@@ -306,6 +308,8 @@ contains
 
     ! Delete the noahmp structure itself (was copyin'd in NoahmpDriverInit)
     !$acc exit data delete(noahmp)
+
+    deallocate(noahmp)
 
     noahmp_initialized = .false.
 
