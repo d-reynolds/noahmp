@@ -85,8 +85,8 @@ contains
               RadSwReflGrdDif     => noahmp%energy%flux%RadSwReflGrdDif  & ! out, flux reflected by ground (per unit diffuse flux)
              )
 
-   !$acc parallel loop collapse(2) gang vector default(present) private(IndBand, IndDif, LeafWgt, StemWgt, MinThr, &
-   !$acc LightExtDir) private(IndSnow)
+   !$acc parallel loop collapse(2) gang vector default(present) private(IndBand, IndDif, LeafWgt, StemWgt, IndSnow, &
+   !$acc LightExtDir) firstprivate(MinThr)
     do J = noahmp%config%domain%JTS, noahmp%config%domain%JTE
       do I = noahmp%config%domain%ITS, noahmp%config%domain%ITE
 
@@ -174,7 +174,7 @@ contains
 
 
    !$acc parallel loop collapse(2) gang vector default(present) &
-   !$acc private(IndBand, IndDif, LeafWgt, StemWgt, MinThr, LightExtDir)
+   !$acc private(IndBand, IndDif, LeafWgt, StemWgt, LightExtDir) firstprivate(MinThr)
     do J = noahmp%config%domain%JTS, noahmp%config%domain%JTE
       do I = noahmp%config%domain%ITS, noahmp%config%domain%ITE
 
