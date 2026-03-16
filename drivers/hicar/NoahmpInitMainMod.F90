@@ -145,6 +145,8 @@ contains
        !$acc parallel loop collapse(2) gang vector default(present) private(urbanpt_flag, LoopInd)
        do J = jts, jtf
           do I = its, itf
+             if  (NoahmpIO%IVGTYP(I,J) == NoahmpIO%ISWATER_TABLE) cycle  ! Skip Open water point
+
              NoahmpIO%QTDRAIN(I,J)  = 0.0
              NoahmpIO%TVXY(I,J)     = NoahmpIO%TSK(I,J)
              NoahmpIO%TGXY(I,J)     = NoahmpIO%TSK(I,J)
