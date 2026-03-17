@@ -54,6 +54,7 @@ module EnergyMainMod
   use SoilSnowTemperatureMainMod,     only : SoilSnowTemperatureMain
   use SoilSnowWaterPhaseChangeMod,    only : SoilSnowWaterPhaseChange
   use GlacierPhaseChangeMod,             only : GlacierPhaseChange
+  use GlacierTemperatureMainMod,          only : GlacierTemperatureMain
   use SnowCoverGlacierMod,               only : SnowCoverGlacier
   use GroundRoughnessPropertyGlacierMod, only : GroundRoughnessPropertyGlacier
   use GroundThermalPropertyGlacierMod,   only : GroundThermalPropertyGlacier
@@ -374,6 +375,9 @@ contains
     if ( noahmp%config%domain%FlagSoilProcess .eqv. .true. ) then
        call SoilSnowTemperatureMain(noahmp)
     endif ! FlagSoilProcess
+
+    ! compute snow and glacier ice temperature (every main timestep)
+    call GlacierTemperatureMain(noahmp)
 
     !$acc parallel loop collapse(2) gang vector default(present)
     do J = noahmp%config%domain%JTS, noahmp%config%domain%JTE
