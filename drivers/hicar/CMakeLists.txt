@@ -75,10 +75,25 @@ if (NETCDF_FOUND)
 						ERROR_QUIET)
 		separate_arguments(NETCDF_LIBRARIES)
 
-		# Clean up any duplicate libraries and references to -lnetcdf
+		# Clean up any duplicate libraries
 		list(REMOVE_DUPLICATES NETCDF_LIBRARIES)
-		# clean references to base netcdf-c library
+
+		# nf-config --flibs emits a bare "-lnetcdf" with no matching -L on split-prefix
+		# installs (netcdf-c and netcdf-fortran in different roots). Resolve to an absolute
+		# path so the linker doesn't have to search, and so static linking works.
+		find_library(NETCDF_C_LIBRARY NAMES netcdf
+			HINTS ${NETCDF_DIR} ENV NETCDF_DIR ENV NETCDF_C_DIR ENV NETCDF
+			PATH_SUFFIXES lib lib64)
 		list(REMOVE_ITEM NETCDF_LIBRARIES -lnetcdf)
+		if(NETCDF_C_LIBRARY)
+			list(APPEND NETCDF_LIBRARIES ${NETCDF_C_LIBRARY})
+			message(STATUS "Resolved netcdf-c library: ${NETCDF_C_LIBRARY}")
+		else()
+			message(FATAL_ERROR
+				"netcdf-c library not found. nf-config --flibs requested -lnetcdf but the "
+				"linker cannot locate it. Set NETCDF_C_DIR (or NETCDF_DIR) to the netcdf-c "
+				"install prefix.")
+		endif()
 
 		message(STATUS "NetCDF libraries (with dependencies): ${NETCDF_LIBRARIES}")
 	else()
