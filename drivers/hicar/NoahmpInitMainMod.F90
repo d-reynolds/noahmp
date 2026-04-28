@@ -293,6 +293,51 @@ contains
 
     endif ! NoahmpIO%restart_flag
 
+    ! Restart-only soil-geometry recomputation. The cold-start path above
+    ! sets ZSOIL (lines 80-83) and the soil portion of NoahmpIO%ZSNSOXY (via
+    ! NoahmpSnowinitMain at line 285), but the entire block is gated on
+    ! .not. restart_flag. On restart neither runs, leaving ZSOIL = 0 and the
+    ! soil portion of NoahmpIO%ZSNSOXY at whatever HICAR passed in (0 for the
+    ! observed case). ConfigVarInTransfer then propagates 0 into
+    ! noahmp%config%domain%DepthSnowSoilLayer, GeneralInit computes
+    ! ThicknessSnowSoilLayer = 0, BalanceWaterInit sees zero soil contribution
+    ! to WaterStorageTotBeg, and the first physics step's BalanceWaterCheck
+    ! reports a phantom water gain equal to the soil column water content.
+    !
+    ! These quantities are pure geometry derived from the namelist DZS — safe
+    ! to recompute on restart. We preserve the snow portion of ZSNSOXY
+    ! (indices -NSNOW+1 .. 0) which IS dynamic state from the restart file.
+    if ( NoahmpIO%restart_flag ) then
+       NoahmpIO%ZSOIL(1) = -NoahmpIO%DZS(1)
+       do NS = 2, NoahmpIO%NSOIL
+          NoahmpIO%ZSOIL(NS) = NoahmpIO%ZSOIL(NS-1) - NoahmpIO%DZS(NS)
+       enddo
+       !$acc update device(NoahmpIO%ZSOIL)
+
+       !$acc parallel loop collapse(2) gang vector default(present)
+       do J = jts, jtf
+          do I = its, itf
+             if ( NoahmpIO%IVGTYP(I,J) == NoahmpIO%ISWATER_TABLE ) cycle
+             ! ZSNSOXY soil portion is cumulative depth (negative) below
+             ! the bottom of the snow column (or the surface if no snow).
+             ! For no-snow cells, ISNOWXY == 0 and ZSNSOXY(0) is treated as
+             ! the surface (== 0); for cells with snow, ZSNSOXY(0) holds
+             ! the cumulative snow depth (negative) from the restored
+             ! snow-portion values.
+             if ( NoahmpIO%ISNOWXY(I,J) >= 0 ) then
+                NoahmpIO%ZSNSOXY(I, 1, J) = -NoahmpIO%DZS(1)
+             else
+                NoahmpIO%ZSNSOXY(I, 1, J) = NoahmpIO%ZSNSOXY(I, 0, J) - NoahmpIO%DZS(1)
+             endif
+             !$acc loop seq
+             do IZ = 2, NoahmpIO%NSOIL
+                NoahmpIO%ZSNSOXY(I, IZ, J) = NoahmpIO%ZSNSOXY(I, IZ-1, J) - NoahmpIO%DZS(IZ)
+             enddo
+
+          enddo
+       enddo
+    endif
+
     if ( NoahmpIO%IOPT_ALB == 3 ) then ! initialize SNICAR aerosol content in snow
       !$acc parallel loop collapse(3) gang vector default(present)
        do J = jts, jtf
