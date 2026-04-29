@@ -138,7 +138,8 @@ contains
        !$acc parallel loop collapse(2) gang vector default(present) private(I, J, K)
        JLOOP : do J = NoahmpIO%JTS, NoahmpIO%JTE
           ILOOP : do I = NoahmpIO%ITS, NoahmpIO%ITE
-             if ( (NoahmpIO%XLAND(I,J)-1.5) >= 0.0 ) then  ! Open water point
+               if ( (NoahmpIO%XLAND(I,J)-1.5) >= 0.0 .and. &                                                                                                                                                                             
+                    NoahmpIO%IVGTYP(I,J) == NoahmpIO%ISWATER_TABLE ) then  ! Open water point (real water, not HICAR snow-cell flag)                                                                                                   
                 if ( NoahmpIO%XICE(I,J) == 1.0 ) print*,' sea-ice at water point, I=',I,'J=',J
                 NoahmpIO%SMSTAV(I,J) = 1.0
                 NoahmpIO%SMSTOT(I,J) = 1.0
