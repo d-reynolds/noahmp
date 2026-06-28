@@ -223,11 +223,24 @@ contains
    do J = noahmp%config%domain%JTS, noahmp%config%domain%JTE
       do I = noahmp%config%domain%ITS, noahmp%config%domain%ITE
 
+         ! Recompute the surface-flux coefficients before the melt-reset branch.
+         ! They are !$acc private to this kernel and were only assigned in the
+         ! separate iteration loop above, so on the device (-gpu=mem:separate)
+         ! they are read uninitialized here. Mirror the bare-ground routine's
+         ! reset loop (and the iteration loop above) to keep CPU/GPU in sync.
+         LwRadCoeff = EmissivityGrd(I,J) * ConstStefanBoltzmann
+         ShCoeff    = DensityAirRefHeight(I,J) * ConstHeatCapacAir / ResistanceShBareGrd(I,J)
+         if ( (SnowDepth(I,J) > 0.0) .or. (OptGlacierTreatment == 1) ) then
+            LhCoeff = DensityAirRefHeight(I,J) * ConstHeatCapacAir / PsychConstGrd(I,J) / (ResistanceGrdEvap(I,J)+ResistanceLhBareGrd(I,J))
+         else
+            LhCoeff = 0.0   ! don't allow any sublimation of glacier in OptGlacierTreatment=2
+         endif
 
     ! if snow on ground and TemperatureGrdBare > freezing point: reset TemperatureGrdBare = freezing point. reevaluate ground fluxes.
+    SoilIceTmp = 0.0
     !$acc loop seq
     do LoopInd = 1, NumSoilLayer
-       SoilIceTmp = max(0.0, SoilMoisture(I,LoopInd,J) - SoilLiqWater(I,LoopInd,J))
+       SoilIceTmp = max(SoilIceTmp, SoilMoisture(I,LoopInd,J) - SoilLiqWater(I,LoopInd,J))
     enddo
 
     if ( (OptSnowSoilTempTime == 1) .or. (OptSnowSoilTempTime == 3) ) then

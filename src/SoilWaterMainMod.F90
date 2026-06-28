@@ -186,7 +186,7 @@ contains
     if ( OptRunoffSubsurface == 2 ) call RunoffSubSurfaceEquiWaterTable(noahmp)
 
     ! jref impermable surface at urban
-      !$acc loop gang vector collapse(2)
+      !$acc parallel loop collapse(2) gang vector default(present) private(I, J)
       do J = noahmp%config%domain%JTS, noahmp%config%domain%JTE
       do I = noahmp%config%domain%ITS, noahmp%config%domain%ITE
         if ( noahmp%config%domain%FlagUrban(I,J) .eqv. .true. ) then
@@ -194,6 +194,7 @@ contains
         endif
       enddo
       enddo
+      !$acc end parallel loop
     ! surface runoff and infiltration rate using different schemes
     if ( OptRunoffSurface == 1 ) call RunoffSurfaceTopModelGrd(noahmp)
     if ( OptRunoffSurface == 2 ) call RunoffSurfaceTopModelEqui(noahmp)

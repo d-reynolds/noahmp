@@ -61,17 +61,16 @@ contains
                   HeatFromSoilBot          => noahmp%energy%flux%HeatFromSoilBot             & ! out, energy influx from soil bottom [W/m2]
                  )
 
-    ! !$acc parallel loop collapse(2) gang vector default(present) &
-    ! !$acc private(LoopInd,DepthSnowSoilTmp,DepthSnowSoilInv,HeatCapacPerArea) &
-    ! !$acc private(TempGradDepth,EnergyExcess) &
-    ! !$acc private(MatLeft3Tmp,MatRightTmp,MatSolution)
+    !$acc parallel loop collapse(2) gang vector default(present) &
+    !$acc private(LoopInd,DepthSnowSoilTmp,DepthSnowSoilInv,HeatCapacPerArea) &
+    !$acc private(TempGradDepth,EnergyExcess)
     do J = noahmp%config%domain%JTS, noahmp%config%domain%JTE
       do I = noahmp%config%domain%ITS, noahmp%config%domain%ITE
 
         if (noahmp%config%domain%IndicatorIceSfc(I,J) /= -1) cycle  ! only process glacier points
 
         ! initialization
-        ! !$acc loop seq
+        !$acc loop seq
         do LoopInd = -NumSnowLayerMax+1, NumSoilLayer
            MatRight(I,LoopInd,J)         = 0.0
            MatLeft1(I,LoopInd,J)         = 0.0
@@ -84,7 +83,7 @@ contains
         enddo
 
         ! compute gradient and flux of glacier/snow thermal diffusion
-        ! !$acc loop seq
+        !$acc loop seq
         do LoopInd = NumSnowLayerNeg(I,J)+1, NumSoilLayer
            if ( LoopInd == (NumSnowLayerNeg(I,J)+1) ) then
               HeatCapacPerArea(LoopInd) = - DepthSnowSoilLayer(I,LoopInd,J) * HeatCapacSoilSnow(I,LoopInd,J)
@@ -117,7 +116,7 @@ contains
         enddo
 
         ! prepare the matrix coefficients for the tri-diagonal matrix
-        ! !$acc loop seq
+        !$acc loop seq
         do LoopInd = NumSnowLayerNeg(I,J)+1, NumSoilLayer
            if ( LoopInd == (NumSnowLayerNeg(I,J)+1) ) then
               MatLeft1(I,LoopInd,J)    = 0.0
@@ -145,7 +144,7 @@ contains
 
       end do
     end do
-    ! !$acc end parallel loop
+    !$acc end parallel loop
 
 
         end associate
