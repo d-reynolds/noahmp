@@ -297,7 +297,7 @@ contains
     ! sets ZSOIL (lines 80-83) and the soil portion of NoahmpIO%ZSNSOXY (via
     ! NoahmpSnowinitMain at line 285), but the entire block is gated on
     ! .not. restart_flag. On restart neither runs, leaving ZSOIL = 0 and the
-    ! soil portion of NoahmpIO%ZSNSOXY at whatever HICAR passed in (0 for the
+    ! soil portion of NoahmpIO%ZSNSOXY at whatever SCHNAPS passed in (0 for the
     ! observed case). ConfigVarInTransfer then propagates 0 into
     ! noahmp%config%domain%DepthSnowSoilLayer, GeneralInit computes
     ! ThicknessSnowSoilLayer = 0, BalanceWaterInit sees zero soil contribution

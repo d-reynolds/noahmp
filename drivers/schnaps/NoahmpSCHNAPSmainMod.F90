@@ -1,17 +1,17 @@
-module NoahmpHICARmainMod 
+module NoahmpSCHNAPSmainMod 
 
 ! -------------------------------------------------------------
-! this is the interface for NoahMP and HICAR variable remapping
+! this is the interface for NoahMP and SCHNAPS variable remapping
 ! and calling the main NoahMP driver: NoahmpDriverMain(NoahmpIO)
 ! adapted from original module_sf_noahmpdrv.F file
 !
 ! Coder: Cenlin He (NCAR), December 2025
-! Adapted for HICAR code: Dylan Reynolds (EPFL), January 2026
+! Adapted for SCHNAPS code: Dylan Reynolds (EPFL), January 2026
 ! -------------------------------------------------------------
 
 contains
 
-  subroutine NoahmpHICARmain(NoahmpIO, ITIMESTEP, YR, JULIAN, COSZIN, XLAT, XLONG, & ! IN : Time/Space-related
+  subroutine NoahmpSCHNAPSmain(NoahmpIO, ITIMESTEP, YR, JULIAN, COSZIN, XLAT, XLONG, & ! IN : Time/Space-related
                    DZ8W,          DT,        DZS,    NSOIL,                      & ! IN : Model configuration 
                    IVGTYP,    ISLTYP,     VEGFRA,   VEGMAX,      TMN,            & ! IN : Vegetation/Soil characteristics
                    XLAND,       XICE,              CROPCAT,                      & ! IN : Vegetation/Soil characteristics
@@ -69,10 +69,10 @@ contains
 ! #ifdef WRF_HYDRO
 !                    sfcheadrt,INFXSRT,soldrain,qtiledrain,ZWATBLE2D,              & ! OUT WRF-Hydro only
 ! #endif
-                   ids,ide,  jds,jde,  kds,kde,                                  & ! IN: HICAR dimension
-                   ims,ime,  jms,jme,  kms,kme,                                  & ! IN: HICAR dimension
-                   its,ite,  jts,jte,  kts,kte,                                  & ! IN: HICAR dimension
-                   MP_RAINC,MP_RAINNC,MP_SHCV,MP_SNOW,MP_GRAUP,MP_HAIL           ) ! IN: HICAR forcing
+                   ids,ide,  jds,jde,  kds,kde,                                  & ! IN: SCHNAPS dimension
+                   ims,ime,  jms,jme,  kms,kme,                                  & ! IN: SCHNAPS dimension
+                   its,ite,  jts,jte,  kts,kte,                                  & ! IN: SCHNAPS dimension
+                   MP_RAINC,MP_RAINNC,MP_SHCV,MP_SNOW,MP_GRAUP,MP_HAIL           ) ! IN: SCHNAPS forcing
 
 !----------------------------------------------------------------
 
@@ -393,7 +393,7 @@ contains
 
     !$acc update device(NoahmpIO%YR, NoahmpIO%JULIAN, NoahmpIO%DTBL, NoahmpIO%DZS, NoahmpIO%ITIMESTEP)
 
-    ! input HICAR variables mapped to NoahmpIO variables
+    ! input SCHNAPS variables mapped to NoahmpIO variables
     ! 2D/3D variables
     !$acc parallel loop gang vector collapse(2) default(present) private(LoopInd) firstprivate(kte, kts, NSOIL)
     do J = jts, jte
@@ -489,7 +489,7 @@ contains
     ! NoahmpIO%TD_RADI(I,J)            = TD_RADI(I,J)
     ! NoahmpIO%TD_SPAC(I,J)            = TD_SPAC(I,J)
     
-    ! in/out HICAR variables mapped to NoahmpIO variables
+    ! in/out SCHNAPS variables mapped to NoahmpIO variables
     NoahmpIO%TSK(I,J)                  = TSK(I,J)
     NoahmpIO%HFX(I,J)                  = HFX(I,J)
     NoahmpIO%QFX(I,J)                  = QFX(I,J)
@@ -637,7 +637,7 @@ contains
     do J = jts, jte
     do I = its, ite
 
-    ! in/out NoahmpIO variables mapped to HICAR variables
+    ! in/out NoahmpIO variables mapped to SCHNAPS variables
     TSK(I,J)            = NoahmpIO%TSK(I,J)
     HFX(I,J)            = NoahmpIO%HFX(I,J)
     QFX(I,J)            = NoahmpIO%QFX(I,J)
@@ -756,7 +756,7 @@ contains
 !     ZWATBLE2D(I,J)    = NoahmpIO%ZWATBLE2D(I,J)
 ! #endif
 
-    ! output NoahmpIO variables mapped to HICAR variables
+    ! output NoahmpIO variables mapped to SCHNAPS variables
     T2MVXY(I,J)       = NoahmpIO%T2MVXY(I,J)
     T2MBXY(I,J)       = NoahmpIO%T2MBXY(I,J)
     Q2MVXY(I,J)       = NoahmpIO%Q2MVXY(I,J)
@@ -840,6 +840,6 @@ contains
 
     !--------- Output variable mapping end ---------
 
-  end subroutine NoahmpHICARmain
+  end subroutine NoahmpSCHNAPSmain
 
-end module NoahmpHICARmainMod
+end module NoahmpSCHNAPSmainMod

@@ -139,7 +139,7 @@ contains
        JLOOP : do J = NoahmpIO%JTS, NoahmpIO%JTE
           ILOOP : do I = NoahmpIO%ITS, NoahmpIO%ITE
                if ( (NoahmpIO%XLAND(I,J)-1.5) >= 0.0 .and. &                                                                                                                                                                             
-                    NoahmpIO%IVGTYP(I,J) == NoahmpIO%ISWATER_TABLE ) then  ! Open water point (real water, not HICAR snow-cell flag)                                                                                                   
+                    NoahmpIO%IVGTYP(I,J) == NoahmpIO%ISWATER_TABLE ) then  ! Open water point (real water, not SCHNAPS snow-cell flag)                                                                                                   
                 if ( NoahmpIO%XICE(I,J) == 1.0 ) print*,' sea-ice at water point, I=',I,'J=',J
                 NoahmpIO%SMSTAV(I,J) = 1.0
                 NoahmpIO%SMSTOT(I,J) = 1.0
@@ -217,7 +217,7 @@ contains
              ! need to be separated from Noah-MP into outside urban specific module 
              !---------------------------------------------------------------------
              !
-             ! DR Jan 2026 -- HICAR currently does not support Urban parameterization schemes, so commenting out
+             ! DR Jan 2026 -- SCHNAPS currently does not support Urban parameterization schemes, so commenting out
              !
             !  if ( (NoahmpIO%IVGTYP(I,J) == NoahmpIO%ISURBAN_TABLE) .or. &
             !       (NoahmpIO%IVGTYP(I,J) > NoahmpIO%URBTYPE_beg) ) then
